@@ -66,6 +66,9 @@ class MediaWorkspace(QWidget):
         self._settings = settings_service
         self._roster_syncing = False
         self._preview_syncing = False
+        # True while an async batch queue submission is running in the
+        # thread pool (set/cleared by _media_workspace_queue_actions).
+        self._queue_submission_inflight = False
         self._preview_group_state: dict[str, set[int | str]] = {}
         self._roster_collapsed: dict[str, bool] = {"fully-ready": True}
         self._roster_selection_is_auto = False

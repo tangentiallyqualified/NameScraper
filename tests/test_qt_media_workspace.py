@@ -36,7 +36,14 @@ class QtMediaWorkspaceTests(QtSmokeBase):
 
         class _FakeQueueController:
             def add_tv_batch(
-                self, states, root, output_root, gating, settings_service=None, tmdb_client=None
+                self,
+                states,
+                root,
+                output_root,
+                gating,
+                settings_service=None,
+                tmdb_client=None,
+                progress=None,
             ):
                 return BatchQueueResult(added=len(states))
 
@@ -1096,7 +1103,14 @@ class QtMediaWorkspaceTests(QtSmokeBase):
 
         class _FakeQueueController:
             def add_tv_batch(
-                self, states, root, output_root, gating, settings_service=None, tmdb_client=None
+                self,
+                states,
+                root,
+                output_root,
+                gating,
+                settings_service=None,
+                tmdb_client=None,
+                progress=None,
             ):
                 for state in states:
                     state.queued = True
@@ -1565,6 +1579,7 @@ class QtMediaWorkspaceTests(QtSmokeBase):
                 command_gating,
                 settings_service=None,
                 tmdb_client=None,
+                progress=None,
             ):
                 self.called = True
                 return BatchQueueResult(added=len(states))
@@ -4386,7 +4401,14 @@ class QtMediaWorkspaceTests(QtSmokeBase):
                 self.called = False
 
             def add_tv_batch(
-                self, states, root, output_root, gating, settings_service=None, tmdb_client=None
+                self,
+                states,
+                root,
+                output_root,
+                gating,
+                settings_service=None,
+                tmdb_client=None,
+                progress=None,
             ):
                 self.called = True
                 for state in states:
@@ -4469,7 +4491,14 @@ class QtMediaWorkspaceTests(QtSmokeBase):
                 self.called = False
 
             def add_tv_batch(
-                self, states, root, output_root, gating, settings_service=None, tmdb_client=None
+                self,
+                states,
+                root,
+                output_root,
+                gating,
+                settings_service=None,
+                tmdb_client=None,
+                progress=None,
             ):
                 self.called = True
                 for state in states:
@@ -4569,7 +4598,14 @@ class QtMediaWorkspaceTests(QtSmokeBase):
                 self.called = False
 
             def add_tv_batch(
-                self, states, root, output_root, gating, settings_service=None, tmdb_client=None
+                self,
+                states,
+                root,
+                output_root,
+                gating,
+                settings_service=None,
+                tmdb_client=None,
+                progress=None,
             ):
                 self.called = True
                 raise RuntimeError("queue boom")
@@ -4656,7 +4692,14 @@ class QtMediaWorkspaceTests(QtSmokeBase):
 
         class _FakeQueueController:
             def add_tv_batch(
-                self, states, root, output_root, gating, settings_service=None, tmdb_client=None
+                self,
+                states,
+                root,
+                output_root,
+                gating,
+                settings_service=None,
+                tmdb_client=None,
+                progress=None,
             ):
                 for state in states:
                     state.queued = True
@@ -4724,7 +4767,13 @@ class QtMediaWorkspaceTests(QtSmokeBase):
             original_add = queue_ctrl.add_tv_batch
 
             def observing_add(
-                states, root, output_root, gating, settings_service=None, tmdb_client=None
+                states,
+                root,
+                output_root,
+                gating,
+                settings_service=None,
+                tmdb_client=None,
+                progress=None,
             ):
                 overlay = workspace.findChild(BusyOverlay)
                 seen["visible"] = overlay is not None and overlay.isVisible()
@@ -4745,7 +4794,14 @@ class QtMediaWorkspaceTests(QtSmokeBase):
                 self.called = False
 
             def add_movie_batch(
-                self, states, root, output_root, gating, settings_service=None, tmdb_client=None
+                self,
+                states,
+                root,
+                output_root,
+                gating,
+                settings_service=None,
+                tmdb_client=None,
+                progress=None,
             ):
                 self.called = True
                 for state in states:
@@ -4838,7 +4894,14 @@ class QtMediaWorkspaceTests(QtSmokeBase):
                 self.checked_at_call = None
 
             def add_movie_batch(
-                self, states, root, output_root, gating, settings_service=None, tmdb_client=None
+                self,
+                states,
+                root,
+                output_root,
+                gating,
+                settings_service=None,
+                tmdb_client=None,
+                progress=None,
             ):
                 # Capture checked-state at call time: a successful queue
                 # legitimately unchecks the item afterward (queued items move
@@ -4938,7 +5001,14 @@ class QtMediaWorkspaceTests(QtSmokeBase):
                 self.called = False
 
             def add_movie_batch(
-                self, states, root, output_root, gating, settings_service=None, tmdb_client=None
+                self,
+                states,
+                root,
+                output_root,
+                gating,
+                settings_service=None,
+                tmdb_client=None,
+                progress=None,
             ):
                 self.called = True
                 raise RuntimeError("queue boom")
@@ -5036,7 +5106,14 @@ class QtMediaWorkspaceTests(QtSmokeBase):
                 self.checked_at_call = None
 
             def add_tv_batch(
-                self, states, root, output_root, gating, settings_service=None, tmdb_client=None
+                self,
+                states,
+                root,
+                output_root,
+                gating,
+                settings_service=None,
+                tmdb_client=None,
+                progress=None,
             ):
                 self.called_with = list(states)
                 self.checked_at_call = [state.checked for state in states]
@@ -5313,7 +5390,14 @@ class BulkAssignWorkspaceTests(QtSmokeBase):
 
         class _FakeQueueController:
             def add_tv_batch(
-                self, states, root, output_root, gating, settings_service=None, tmdb_client=None
+                self,
+                states,
+                root,
+                output_root,
+                gating,
+                settings_service=None,
+                tmdb_client=None,
+                progress=None,
             ):
                 return None
 

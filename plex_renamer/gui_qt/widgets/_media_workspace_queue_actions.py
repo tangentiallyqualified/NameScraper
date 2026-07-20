@@ -1,12 +1,25 @@
-"""Queue-oriented action workflows for the media workspace."""
+"""Queue-oriented action workflows for the media workspace.
+
+Batch submission is asynchronous: ``add_tv_batch``/``add_movie_batch`` run
+per-file mkvmerge probes and TMDB metadata calls, which against a cold
+network-share library takes minutes — far too long for the GUI thread (the
+old synchronous handoff froze the app until force-killed). The slow call
+runs in the shared thread pool; a ``_QueueSubmissionBridge`` marshals
+per-show progress and completion back onto the GUI thread, where the busy
+overlay stays live until the batch settles.
+"""
 
 from __future__ import annotations
 
+import contextlib
+from collections.abc import Callable
 from typing import Any
 
+from PySide6.QtCore import QObject, Signal
 from PySide6.QtWidgets import QMessageBox
 
 from ...engine import ScanState
+from ...thread_pool import submit as _submit_bg
 from ._media_helpers import (
     format_batch_result as _format_batch_result,
     is_fully_ready_state as _is_fully_ready_state,
@@ -14,7 +27,14 @@ from ._media_helpers import (
     roster_selection_key as _roster_selection_key,
 )
 from ._media_workspace_action_state import media_noun
-from .busy_overlay import busy_scope
+from .busy_overlay import BusyOverlay
+
+
+class _QueueSubmissionBridge(QObject):
+    """Marshals worker-thread progress/completion onto the GUI thread."""
+
+    progress = Signal(str)
+    finished = Signal(object, object)  # (BatchQueueResult | None, Exception | None)
 
 
 def queue_selected_state(workspace, *, warning_box: Any = QMessageBox) -> None:
@@ -39,26 +59,27 @@ def queue_selected_state(workspace, *, warning_box: Any = QMessageBox) -> None:
         # both media types: this function always acts on one selected state,
         # whether it is a movie or a TV show.
         workspace._set_state_checked(state, True)
-    try:
-        queue_states(
-            workspace,
-            [state],
-            empty_message=f"Select a {media_noun(workspace)} before queueing.",
-            warning_box=warning_box,
-        )
-    finally:
+
+    def _unwind_auto_check() -> None:
+        # Runs when the submission settles — synchronously for the early
+        # returns inside queue_states (missing output folder, eligibility
+        # bail), or from the completion handler once the async batch
+        # finishes/fails. The auto-check above was ours: unwind it through
+        # the same sync hook so the check_vars bindings (and the visible
+        # roster checkbox) revert together with the flag.
         if not state.queued:
             if original_checked:
                 state.checked = True
             else:
-                # The auto-check above was ours: unwind it through the same
-                # sync hook so the check_vars bindings (and the visible
-                # roster checkbox) revert together with the flag. Early
-                # returns inside queue_states (missing output folder,
-                # eligibility bail) and exceptions all land here without a
-                # refresh, so a bare flag reset would leave the checkbox
-                # visibly checked over an unchecked state.
                 workspace._set_state_checked(state, False)
+
+    queue_states(
+        workspace,
+        [state],
+        empty_message=f"Select a {media_noun(workspace)} before queueing.",
+        warning_box=warning_box,
+        on_settled=_unwind_auto_check,
+    )
 
 
 def queue_checked(
@@ -121,81 +142,158 @@ def queue_states(
     *,
     empty_message: str,
     warning_box: Any = QMessageBox,
+    on_settled: Callable[[], None] | None = None,
 ) -> None:
-    if workspace._media_ctrl is None or workspace._queue_ctrl is None:
-        return
-    if not states:
-        workspace.status_message.emit(empty_message, 4000)
-        return
+    """Validate then hand the batch to a background submission.
 
-    selected_key = _roster_selection_key(workspace._selected_state())
-    eligibility = queue_eligibility(workspace, states)
-    if not eligibility.enabled:
-        workspace.status_message.emit(
-            eligibility.reason or "The selected items cannot be queued right now.",
-            4000,
-        )
-        return
-
-    if workspace._media_type == "movie":
-        root = workspace._media_ctrl.movie_folder
-        if root is None:
-            workspace.status_message.emit("No movie folder is loaded.", 4000)
-            return
-        output_root = workspace._settings.valid_movie_output_folder if workspace._settings else None
-        if output_root is None:
-            workspace.status_message.emit(
-                "Set a Movies output folder in Settings before queueing.", 4000
-            )
-            return
-        add_batch = workspace._queue_ctrl.add_movie_batch
-    else:
-        root = workspace._media_ctrl.tv_root_folder
-        if root is None:
-            workspace.status_message.emit("No TV folder is loaded.", 4000)
-            return
-        output_root = workspace._settings.valid_tv_output_folder if workspace._settings else None
-        if output_root is None:
-            workspace.status_message.emit(
-                "Set a TV Shows output folder in Settings before queueing.", 4000
-            )
-            return
-        add_batch = workspace._queue_ctrl.add_tv_batch
-
-    sync_error: Exception | None = None
+    Pre-checks run synchronously; the slow batch handoff (probes, TMDB
+    metadata bake, job-store writes) runs in the thread pool. *on_settled*
+    always fires exactly once — synchronously on any early return, or from
+    the GUI-thread completion handler once the async submission finishes.
+    """
+    submitted = False
     try:
-        # An exception unwinds through the scope (dismissing the overlay)
-        # before any box appears — never a scrim under a modal.
-        with busy_scope(workspace, "Queueing…", immediate=True):
+        if workspace._media_ctrl is None or workspace._queue_ctrl is None:
+            return
+        if getattr(workspace, "_queue_submission_inflight", False):
+            workspace.status_message.emit(
+                "A queue submission is already running — wait for it to finish.", 4000
+            )
+            return
+        if not states:
+            workspace.status_message.emit(empty_message, 4000)
+            return
+
+        eligibility = queue_eligibility(workspace, states)
+        if not eligibility.enabled:
+            workspace.status_message.emit(
+                eligibility.reason or "The selected items cannot be queued right now.",
+                4000,
+            )
+            return
+
+        if workspace._media_type == "movie":
+            root = workspace._media_ctrl.movie_folder
+            if root is None:
+                workspace.status_message.emit("No movie folder is loaded.", 4000)
+                return
+            output_root = (
+                workspace._settings.valid_movie_output_folder if workspace._settings else None
+            )
+            if output_root is None:
+                workspace.status_message.emit(
+                    "Set a Movies output folder in Settings before queueing.", 4000
+                )
+                return
+            add_batch = workspace._queue_ctrl.add_movie_batch
+        else:
+            root = workspace._media_ctrl.tv_root_folder
+            if root is None:
+                workspace.status_message.emit("No TV folder is loaded.", 4000)
+                return
+            output_root = (
+                workspace._settings.valid_tv_output_folder if workspace._settings else None
+            )
+            if output_root is None:
+                workspace.status_message.emit(
+                    "Set a TV Shows output folder in Settings before queueing.", 4000
+                )
+                return
+            add_batch = workspace._queue_ctrl.add_tv_batch
+
+        _start_submission(
+            workspace,
+            states,
+            add_batch=add_batch,
+            root=root,
+            output_root=output_root,
+            warning_box=warning_box,
+            on_settled=on_settled,
+        )
+        submitted = True
+    finally:
+        if not submitted and on_settled is not None:
+            on_settled()
+
+
+def _start_submission(
+    workspace,
+    states: list[ScanState],
+    *,
+    add_batch,
+    root,
+    output_root,
+    warning_box: Any,
+    on_settled: Callable[[], None] | None,
+) -> None:
+    """Run the batch handoff in the thread pool under a live overlay."""
+    selected_key = _roster_selection_key(workspace._selected_state())
+    gating = workspace._media_ctrl.command_gating
+    settings = workspace._settings
+    tmdb_client = workspace._tmdb_provider() if workspace._tmdb_provider is not None else None
+
+    bridge = _QueueSubmissionBridge(workspace)
+    overlay = BusyOverlay(workspace, "Queueing…")
+
+    def _report_progress(name: str, position: int, total: int) -> None:
+        # Worker thread → GUI thread via the bridge signal; the suppress
+        # covers the bridge being deleted during shutdown.
+        with contextlib.suppress(RuntimeError):
+            bridge.progress.emit(f"Queueing {name} ({position}/{total})…")
+
+    def _worker() -> None:
+        result = None
+        error: Exception | None = None
+        try:
             result = add_batch(
                 states,
                 root,
                 output_root,
-                workspace._media_ctrl.command_gating,
-                settings_service=workspace._settings,
-                tmdb_client=(
-                    workspace._tmdb_provider() if workspace._tmdb_provider is not None else None
-                ),
+                gating,
+                settings_service=settings,
+                tmdb_client=tmdb_client,
+                progress=_report_progress,
             )
+        except Exception as exc:
+            error = exc
+        with contextlib.suppress(RuntimeError):  # bridge deleted during shutdown
+            bridge.finished.emit(result, error)
+
+    def _on_finished(result, error) -> None:
+        workspace._queue_submission_inflight = False
+        # Overlay comes down before any box appears — never a scrim under
+        # a modal (same invariant the old busy_scope kept).
+        overlay.dismiss()
+        bridge.deleteLater()
+        try:
+            if error is not None:
+                warning_box.warning(workspace, "Queue Failed", str(error))
+                return
+            sync_error: Exception | None = None
             try:
                 workspace._media_ctrl.sync_queued_states()
                 workspace.refresh_from_controller()
                 workspace._restore_roster_selection_by_key(selected_key)
             except Exception as exc:  # batch queued; only the view refresh failed
                 sync_error = exc
-    except Exception as exc:
-        warning_box.warning(workspace, "Queue Failed", str(exc))
-        return
+            workspace.queue_changed.emit()
+            if sync_error is not None:
+                warning_box.warning(
+                    workspace,
+                    "Queued With Warnings",
+                    f"The items were queued, but the view failed to refresh.\n\n{sync_error}",
+                )
+                return
+            workspace.status_message.emit(_format_batch_result(result), 5000)
+        finally:
+            if on_settled is not None:
+                on_settled()
 
-    workspace.queue_changed.emit()
-    if sync_error is not None:
-        warning_box.warning(
-            workspace,
-            "Queued With Warnings",
-            f"The items were queued, but the view failed to refresh.\n\n{sync_error}",
-        )
-        return
-    workspace.status_message.emit(_format_batch_result(result), 5000)
+    bridge.progress.connect(overlay.set_text)
+    bridge.finished.connect(_on_finished)
+    workspace._queue_submission_inflight = True
+    overlay.show_now()
+    _submit_bg(_worker)
 
 
 def queue_eligibility(workspace, states: list[ScanState]):

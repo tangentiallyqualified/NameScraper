@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
@@ -127,12 +128,18 @@ def add_tv_batch_jobs(
     command_gating: CommandGatingService,
     settings_service=None,
     tmdb_client=None,
+    progress: Callable[[str, int, int], None] | None = None,
 ) -> BatchQueueResult:
     result = BatchQueueResult()
+    total = sum(1 for state in states if state.checked)
+    position = 0
 
     for state in states:
         if not state.checked:
             continue
+        position += 1
+        if progress is not None:
+            progress(state.display_name, position, total)
 
         eligibility = command_gating.evaluate_scan_state(
             state,
@@ -190,12 +197,18 @@ def add_movie_batch_jobs(
     command_gating: CommandGatingService,
     settings_service=None,
     tmdb_client=None,
+    progress: Callable[[str, int, int], None] | None = None,
 ) -> BatchQueueResult:
     result = BatchQueueResult()
+    total = sum(1 for state in states if state.checked)
+    position = 0
 
     for state in states:
         if not state.checked:
             continue
+        position += 1
+        if progress is not None:
+            progress(state.display_name, position, total)
 
         eligibility = command_gating.evaluate_scan_state(state, require_resolved_review=True)
         if not eligibility.enabled:

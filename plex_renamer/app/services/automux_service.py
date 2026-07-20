@@ -1,8 +1,10 @@
 """Session-scoped AutoMux planning: probe files and attach mux plans.
 
 Qt-free. The GUI coordinator marshals threading/signals around these
-functions; queue submission calls ensure_state_plans() synchronously
-under its busy overlay (mkvmerge -J results are cached by _mkv_probe).
+functions; queue submission calls ensure_state_plans() from its
+thread-pool worker — never on the GUI thread, since cold probes over a
+network share take minutes (mkvmerge -J results are cached and
+concurrency-coalesced by _mkv_probe).
 """
 
 from __future__ import annotations
