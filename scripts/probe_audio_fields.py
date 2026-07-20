@@ -4,14 +4,14 @@ Usage: .venv\\Scripts\\python.exe scripts\\probe_audio_fields.py <video-file> [.
 Run against one MKV (statistics tags), one MKV without stats tags, one MP4.
 Not part of the test suite; requires local binaries.
 
-=== Observed Fields (2026-07-20) ===
+=== Observed Fields (2026-07-20, corrected 2026-07-20) ===
 
 Tested against:
-  - Solo Leveling S01E01 (MKV, Opus codec, 2ch + 6ch tracks)
+  - Solo Leveling S01E01 (MKV with statistics tags, AAC 2ch + FLAC 2ch tracks)
   - Solo Leveling S01E02 (MKV, Opus codec, 2ch + 6ch tracks)
   - The Simpsons S03E01 (MP4, AAC codec, multiple 2ch tracks)
 
-mkvmerge -J audio track properties observed:
+mkvmerge -J audio track properties observed (non-stats-tagged MKVs):
   - audio_channels
   - audio_sampling_frequency
   - codec_delay
@@ -29,10 +29,19 @@ mkvmerge -J audio track properties observed:
   - track_name
   - uid
 
+mkvmerge -J statistics tags observed (stats-tagged MKVs):
+  - tag__statistics_tags
+  - tag__statistics_writing_app
+  - tag__statistics_writing_date_utc
+  - tag_bps (e.g., 128000 for AAC, 1406546 for FLAC)
+  - tag_duration
+  - tag_number_of_bytes
+  - tag_number_of_frames
+
 DECISION GATE FINDINGS:
-  - NO tag_bps field present in mkvmerge -J output (tested files do not have stats tags)
+  - tag_bps field IS PRESENT in mkvmerge -J output for MKVs with statistics tags
   - ffprobe NOT AVAILABLE on system (no bitrate data from ffprobe for MP4)
-  - mkvmerge does not expose bitrate information via -J for these files
+  - mkvmerge exposes bitrate information via tag_bps for statistics-tagged files
 """
 
 from __future__ import annotations
