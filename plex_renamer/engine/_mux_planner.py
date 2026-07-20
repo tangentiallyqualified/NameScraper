@@ -11,6 +11,7 @@ from pathlib import PurePath
 
 from .._lang_normalize import normalize_lang, normalize_lang_list
 from .._mkv_probe import MediaTrack, ProbeResult
+from ._mux_models import MuxSettings as MuxSettings, TrackDecision as TrackDecision
 
 _AUDIO_FLOOR_WARNING = "Audio retain filter would strip every audio track — keeping all audio"
 _COMMENTARY_MARKER = "commentary"
@@ -18,46 +19,6 @@ _COMMENTARY_MARKER = "commentary"
 
 def _is_commentary(name: str) -> bool:
     return _COMMENTARY_MARKER in name.lower()
-
-
-@dataclass
-class MuxSettings:
-    """Snapshot of the automux_* settings relevant to planning."""
-
-    merge_subs: bool = False
-    merge_sub_languages: list[str] = field(default_factory=list)
-    default_sub_language: str = ""
-    untagged_sub_language: str = ""
-    strip_subs: bool = False
-    retain_sub_languages: list[str] = field(default_factory=list)
-    strip_audio: bool = False
-    retain_audio_languages: list[str] = field(default_factory=list)
-    default_audio_language: str = ""
-    strip_track_names: bool = False
-    no_fear: bool = False
-    exclude_commentary: bool = False
-    convert_containers: bool = False
-    dedupe_audio: bool = False
-    dedupe_keep_per_layout: bool = True
-    lossless_policy: str = "quality"
-    tie_prefer_smaller: bool = True
-    tie_tolerance_pct: int = 15
-    transparency_kbps_per_channel: int = 160
-    codec_weights: dict[str, float] = field(default_factory=dict)
-
-
-@dataclass
-class TrackDecision:
-    track_id: int
-    track_type: str
-    codec: str
-    language: str
-    name: str
-    keep: bool
-    make_default: bool
-    reason: str
-    is_forced: bool = False
-    is_commentary: bool = False
 
 
 @dataclass

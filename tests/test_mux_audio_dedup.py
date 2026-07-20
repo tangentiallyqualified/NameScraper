@@ -2,7 +2,7 @@
 
 from plex_renamer._mkv_probe import MediaTrack
 from plex_renamer.engine._mux_audio_dedup import dedupe_audio_decisions
-from plex_renamer.engine._mux_planner import MuxSettings, TrackDecision
+from plex_renamer.engine._mux_models import MuxSettings, TrackDecision
 
 
 def _track(

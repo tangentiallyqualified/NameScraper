@@ -12,7 +12,7 @@ from dataclasses import dataclass
 
 from .._mkv_probe import MediaTrack
 from ._audio_codecs import LOSSLESS_CODECS, canonical_codec, codec_weight
-from ._mux_planner import MuxSettings, TrackDecision
+from ._mux_models import MuxSettings, TrackDecision
 
 _DESCRIPTIVE_MARKERS = ("descriptive", "description", "audio description", " ad ")
 
