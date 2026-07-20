@@ -315,6 +315,28 @@ class MediaWorkspaceAutoMuxCoordinator:
                 continue
             self._request(state, index)
 
+    def prioritize_state(self, state) -> None:
+        """Move *state*'s unwarmed items to the FRONT of the warm queue —
+        called when the user checks a show (queue intent), so its plans
+        are ready by the time they click Add to Queue. No-op when AutoMux
+        is off or the state has nothing left to warm; tops workers back
+        up to the cap in case the sweep already drained and exited."""
+        if state is None or not self.available():
+            return
+        entries = self._pending_items(state)
+        if not entries:
+            return
+        with self._warm_lock:
+            remaining = [entry for entry in self._warm_queue if entry[0] is not state]
+            self._warm_queue = deque(entries + remaining)
+            spawn = max(
+                0,
+                min(_WARM_SWEEP_WORKERS, len(self._warm_queue)) - self._warm_sweep_active,
+            )
+            self._warm_sweep_active += spawn
+        for _ in range(spawn):
+            _submit_bg(self._warm_sweep_worker)
+
     # ── Movie panel (Task 6) / header button (Task 7) ─────────────────
 
     def on_state_shown(self, state) -> None:

@@ -571,6 +571,81 @@ class AutoMuxButtonAndChipTests(QtSmokeBase):
         coordinator._refill_warm_queue([fresh])
         self.assertEqual(len(deferred), 1, "one entry -> one respawned worker")
 
+    def test_prioritize_state_moves_its_items_to_the_queue_front(self):
+        from unittest.mock import patch
+
+        from plex_renamer._mkv_probe import ProbeResult
+        from plex_renamer.app.services import automux_service as svc_mod
+        from plex_renamer.gui_qt.widgets import (
+            _media_workspace_automux as automux_mod,
+        )
+
+        states = [
+            self._make_named_state("a.mkv"),
+            self._make_named_state("b.mkv"),
+            self._make_named_state("c.mkv"),
+        ]
+        for state in states:
+            state.checked = False
+        workspace, states = self._workspace_with_states(states=states)
+        deferred: list = []
+        defer_patch = patch.object(
+            automux_mod, "_submit_bg", side_effect=lambda fn: deferred.append(fn)
+        )
+        defer_patch.start()
+        self.addCleanup(defer_patch.stop)
+
+        probed_names: list[str] = []
+
+        def _fake_probe(mkv, path):
+            probed_names.append(Path(path).name)
+            return ProbeResult(path=str(path), ok=True, tracks=[])
+
+        probe_patch = patch.object(svc_mod, "probe_file", side_effect=_fake_probe)
+        probe_patch.start()
+        self.addCleanup(probe_patch.stop)
+        plan_patch = patch.object(svc_mod, "plan_for_item", side_effect=lambda *a, **k: dict(PLAN))
+        plan_patch.start()
+        self.addCleanup(plan_patch.stop)
+
+        workspace._automux.warm_plans_for_states(states)  # queue: a, b, c
+        workspace._automux.prioritize_state(states[2])  # c jumps the line
+
+        for worker in deferred:
+            worker()  # first worker drains the whole queue inline
+
+        self.assertEqual(
+            probed_names,
+            ["c.mkv", "a.mkv", "b.mkv"],
+            "the prioritized state's items must be probed first",
+        )
+
+    def test_set_state_checked_prioritizes_the_warm_sweep(self):
+        # Checking a show is the intent signal — the sync hook must tell
+        # the automux coordinator to move that show up the warm queue.
+        from types import SimpleNamespace
+
+        from plex_renamer.gui_qt.widgets._media_workspace_sync import (
+            MediaWorkspaceSyncCoordinator,
+        )
+
+        state = self._make_state()
+        prioritized: list = []
+        workspace = SimpleNamespace(
+            _media_type="tv",
+            _automux=SimpleNamespace(prioritize_state=prioritized.append),
+            _ensure_check_bindings=lambda s: None,
+            _selected_state=lambda: None,
+            _populate_preview=lambda s: None,
+        )
+        coordinator = MediaWorkspaceSyncCoordinator(workspace)
+
+        coordinator.set_state_checked(state, True)
+        self.assertEqual(prioritized, [state], "checking must prioritize the state")
+
+        coordinator.set_state_checked(state, False)
+        self.assertEqual(prioritized, [state], "unchecking must NOT re-prioritize")
+
     def test_warm_plans_covers_movie_items_without_file_id(self):
         # Task 1 (spec 1a): the movie scanner never sets file_id, so the old
         # `item.file_id is None` skip condition excluded every movie preview
