@@ -21,7 +21,7 @@
 | `docs/audit/findings-review-late-widgets.md` | 2026-07-17 | - |
 | `docs/audit/findings-review-non-gui.md` | 2026-07-17 | `plex_renamer.app`, `plex_renamer.tmdb`, `scripts/scan_real_library.py` |
 | `docs/audit/findings-review.md` | 2026-07-17 | - |
-| `docs/deferred-work.md` | 2026-07-21 | `plex_renamer/gui_qt/resources/theme.qss` |
 | `docs/audit/deferred-issues.md` | 2026-07-21 | - |
+| `docs/deferred-work.md` | 2026-07-21 | - |
 
-_Generated from audit input 28d79560b049 by scripts\audit.cmd._
+_Generated from audit input c69bfb910821 by scripts\audit.cmd._

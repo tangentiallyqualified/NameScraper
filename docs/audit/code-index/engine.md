@@ -1,9 +1,7 @@
-<!-- Generated from audit input 28d79560b049; do not edit. regenerate: scripts\audit.cmd --fast -->
+<!-- Generated from audit input c69bfb910821; do not edit. regenerate: scripts\audit.cmd --fast -->
 
 
 # Package detail: engine
-
-> WARNING: Coverage evidence ignored (unavailable evidence); coverage percentages are omitted.
 
 
 ### `plex_renamer/engine/__init__.py` — Rename engine package — re-exports the public API of the old ``engine`` module.
