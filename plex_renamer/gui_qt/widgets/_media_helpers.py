@@ -269,6 +269,8 @@ def format_batch_result(result) -> str:
         parts.append(f"Skipped {result.total_skipped}")
     if result.blocked:
         parts.append(f"Blocked {len(result.blocked)}")
+    if result.skipped_rows:
+        parts.append(f"Merge not queued: {len(result.skipped_rows)}")
     if result.errors:
         parts.append(f"Errors: {len(result.errors)}")
     return " · ".join(parts) if parts else "No queueable items were selected."

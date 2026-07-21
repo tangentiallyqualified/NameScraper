@@ -83,12 +83,19 @@ class MainWindowScanCoordinator:
                 workspace.show_ready()
             else:
                 workspace.show_empty()
-        elif window.media_ctrl.scan_progress.lifecycle in {
-            ScanLifecycle.WARNING,
-            ScanLifecycle.FAILED,
-        } and not states:
+        elif (
+            window.media_ctrl.scan_progress.lifecycle
+            in {
+                ScanLifecycle.WARNING,
+                ScanLifecycle.FAILED,
+            }
+            and not states
+        ):
             workspace.show_empty()
-            message = window.media_ctrl.scan_progress.message or "The scan ended before any results were produced."
+            message = (
+                window.media_ctrl.scan_progress.message
+                or "The scan ended before any results were produced."
+            )
             window._show_scan_feedback(
                 title="Scan did not finish cleanly",
                 message=message,
@@ -115,15 +122,16 @@ class MainWindowScanCoordinator:
         workspace = self._workspace_for_media_type(media_type)
         if not self._validate_destination_for_scan(folder, media_type=media_type):
             return
-        tmdb = window._ensure_tmdb()
-        if tmdb is None:
+        client = window._ensure_tv_provider() if media_type == "tv" else window._ensure_tmdb()
+        if client is None:
             workspace.show_empty()
             return
         workspace.show_scanning()
         if media_type == "movie":
-            window.media_ctrl.start_movie_batch(folder, tmdb)
+            window.media_ctrl.start_movie_batch(folder, client)
             return
-        window.media_ctrl.start_tv_batch(folder, tmdb)
+        other_provider = window._ensure_other_provider()
+        window.media_ctrl.start_tv_batch(folder, client, other_provider)
 
     def _validate_destination_for_scan(self, folder: Path, *, media_type: str) -> bool:
         window = self._window
@@ -140,13 +148,18 @@ class MainWindowScanCoordinator:
             workspace.show_empty()
             window._show_scan_feedback(
                 title=f"{label} output folder required",
-                message=output_status.reason or f"Set a {label} output folder in Settings before scanning.",
+                message=output_status.reason
+                or f"Set a {label} output folder in Settings before scanning.",
                 tone="error",
             )
-            window.statusBar().showMessage("Set an output folder in Settings before scanning.", 5000)
+            window.statusBar().showMessage(
+                "Set an output folder in Settings before scanning.", 5000
+            )
             return False
 
-        relationship = window.settings_service.validate_scan_output_relationship(folder, output_status.path)
+        relationship = window.settings_service.validate_scan_output_relationship(
+            folder, output_status.path
+        )
         if not relationship.valid:
             workspace.show_empty()
             window._show_scan_feedback(
@@ -170,8 +183,5 @@ class MainWindowScanCoordinator:
         return (
             window.media_ctrl.active_content_mode == "tv"
             and window.media_ctrl.batch_mode
-            and any(
-                not state.scanned and state.show_id is not None
-                for state in states
-            )
+            and any(not state.scanned and state.show_id is not None for state in states)
         )

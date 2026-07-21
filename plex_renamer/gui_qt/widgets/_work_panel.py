@@ -14,6 +14,7 @@ import contextlib
 from collections import OrderedDict
 
 from PySide6.QtCore import QModelIndex, QObject, Qt, Signal
+from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QFrame,
@@ -56,6 +57,19 @@ def _overview_token(state: ScanState, media_type: str) -> str:
     return f"{state.show_id}:{media_type}"
 
 
+def _dual_tv_providers_available() -> bool:
+    """True when every registered TV provider has an API key on file — the
+    Source control is only meaningful (and only shown) when there is more
+    than one usable provider to switch between."""
+    try:
+        from ...keys import get_api_key
+        from ...providers import TV_PROVIDERS
+
+        return all(bool(get_api_key(spec.key_service)) for spec in TV_PROVIDERS.values())
+    except Exception:
+        return False
+
+
 class MediaWorkPanel(QFrame):
     filter_changed = Signal(str)  # "all"|"problems"
     search_changed = Signal(str)
@@ -68,6 +82,7 @@ class MediaWorkPanel(QFrame):
     inline_row_action = Signal(
         QModelIndex, str
     )  # inline row action (e.g. missing-file "assign_file")
+    source_selected = Signal(str)  # provider name chosen from the Source menu
 
     def __init__(
         self,
@@ -75,6 +90,7 @@ class MediaWorkPanel(QFrame):
         media_type: str,
         settings_service=None,
         tmdb_provider=None,
+        provider_for_state=None,
         guide_provider=None,
         cached_guide_provider=None,
         guide_builder=None,
@@ -85,6 +101,10 @@ class MediaWorkPanel(QFrame):
         self._media_type = media_type
         self._settings = settings_service
         self._tmdb_provider = tmdb_provider
+        # Per-state provider resolver — see RosterModel's identical field for
+        # the rationale; used here so the header overview fetch for a
+        # pinned/fallback-matched show goes through ITS provider.
+        self._provider_for_state = provider_for_state
         self._guide_provider = guide_provider
         self._state: ScanState | None = None
         self._current_token: str = ""
@@ -109,6 +129,10 @@ class MediaWorkPanel(QFrame):
     @property
     def fix_match_button(self) -> QPushButton:
         return self._fix_match_button
+
+    @property
+    def source_button(self) -> QToolButton:
+        return self._source_button
 
     @property
     def primary_action_button(self) -> QPushButton:
@@ -237,6 +261,27 @@ class MediaWorkPanel(QFrame):
         self._fix_match_button.setProperty("cssClass", "secondary")
         self._fix_match_button.setEnabled(False)
         title_row.addWidget(self._fix_match_button)
+
+        self._source_button = QToolButton()
+        self._source_button.setText("Source")
+        self._source_button.setProperty("cssClass", "secondary")
+        self._source_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        self._source_menu = QMenu(self._source_button)
+        self._source_actions: list[QAction] = []
+        if self._media_type == "tv":
+            from ...providers import TV_PROVIDERS
+
+            for spec in TV_PROVIDERS.values():
+                action = self._source_menu.addAction(spec.label)
+                action.setCheckable(True)
+                action.setData(spec.name)
+                action.triggered.connect(
+                    lambda _checked=False, name=spec.name: self.source_selected.emit(name)
+                )
+                self._source_actions.append(action)
+        self._source_button.setMenu(self._source_menu)
+        self._source_button.hide()
+        title_row.addWidget(self._source_button)
 
         self._automux_button = QPushButton("Disable AutoMux")
         self._automux_button.setProperty("cssClass", "danger")
@@ -433,6 +478,7 @@ class MediaWorkPanel(QFrame):
         self._approve_all_button.hide()
         self._master_check.hide()
         self._check_summary.hide()
+        self._source_button.hide()
 
     def update_master_state(self, state: ScanState | None) -> None:
         """The middle-panel select-all is removed (GUI-V4 R2, V6). Selection is
@@ -495,6 +541,15 @@ class MediaWorkPanel(QFrame):
 
         self._refresh_strip(state)
         self._request_overview(state)
+        self._refresh_source_menu(state)
+
+    def _refresh_source_menu(self, state: ScanState) -> None:
+        if self._media_type != "tv" or state.show_id is None or not _dual_tv_providers_available():
+            self._source_button.hide()
+            return
+        self._source_button.show()
+        for action in self._source_actions:
+            action.setChecked(action.data() == state.provider_name)
 
     def update_footer(self) -> None:
         self._summary_label.setText(self._model.summary_text())
@@ -749,10 +804,15 @@ class MediaWorkPanel(QFrame):
         self._overview_toggle.setText("less" if self._overview_expanded else "more")
         self.overview_toggled.emit(self._overview_expanded)
 
+    def _resolve_overview_provider(self, state: ScanState):
+        if self._provider_for_state is not None:
+            return self._provider_for_state(state)
+        return self._tmdb_provider() if self._tmdb_provider is not None else None
+
     def _request_overview(self, state: ScanState) -> None:
         token = _overview_token(state, self._media_type)
         self._current_token = token
-        tmdb = self._tmdb_provider() if self._tmdb_provider is not None else None
+        tmdb = self._resolve_overview_provider(state)
         if tmdb is None or state.show_id is None:
             # Same single display path as the async/cached branches: remember
             # the (empty) series overview and drop any episode override so

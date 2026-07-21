@@ -70,6 +70,43 @@ class SettingsService:
         self.set("match_language", value)
 
     @property
+    def tv_metadata_source(self) -> str:
+        """Active TV metadata provider name ("tmdb" or "tvdb")."""
+        return str(self.get("tv_metadata_source"))
+
+    @tv_metadata_source.setter
+    def tv_metadata_source(self, value: str) -> None:
+        self.set("tv_metadata_source", value)
+
+    @property
+    def tv_fallback_enabled(self) -> bool:
+        """Whether to use fallback provider when primary provider has low confidence."""
+        return bool(self.get("tv_fallback_enabled"))
+
+    @tv_fallback_enabled.setter
+    def tv_fallback_enabled(self, value: bool) -> None:
+        self.set("tv_fallback_enabled", bool(value))
+
+    @property
+    def tv_id_tag_routing_enabled(self) -> bool:
+        """Whether to use ID tags for provider routing decisions."""
+        return bool(self.get("tv_id_tag_routing_enabled"))
+
+    @tv_id_tag_routing_enabled.setter
+    def tv_id_tag_routing_enabled(self, value: bool) -> None:
+        self.set("tv_id_tag_routing_enabled", bool(value))
+
+    @property
+    def tv_provider_overrides(self) -> dict:
+        """Per-show provider pin mapping {show_key: {"provider": str, "show_id": int}}."""
+        value = self.get("tv_provider_overrides")
+        return dict(value) if isinstance(value, dict) else {}
+
+    @tv_provider_overrides.setter
+    def tv_provider_overrides(self, value: dict) -> None:
+        self.set("tv_provider_overrides", dict(value))
+
+    @property
     def hide_already_named(self) -> bool:
         """Whether to hide fully-ready items from the library roster."""
         return bool(self.get("hide_already_named"))
@@ -223,6 +260,14 @@ class SettingsService:
         self.set("mkvmerge_path", value)
 
     @property
+    def ffprobe_path(self) -> str:
+        return str(self.get("ffprobe_path"))
+
+    @ffprobe_path.setter
+    def ffprobe_path(self, value: str) -> None:
+        self.set("ffprobe_path", value)
+
+    @property
     def automux_merge_subs(self) -> bool:
         return bool(self.get("automux_merge_subs"))
 
@@ -317,6 +362,72 @@ class SettingsService:
     @automux_exclude_commentary.setter
     def automux_exclude_commentary(self, value: bool) -> None:
         self.set("automux_exclude_commentary", bool(value))
+
+    @property
+    def automux_convert_containers(self) -> bool:
+        return bool(self.get("automux_convert_containers"))
+
+    @automux_convert_containers.setter
+    def automux_convert_containers(self, value: bool) -> None:
+        self.set("automux_convert_containers", bool(value))
+
+    @property
+    def automux_dedupe_audio(self) -> bool:
+        return bool(self.get("automux_dedupe_audio"))
+
+    @automux_dedupe_audio.setter
+    def automux_dedupe_audio(self, value: bool) -> None:
+        self.set("automux_dedupe_audio", bool(value))
+
+    @property
+    def automux_dedupe_keep_per_layout(self) -> bool:
+        return bool(self.get("automux_dedupe_keep_per_layout"))
+
+    @automux_dedupe_keep_per_layout.setter
+    def automux_dedupe_keep_per_layout(self, value: bool) -> None:
+        self.set("automux_dedupe_keep_per_layout", bool(value))
+
+    @property
+    def automux_lossless_policy(self) -> str:
+        return str(self.get("automux_lossless_policy"))
+
+    @automux_lossless_policy.setter
+    def automux_lossless_policy(self, value: str) -> None:
+        self.set("automux_lossless_policy", value)
+
+    @property
+    def automux_tie_prefer_smaller(self) -> bool:
+        return bool(self.get("automux_tie_prefer_smaller"))
+
+    @automux_tie_prefer_smaller.setter
+    def automux_tie_prefer_smaller(self, value: bool) -> None:
+        self.set("automux_tie_prefer_smaller", bool(value))
+
+    @property
+    def automux_tie_tolerance_pct(self) -> int:
+        return int(self.get("automux_tie_tolerance_pct"))  # type: ignore[arg-type]
+
+    @automux_tie_tolerance_pct.setter
+    def automux_tie_tolerance_pct(self, value: int) -> None:
+        self.set("automux_tie_tolerance_pct", int(value))
+
+    @property
+    def automux_transparency_kbps_per_channel(self) -> int:
+        return int(self.get("automux_transparency_kbps_per_channel"))  # type: ignore[arg-type]
+
+    @automux_transparency_kbps_per_channel.setter
+    def automux_transparency_kbps_per_channel(self, value: int) -> None:
+        self.set("automux_transparency_kbps_per_channel", int(value))
+
+    @property
+    def automux_codec_weights(self) -> dict[str, float]:
+        """Per-codec preference weight overrides {codec_name: weight}."""
+        value = self.get("automux_codec_weights")
+        return dict(value) if isinstance(value, dict) else {}
+
+    @automux_codec_weights.setter
+    def automux_codec_weights(self, value: dict[str, float]) -> None:
+        self.set("automux_codec_weights", dict(value))
 
     # ── Metadata export ───────────────────────────────────────────────────
 

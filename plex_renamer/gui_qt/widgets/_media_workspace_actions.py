@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
 )
 
+from ..._parsing_parts import split_part_marker
 from ...app.services.command_gating_service import CommandGatingService
 from ...app.services.episode_mapping_service import EpisodeMappingService
 from ...engine import ScanState
@@ -32,6 +33,7 @@ from ._media_workspace_match_actions import (
     approve_match as _approve_match,
     fix_match as _fix_match,
     prompt_assign_season as _prompt_assign_season,
+    switch_source as _switch_source,
 )
 from ._media_workspace_queue_actions import (
     queue_checked as _queue_checked,
@@ -124,6 +126,9 @@ class MediaWorkspaceActionCoordinator:
 
     def approve_match(self, state: ScanState) -> None:
         _approve_match(self._workspace, state)
+
+    def switch_source(self, provider_name: str) -> None:
+        _switch_source(self._workspace, provider_name)
 
     def _auto_check_for_queue(self, state: ScanState) -> None:
         """Pre-tick a show for queueing after Approve All.
@@ -358,6 +363,15 @@ class MediaWorkspaceActionCoordinator:
         preview = row.primary_file
         try:
             if action_id == "approve" and preview is not None:
+                try:
+                    p_index = state.preview_items.index(preview)
+                except ValueError:
+                    p_index = -1
+                if p_index in state.merge_gate_errors:
+                    workspace.status_message.emit(
+                        f"Cannot approve: {state.merge_gate_errors[p_index]}", 5000
+                    )
+                    return
                 service.approve_file(state, preview)
                 message = "Episode mapping approved."
             elif action_id == "unassign" and preview is not None:
@@ -461,6 +475,37 @@ class MediaWorkspaceActionCoordinator:
                     episode=row.episode,
                 )
                 message = "File assigned."
+            elif action_id == "merge_parts":
+                table = state.assignments
+                if table is None:
+                    workspace.status_message.emit(
+                        "Need at least two files claiming this episode to merge.", 4000
+                    )
+                    return
+                claims = table.claims(row.season, row.episode)
+                # M1: part_marker is only backfilled when auto-detection
+                # GROUPED the files -- merge_parts is exactly the manual
+                # path taken when detection declined, so it is unset here
+                # more often than not. Parse the marker live from the
+                # filename instead of trusting it, or "Part 10" sorts
+                # before "Part 2" (lexicographic name fallback).
+                ordered = sorted(
+                    (claim.file_id for claim in claims),
+                    key=lambda fid: (
+                        split_part_marker(table.files[fid].path.stem)[1] or 99,
+                        table.files[fid].path.name.casefold(),
+                    ),
+                )
+                if len(ordered) < 2:
+                    workspace.status_message.emit(
+                        "Need at least two files claiming this episode to merge.", 4000
+                    )
+                    return
+                service.merge_files(state, ordered, season=row.season, episodes=[row.episode])
+                message = f"Merged {len(ordered)} parts into one episode."
+            elif action_id == "ungroup" and preview is not None:
+                service.ungroup_file(state, preview)
+                message = "Parts ungrouped."
             else:
                 return
         except ValueError as exc:

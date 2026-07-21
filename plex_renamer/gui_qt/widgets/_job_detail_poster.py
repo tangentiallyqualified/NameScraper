@@ -27,6 +27,7 @@ def _poster_fetch_width(poster) -> int:
 
 class _JobDetailPosterPanel(Protocol):
     _tmdb_provider: Callable[[], object | None] | None
+    _provider_by_name: Callable[[str], object | None] | None
     _persist_poster_path: Callable[[str, str | None], None] | None
     _current_job_id: str | None
     _bridge: Any
@@ -37,13 +38,30 @@ class JobDetailPosterWorkflow:
     def __init__(self, panel: _JobDetailPosterPanel) -> None:
         self._panel = panel
 
+    def _resolve_provider(self, job: RenameJob) -> Any | None:
+        """Client for *job*'s OWN recorded provider (``data_source``), not
+        necessarily whatever the panel's plain ``_tmdb_provider`` callback
+        currently returns — a job queued while TVDB was active carries a
+        TVDB numeric ID, which the TMDB client would misinterpret.
+
+        ``_provider_by_name`` (when injected) already degrades to "the
+        active client" internally when the name is unresolvable or its key
+        is missing (see ``MainWindowTmdbCoordinator.provider_named``); the
+        plain ``_tmdb_provider`` fallback here only matters for panels that
+        haven't been given a ``_provider_by_name`` resolver at all."""
+        panel = self._panel
+        provider_by_name = panel._provider_by_name
+        if provider_by_name is not None:
+            client = provider_by_name(job.data_source)
+            if client is not None:
+                return client
+        if panel._tmdb_provider is None:
+            return None
+        return panel._tmdb_provider()
+
     def request(self, job: RenameJob) -> None:
         panel = self._panel
-        if panel._tmdb_provider is None:
-            self._show_no_poster()
-            return
-
-        tmdb = panel._tmdb_provider()
+        tmdb = self._resolve_provider(job)
         if tmdb is None:
             self._show_no_poster()
             return

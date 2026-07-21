@@ -51,12 +51,21 @@ class MediaWorkspaceSyncCoordinator:
             binding = state.check_vars.get(str(index))
             if binding is None or not hasattr(binding, "set"):
                 continue
-            binding.set(bool(
-                checked and can_queue and CommandGatingService.is_queue_relevant(state, index)
-            ))
+            binding.set(
+                bool(checked and can_queue and CommandGatingService.is_queue_relevant(state, index))
+            )
 
         if workspace._selected_state() is state:
             workspace._populate_preview(state)
+
+        if checked:
+            # Checking is the queue-intent signal: bump this state's files
+            # to the front of the AutoMux warm sweep so plans are cached
+            # before the user reaches Add to Queue. getattr: unit tests
+            # drive this coordinator with minimal fake workspaces.
+            automux = getattr(workspace, "_automux", None)
+            if automux is not None:
+                automux.prioritize_state(state)
 
     def on_table_current_changed(self, current: QModelIndex) -> None:
         workspace = self._workspace

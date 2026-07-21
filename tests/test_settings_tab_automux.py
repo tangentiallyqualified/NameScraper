@@ -59,6 +59,20 @@ class AutoMuxSettingsPageTests(QtSmokeBase):
         page._no_fear_cb.setChecked(True)
         self.assertTrue(svc.automux_no_fear)
 
+    def test_convert_containers_toggle_persists(self):
+        from PySide6.QtWidgets import QCheckBox
+
+        svc = self._svc(mkvmerge_path=self._fake_exe())
+        page = self._page(svc)
+        checkbox = None
+        for candidate in page.findChildren(QCheckBox):
+            if candidate.text() == "Convert non-MKV containers to MKV":
+                checkbox = candidate
+                break
+        assert checkbox is not None
+        checkbox.setChecked(False)
+        self.assertFalse(svc.automux_convert_containers)
+
     def test_language_list_normalizes_on_edit(self):
         svc = self._svc(mkvmerge_path=self._fake_exe())
         page = self._page(svc)
@@ -74,3 +88,33 @@ class AutoMuxSettingsPageTests(QtSmokeBase):
         page._default_audio_edit.editingFinished.emit()
         self.assertEqual(svc.automux_default_audio_language, "jpn")
         self.assertEqual(page._default_audio_edit.text(), "jpn")
+
+    def test_dedup_controls_persist(self):
+        from plex_renamer.engine._audio_codecs import DEFAULT_CODEC_WEIGHTS
+
+        svc = self._svc(mkvmerge_path=self._fake_exe())
+        page = self._page(svc)
+
+        page._dedupe_cb.setChecked(True)
+        self.assertTrue(svc.automux_dedupe_audio)
+
+        opus_spin = page._codec_weight_spins["opus"]
+        opus_spin.setValue(1.7)
+        self.assertEqual(svc.automux_codec_weights["opus"], 1.7)
+
+        page._restore_weights_btn.click()
+        self.assertEqual(svc.automux_codec_weights, {})
+        for codec, default in DEFAULT_CODEC_WEIGHTS.items():
+            self.assertAlmostEqual(page._codec_weight_spins[codec].value(), default)
+
+    def test_lossless_policy_combo_round_trip(self):
+        svc = self._svc(mkvmerge_path=self._fake_exe())
+        page = self._page(svc)
+
+        space_index = page._lossless_policy_combo.findData("space")
+        self.assertGreaterEqual(space_index, 0)
+        page._lossless_policy_combo.setCurrentIndex(space_index)
+        self.assertEqual(svc.automux_lossless_policy, "space")
+
+        rebuilt = self._page(svc)
+        self.assertEqual(rebuilt._lossless_policy_combo.currentData(), "space")

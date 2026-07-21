@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from ._parsing_parts import split_unambiguous_part_marker
 from ._parsing_titles import clean_name, clean_title_evidence, strip_release_junk_title
 from .constants import RESOLUTION_NUMBERS, YEAR_MAX, YEAR_MIN
 
@@ -318,6 +319,15 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
             for anime).
     """
     raw_stem = Path(filename).stem
+    # Only UNAMBIGUOUS part markers ("(2)", "CD1"/"Disc 2", "S01E05b") are
+    # stripped before parsing: they are sequence evidence, not episode
+    # evidence, and never legitimate title text. "Part n"/"pt n" is left
+    # alone here - it is frequently genuine title text ("...Part 2"), and
+    # stripping it would corrupt title evidence the confidence engine
+    # depends on; it is not needed for episode-number correctness because
+    # _parse_bare_number's quantity-word guard already keeps "Part 1" from
+    # being read as episode 1 (spec: multi-file-episode-merge).
+    raw_stem, _part = split_unambiguous_part_marker(raw_stem)
     name = clean_title_evidence(raw_stem)
 
     # Branch priority is behavior: each parser either claims the name

@@ -14,10 +14,7 @@ def preview_single_season(state: ScanState) -> int | None:
     """Return the one season covered by ``preview_items``, or ``None``."""
     if not state.preview_items:
         return None
-    detected = {
-        item.season for item in state.preview_items
-        if item.season is not None
-    }
+    detected = {item.season for item in state.preview_items if item.season is not None}
     if len(detected) != 1:
         return None
     return next(iter(detected))
@@ -26,8 +23,7 @@ def preview_single_season(state: ScanState) -> int | None:
 def resolve_season_folder(folder: Path, season_num: int) -> Path:
     """Return the actual directory containing episode files."""
     has_video = any(
-        file.suffix.lower() in VIDEO_EXTENSIONS
-        for file in folder.iterdir() if file.is_file()
+        file.suffix.lower() in VIDEO_EXTENSIONS for file in folder.iterdir() if file.is_file()
     )
     if has_video:
         return folder
@@ -151,9 +147,7 @@ def _merge_same_season_members(
 ) -> tuple[ScanState, list[ScanState]]:
     ordered = sorted(members, key=_season_representative_priority, reverse=True)
     representative = ordered[0]
-    representative_folders = [
-        resolve_season_folder(representative.folder, season_num)
-    ]
+    representative_folders = [resolve_season_folder(representative.folder, season_num)]
     total_files = representative.direct_video_file_count
     total_episode_files = representative.direct_episode_file_count
     duplicate_siblings: list[ScanState] = []
@@ -200,15 +194,15 @@ def _enumerate_direct_season_subdirs(folder: Path) -> dict[int, Path]:
 
 
 def merge_season_siblings(states: list[ScanState]) -> list[ScanState]:
-    """Merge states that share a TMDB ID and have distinct season assignments."""
-    groups: dict[int, dict[int, list[ScanState]]] = {}
+    """Merge states that share a show identity and have distinct season assignments."""
+    groups: dict[tuple[str, int], dict[int, list[ScanState]]] = {}
     rest: list[ScanState] = []
     for state in states:
-        show_id = state.show_id
-        if show_id is None or state.season_assignment is None:
+        show_key = state.provider_show_key
+        if show_key is None or state.season_assignment is None:
             rest.append(state)
             continue
-        groups.setdefault(show_id, {}).setdefault(state.season_assignment, []).append(state)
+        groups.setdefault(show_key, {}).setdefault(state.season_assignment, []).append(state)
 
     merged: list[ScanState] = list(rest)
     for season_groups in groups.values():
@@ -272,27 +266,27 @@ def merge_umbrella_siblings(states: list[ScanState]) -> list[ScanState]:
     Siblings whose season is already represented under the umbrella are left
     in place so the duplicate labeler can flag them as true duplicates.
     """
-    groups: dict[int, list[ScanState]] = {}
+    groups: dict[tuple[str, int], list[ScanState]] = {}
     for state in states:
-        show_id = state.show_id
-        if show_id is None:
+        show_key = state.provider_show_key
+        if show_key is None:
             continue
-        groups.setdefault(show_id, []).append(state)
+        groups.setdefault(show_key, []).append(state)
 
     removed: set[int] = set()
     for group in groups.values():
         if len(group) < 2:
             continue
         umbrellas = [
-            state for state in group
+            state
+            for state in group
             if state.season_assignment is None and state.has_direct_season_subdirs
         ]
         explicit = [state for state in group if state.season_assignment is not None]
         folder_siblings = [
-            state for state in group
-            if state.season_assignment is None
-            and state.season_folders
-            and state not in umbrellas
+            state
+            for state in group
+            if state.season_assignment is None and state.season_folders and state not in umbrellas
         ]
         if not umbrellas or not (explicit or folder_siblings):
             continue
@@ -322,9 +316,7 @@ def merge_umbrella_siblings(states: list[ScanState]) -> list[ScanState]:
         # umbrella's; overlapping siblings stay for duplicate labeling.
         for sibling in folder_siblings:
             sibling_map = expanded_season_folders(sibling)
-            if not sibling_map or any(
-                season_num in primary_subdirs for season_num in sibling_map
-            ):
+            if not sibling_map or any(season_num in primary_subdirs for season_num in sibling_map):
                 continue
             primary_subdirs.update(sibling_map)
             for named_season, name in sibling.season_names.items():

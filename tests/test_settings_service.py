@@ -1,4 +1,5 @@
 """Tests for SettingsService — typed accessors and persistence."""
+
 from __future__ import annotations
 
 import json
@@ -183,8 +184,7 @@ class TestRecentFolders(unittest.TestCase):
         self.svc.add_recent_tv_folder("/media/tv")
         self.svc.add_recent_tv_folder("/media/other")
         self.svc.add_recent_tv_folder("/media/tv")
-        self.assertEqual(self.svc.recent_tv_folders,
-                         ["/media/tv", "/media/other"])
+        self.assertEqual(self.svc.recent_tv_folders, ["/media/tv", "/media/other"])
 
     def test_deduplication_case_insensitive_windows_paths(self):
         self.svc.add_recent_tv_folder("C:\\Users\\TV")
@@ -231,13 +231,15 @@ class TestSettingsValidation(unittest.TestCase):
         self.assertAlmostEqual(svc.auto_accept_threshold, 0.55)
 
     def test_correct_types_preserved(self):
-        self._write({
-            "match_language": "fr-FR",
-            "hide_already_named": False,
-            "auto_accept_threshold": 0.75,
-            "episode_auto_accept_threshold": 0.90,
-            "window_geometry": [10, 20, 800, 600],
-        })
+        self._write(
+            {
+                "match_language": "fr-FR",
+                "hide_already_named": False,
+                "auto_accept_threshold": 0.75,
+                "episode_auto_accept_threshold": 0.90,
+                "window_geometry": [10, 20, 800, 600],
+            }
+        )
         svc = SettingsService(path=self.path)
         self.assertEqual(svc.match_language, "fr-FR")
         self.assertFalse(svc.hide_already_named)
@@ -273,14 +275,14 @@ class TestCacheMaxSizeBytes(unittest.TestCase):
         self._tmp.cleanup()
 
     def test_cache_max_size_default_is_one_gib(self):
-        self.assertEqual(self.svc.cache_max_size_bytes, 1024 ** 3)
+        self.assertEqual(self.svc.cache_max_size_bytes, 1024**3)
 
     def test_cache_max_size_clamps_to_ceiling(self):
-        self.svc.cache_max_size_bytes = 99 * 1024 ** 3      # above 8 GiB
-        self.assertEqual(self.svc.cache_max_size_bytes, 8 * 1024 ** 3)
+        self.svc.cache_max_size_bytes = 99 * 1024**3  # above 8 GiB
+        self.assertEqual(self.svc.cache_max_size_bytes, 8 * 1024**3)
 
     def test_cache_max_size_clamps_to_floor(self):
-        self.svc.cache_max_size_bytes = 1                    # below floor
+        self.svc.cache_max_size_bytes = 1  # below floor
         self.assertEqual(self.svc.cache_max_size_bytes, 64 * 1024 * 1024)
 
 
@@ -351,6 +353,30 @@ class TestOutputDestinations(unittest.TestCase):
         status = self.svc.validate_scan_output_relationship(source, output)
 
         self.assertTrue(status.valid)
+
+
+def test_tv_metadata_source_default_and_roundtrip(tmp_path: Path) -> None:
+    svc = SettingsService(tmp_path / "settings.json")
+    assert svc.tv_metadata_source == "tmdb"
+    svc.tv_metadata_source = "tvdb"
+    reloaded = SettingsService(tmp_path / "settings.json")
+    assert reloaded.tv_metadata_source == "tvdb"
+
+
+def test_automux_convert_containers_defaults_true_and_round_trips(tmp_path: Path) -> None:
+    svc = SettingsService(path=tmp_path / "settings.json")
+    assert svc.automux_convert_containers is True
+    svc.automux_convert_containers = False
+    reloaded = SettingsService(path=tmp_path / "settings.json")
+    assert reloaded.automux_convert_containers is False
+
+
+def test_convert_containers_does_not_count_toward_any_enabled(tmp_path: Path) -> None:
+    svc = SettingsService(path=tmp_path / "settings.json")
+    # Fresh defaults: merge/strip all off, convert on — AutoMux must stay
+    # inactive (piggyback semantics; spec revision).
+    assert svc.automux_convert_containers is True
+    assert svc.automux_any_enabled is False
 
 
 if __name__ == "__main__":

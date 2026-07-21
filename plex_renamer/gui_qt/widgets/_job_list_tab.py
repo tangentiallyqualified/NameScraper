@@ -261,6 +261,7 @@ class _JobListTab(QWidget):
         queue_controller,
         history: bool,
         tmdb_provider: Callable[[], object | None] | None = None,
+        provider_by_name: Callable[[str], object | None] | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -335,6 +336,7 @@ class _JobListTab(QWidget):
 
         self._detail = JobDetailPanel(
             tmdb_provider=tmdb_provider,
+            provider_by_name=provider_by_name,
             persist_poster_path=self._queue_ctrl.set_job_poster_path,
         )
         self._detail.set_history_mode(history)

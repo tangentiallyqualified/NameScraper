@@ -8,9 +8,12 @@ from __future__ import annotations
 
 import itertools
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
+from pathlib import Path
 
+from .._parsing_parts import split_part_marker
 from ..parsing import (
     build_tv_name,
     extract_source_title_prefix,
@@ -1059,6 +1062,21 @@ def _acronym_prefix_compatible(
     return len(candidate) >= 2 and candidate in (acronym, acronym_no_stop)
 
 
+def _normalized_show_names(show_name: str, alt_show_names: Sequence[str]) -> list[str]:
+    """Primary show name plus provider aliases, normalized and de-duplicated."""
+    norms = [normalize_for_match(show_name)]
+    for alt_name in alt_show_names:
+        alt_norm = normalize_for_match(alt_name)
+        if alt_norm and alt_norm not in norms:
+            norms.append(alt_norm)
+    return norms
+
+
+def _source_prefix_compatible_any(source_norm: str, show_norms: Sequence[str]) -> bool:
+    """True when the source prefix corroborates any of the show's names."""
+    return any(_source_prefix_compatible(source_norm, norm) for norm in show_norms)
+
+
 def _parse_air_date(value: object) -> date | None:
     if not isinstance(value, str) or not value:
         return None
@@ -1255,6 +1273,48 @@ def _shift_run_off_segmented_conflict(table: EpisodeAssignmentTable) -> None:
         )
 
 
+def detect_part_groups(table: EpisodeAssignmentTable) -> None:
+    """Convert same-slot sibling claims with sequential part markers into
+    part groups (spec: multi-file-episode-merge section 1).
+
+    Grouping requires: same directory, identical marker-free base stem, a
+    complete 1..N marker run (N >= 2), no unmarked sibling sharing the
+    base stem, and every member auto-assigned to the identical
+    (season, episodes) target. Runs BEFORE conflict resolution so groups
+    are never consumed by the pile-up or duplicate-copy rules.
+    """
+    by_base: dict[tuple[Path, str], list[tuple[int, int | None]]] = {}
+    for file_id, entry in table.files.items():
+        base, marker = split_part_marker(entry.path.stem)
+        by_base.setdefault((entry.path.parent, base), []).append((file_id, marker))
+
+    for (_parent, _base), members in by_base.items():
+        marked = [(fid, m) for fid, m in members if m is not None]
+        if len(marked) < 2 or len(marked) != len(members):
+            continue  # unmarked sibling present, or not enough parts
+        markers = sorted(m for _fid, m in marked)
+        if markers != list(range(1, len(markers) + 1)):
+            continue  # incomplete or duplicated run
+        assignments = [table.assignment_for(fid) for fid, _m in marked]
+        if any(a is None or a.origin != ORIGIN_AUTO or a.part_order > 0 for a in assignments):
+            continue
+        targets = {(a.season, a.episodes) for a in assignments if a is not None}
+        if len(targets) != 1:
+            continue  # members resolved to different slots
+        season, episodes = next(iter(targets))
+        ordered = sorted(marked, key=lambda pair: pair[1] or 0)
+        confidence = min(a.confidence for a in assignments if a is not None)
+        for fid, marker in ordered:
+            table.files[fid].part_marker = marker
+        table.group_parts(
+            [fid for fid, _m in ordered],
+            season,
+            list(episodes),
+            origin=ORIGIN_AUTO,
+            confidence=confidence,
+        )
+
+
 def _auto_resolve_strong_title_conflicts(table: EpisodeAssignmentTable) -> None:
     """Resolve slot conflicts so no episode is listed twice unresolved.
 
@@ -1265,6 +1325,7 @@ def _auto_resolve_strong_title_conflicts(table: EpisodeAssignmentTable) -> None:
     folders) resolve to the first-registered file; other single-episode ties
     are unassigned as ambiguous. Slots with manual claimants are untouched.
     """
+    detect_part_groups(table)
     _trim_run_edge_conflicts(table)
     _shift_run_off_segmented_conflict(table)
     for season, episode in list(table.conflicts().keys()):
@@ -1272,8 +1333,8 @@ def _auto_resolve_strong_title_conflicts(table: EpisodeAssignmentTable) -> None:
         # that claimed this one too, and a stale winner crashes
         # resolve_conflict ("File N does not claim S##E##" — RC32).
         claims = table.claims(season, episode)
-        if len(claims) < 2:
-            continue
+        if len(table.logical_claims(season, episode)) < 2:
+            continue  # a part group is one logical claim, not a conflict
         if any(claim.origin == ORIGIN_MANUAL for claim in claims):
             continue
         strengths = {claim.file_id: _claim_strength(claim) for claim in claims}
@@ -1323,11 +1384,18 @@ def apply_confidence_adjustments(
     *,
     show_info: dict,
     show_match_confidence: float | None = None,
+    alt_show_names: Sequence[str] = (),
 ) -> None:
-    """Raise/cap auto-assignment confidence from corroborating evidence."""
+    """Raise/cap auto-assignment confidence from corroborating evidence.
+
+    ``alt_show_names`` carries the provider's alternative titles/aliases:
+    a source prefix corroborates the show when it matches the primary name
+    OR any alias. Providers whose primary name is non-English (TVDB) would
+    otherwise contradict files carrying the English alias.
+    """
     _auto_resolve_strong_title_conflicts(table)
     show_name = show_info.get("name", "")
-    show_norm = normalize_for_match(show_name)
+    show_norms = _normalized_show_names(show_name, alt_show_names)
     conflicted = table.conflicted_file_ids()
 
     slots_by_season: dict[int, list[EpisodeSlot]] = {}
@@ -1366,7 +1434,7 @@ def apply_confidence_adjustments(
         source_title = extract_source_title_prefix(entry.path.name)
         if source_title:
             source_norm = normalize_for_match(source_title)
-            compatible = _source_prefix_compatible(source_norm, show_norm)
+            compatible = _source_prefix_compatible_any(source_norm, show_norms)
             if (
                 compatible
                 and entry.is_season_relative

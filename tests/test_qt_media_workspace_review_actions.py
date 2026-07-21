@@ -1,16 +1,25 @@
 from __future__ import annotations
 
+import tempfile
 from pathlib import Path
+from unittest.mock import patch
 
 from _scanner_fakes import MetadataScannerFake
 from conftest_qt import QtSmokeBase
 from PySide6.QtWidgets import QPushButton
 
 from plex_renamer.app.services.command_gating_service import CommandGatingService
+from plex_renamer.app.services.settings_service import SettingsService
 from plex_renamer.engine import CompletenessReport, PreviewItem, ScanState, SeasonCompleteness
 from plex_renamer.gui_qt.widgets._episode_expansion import EpisodeExpansionCard
 from plex_renamer.gui_qt.widgets._work_panel import MediaWorkPanel
 from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+
+
+def _make_settings(tmp_dir: str, *, metadata_source: str = "tmdb") -> SettingsService:
+    settings = SettingsService(path=Path(tmp_dir) / "settings.json")
+    settings.tv_metadata_source = metadata_source
+    return settings
 
 
 class _FakeMediaController:
@@ -30,6 +39,59 @@ class _FakeMediaController:
 
     def sync_queued_states(self) -> None:
         return None
+
+
+class _FakeProviderClient:
+    def __init__(self, name: str) -> None:
+        self.provider_name = name
+
+    def search_tv(self, query: str, year: str | None = None) -> list[dict]:
+        return []
+
+
+class _FakeSwitchOrchestrator:
+    """Stands in for BatchTVOrchestrator's provider-pool surface used by
+    the workspace's Source control: ``provider_for`` + ``switch_provider``
+    (Task 8 covers the real engine behavior; this only exercises the GUI
+    wiring around it)."""
+
+    def __init__(self) -> None:
+        self.tmdb = _FakeProviderClient("tmdb")
+        self.tvdb = _FakeProviderClient("tvdb")
+        self.switch_calls: list[tuple[ScanState, str]] = []
+
+    def provider_for(self, state: ScanState):
+        return self.tvdb if state.provider_name == "tvdb" else self.tmdb
+
+    def switch_provider(self, state: ScanState, provider_name: str):
+        self.switch_calls.append((state, provider_name))
+        state.provider_name = provider_name
+        state.match_origin = "manual"
+        state.reset_scan()
+        return state, True
+
+
+class _FakeSwitchMediaController(_FakeMediaController):
+    def __init__(self, state: ScanState, orchestrator: _FakeSwitchOrchestrator) -> None:
+        super().__init__(state)
+        self.batch_orchestrator = orchestrator
+        self.scan_show_calls: list[tuple[ScanState, object]] = []
+        self.rematch_calls: list[tuple[ScanState, dict, object]] = []
+
+    def scan_show(self, state: ScanState, tmdb) -> None:
+        self.scan_show_calls.append((state, tmdb))
+
+    def assign_season(self, state: ScanState, season_num: int | None) -> None:
+        # Mirrors the real controller's assign_season shape used elsewhere
+        # in this suite (test_qt_media_workspace.py): mutates in place and
+        # returns None, so prompt_assign_season's effective_state falls
+        # back to the state it was called with.
+        state.season_assignment = season_num
+
+    def rematch_tv_state(self, state: ScanState, chosen: dict, tmdb) -> ScanState:
+        self.rematch_calls.append((state, chosen, tmdb))
+        state.media_info = chosen
+        return state
 
 
 def _section_titles(panel: MediaWorkPanel) -> list[str]:
@@ -289,5 +351,246 @@ class QtMediaWorkspaceReviewActionsTests(QtSmokeBase):
             button.text() for button in panel.segmented_filter.findChildren(QPushButton)
         }
         self.assertEqual(filter_labels, {"All", "Problems"})
+
+        workspace.close()
+
+
+class QtMediaWorkspaceSourceSelectorTests(QtSmokeBase):
+    """Task 9's workspace Source selector: switch_provider + pin persist +
+    rescan through the newly attributed provider's client."""
+
+    def tearDown(self):
+        self._dispose_top_level_widgets(MediaWorkspace)
+        super().tearDown()
+
+    def test_switch_source_persists_pin_and_rescans_through_new_provider(self):
+        state = ScanState(
+            folder=Path("C:/library/tv/Example"),
+            media_info={"id": 101, "name": "Example Show", "year": "2024"},
+            provider_name="tmdb",
+            scanned=True,
+            checked=False,
+            confidence=1.0,
+        )
+        orchestrator = _FakeSwitchOrchestrator()
+        controller = _FakeSwitchMediaController(state, orchestrator)
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp_dir:
+            settings = _make_settings(tmp_dir, metadata_source="tmdb")
+            workspace = MediaWorkspace(
+                media_type="tv", media_controller=controller, settings_service=settings
+            )
+            workspace.show()
+            workspace.show_ready()
+            self._app.processEvents()
+
+            workspace._on_source_selected("tvdb")
+
+            self.assertEqual(orchestrator.switch_calls, [(state, "tvdb")])
+            self.assertEqual(state.provider_name, "tvdb")
+
+            from plex_renamer.engine.models import show_pin_key
+
+            pin_key = show_pin_key(state.folder)
+            self.assertEqual(
+                settings.tv_provider_overrides,
+                {pin_key: {"provider": "tvdb", "show_id": 101}},
+            )
+            self.assertEqual(len(controller.scan_show_calls), 1)
+            scanned_state, client = controller.scan_show_calls[0]
+            self.assertIs(scanned_state, state)
+            self.assertIs(client, orchestrator.tvdb)
+
+            workspace.close()
+
+    def test_switch_source_back_to_default_source_clears_pin(self):
+        state = ScanState(
+            folder=Path("C:/library/tv/Example"),
+            media_info={"id": 101, "name": "Example Show", "year": "2024"},
+            provider_name="tvdb",
+            scanned=True,
+            checked=False,
+            confidence=1.0,
+        )
+        orchestrator = _FakeSwitchOrchestrator()
+        controller = _FakeSwitchMediaController(state, orchestrator)
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp_dir:
+            settings = _make_settings(tmp_dir, metadata_source="tmdb")
+            from plex_renamer.engine.models import show_pin_key
+
+            pin_key = show_pin_key(state.folder)
+            settings.tv_provider_overrides = {pin_key: {"provider": "tvdb", "show_id": 101}}
+            workspace = MediaWorkspace(
+                media_type="tv", media_controller=controller, settings_service=settings
+            )
+            workspace.show()
+            workspace.show_ready()
+            self._app.processEvents()
+
+            workspace._on_source_selected("tmdb")
+
+            self.assertEqual(settings.tv_provider_overrides, {})
+
+            workspace.close()
+
+    def test_switch_source_prunes_corrupt_pins_on_write(self):
+        """Task 8 note: corrupt/unresolvable pins are pruned the next time
+        the GUI writes the overrides dict."""
+        state = ScanState(
+            folder=Path("C:/library/tv/Example"),
+            media_info={"id": 101, "name": "Example Show", "year": "2024"},
+            provider_name="tmdb",
+            scanned=True,
+            checked=False,
+            confidence=1.0,
+        )
+        orchestrator = _FakeSwitchOrchestrator()
+        controller = _FakeSwitchMediaController(state, orchestrator)
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp_dir:
+            settings = _make_settings(tmp_dir, metadata_source="tmdb")
+            settings.tv_provider_overrides = {
+                "corrupt|2000": {"provider": "nonexistent", "show_id": 5},
+                "malformed": "not-a-dict",
+            }
+            workspace = MediaWorkspace(
+                media_type="tv", media_controller=controller, settings_service=settings
+            )
+            workspace.show()
+            workspace.show_ready()
+            self._app.processEvents()
+
+            workspace._on_source_selected("tvdb")
+
+            from plex_renamer.engine.models import show_pin_key
+
+            pin_key = show_pin_key(state.folder)
+            self.assertEqual(
+                settings.tv_provider_overrides,
+                {pin_key: {"provider": "tvdb", "show_id": 101}},
+            )
+
+            workspace.close()
+
+
+class QtMediaWorkspaceReroutedProviderTests(QtSmokeBase):
+    """Regression coverage for the other two per-show consumers rerouted
+    through ``provider_for(state)`` in Task 9 (prompt_assign_season and
+    apply_selected_match's default-fallback path) — each asserts a
+    provider_name="tvdb" state routes through the fallback client rather
+    than the window's active client."""
+
+    def tearDown(self):
+        self._dispose_top_level_widgets(MediaWorkspace)
+        super().tearDown()
+
+    def test_prompt_assign_season_rescans_through_states_provider(self):
+        state = ScanState(
+            folder=Path("C:/library/tv/Example"),
+            media_info={"id": 101, "name": "Example Show", "year": "2024"},
+            provider_name="tvdb",
+            scanned=True,
+            checked=False,
+            confidence=1.0,
+        )
+        orchestrator = _FakeSwitchOrchestrator()
+        controller = _FakeSwitchMediaController(state, orchestrator)
+        workspace = MediaWorkspace(media_type="tv", media_controller=controller)
+        workspace.show()
+        workspace.show_ready()
+        self._app.processEvents()
+
+        with patch(
+            "plex_renamer.gui_qt.widgets.media_workspace.QInputDialog.getInt",
+            return_value=(2, True),
+        ):
+            workspace._prompt_assign_season(state)
+
+        self.assertEqual(state.season_assignment, 2)
+        self.assertEqual(len(controller.scan_show_calls), 1)
+        scanned_state, client = controller.scan_show_calls[0]
+        self.assertIs(scanned_state, state)
+        self.assertIs(client, orchestrator.tvdb)
+
+        workspace.close()
+
+    def test_apply_alternate_match_default_routes_through_states_provider(self):
+        alternate = {"id": 202, "name": "Example Show Alt", "year": "2024"}
+        state = ScanState(
+            folder=Path("C:/library/tv/Example"),
+            media_info={"id": 101, "name": "Example Show", "year": "2024"},
+            provider_name="tvdb",
+            scanned=True,
+            checked=False,
+            confidence=1.0,
+            alternate_matches=[alternate],
+        )
+        orchestrator = _FakeSwitchOrchestrator()
+        controller = _FakeSwitchMediaController(state, orchestrator)
+        workspace = MediaWorkspace(media_type="tv", media_controller=controller)
+        workspace.show()
+        workspace.show_ready()
+        self._app.processEvents()
+
+        workspace._apply_alternate_match(state, alternate)
+
+        self.assertEqual(len(controller.rematch_calls), 1)
+        rematched_state, chosen, rematch_client = controller.rematch_calls[0]
+        self.assertIs(rematched_state, state)
+        self.assertIs(chosen, alternate)
+        self.assertIs(rematch_client, orchestrator.tvdb)
+
+        self.assertEqual(len(controller.scan_show_calls), 1)
+        _scanned_state, scan_client = controller.scan_show_calls[0]
+        self.assertIs(scan_client, orchestrator.tvdb)
+
+        workspace.close()
+
+    def test_fix_match_search_and_adopt_routes_through_states_provider(self):
+        """C1: a tvdb-attributed state's Fix Match dialog must search AND
+        adopt through the state's OWN provider (tvdb), never the window's
+        active client (tmdb here) — otherwise the adopted match's id gets
+        wrapped in the wrong provider_name (wrong grouping, wrong
+        job.data_source, wrong scan client on the next scan)."""
+        state = ScanState(
+            folder=Path("C:/library/tv/Example"),
+            media_info={"id": 101, "name": "Example Show", "year": "2024"},
+            provider_name="tvdb",
+            scanned=True,
+            checked=False,
+            confidence=1.0,
+            search_results=[{"id": 101, "name": "Example Show", "year": "2024"}],
+        )
+        orchestrator = _FakeSwitchOrchestrator()
+        controller = _FakeSwitchMediaController(state, orchestrator)
+        # The window's ACTIVE client is tmdb — distinct from the state's own
+        # (tvdb) attribution, so routing through the wrong one is detectable.
+        workspace = MediaWorkspace(
+            media_type="tv",
+            media_controller=controller,
+            tmdb_provider=lambda: orchestrator.tmdb,
+        )
+        workspace.show()
+        workspace.show_ready()
+        self._app.processEvents()
+
+        chosen = {"id": 909, "name": "Example Show Alt", "year": "2024"}
+        with patch(
+            "plex_renamer.gui_qt.widgets.media_workspace.MatchPickerDialog.pick",
+            return_value=chosen,
+        ) as pick_mock:
+            workspace._fix_match()
+
+        self.assertEqual(pick_mock.call_args.kwargs["search_callback"], orchestrator.tvdb.search_tv)
+        self.assertEqual(pick_mock.call_args.kwargs["initial_results"], state.search_results)
+
+        self.assertEqual(state.provider_name, "tvdb")
+        self.assertEqual(len(controller.rematch_calls), 1)
+        rematched_state, chosen_arg, rematch_client = controller.rematch_calls[0]
+        self.assertIs(rematched_state, state)
+        self.assertIs(chosen_arg, chosen)
+        self.assertIs(rematch_client, orchestrator.tvdb)
+
+        self.assertEqual(len(controller.scan_show_calls), 1)
+        _scanned_state, scan_client = controller.scan_show_calls[0]
+        self.assertIs(scan_client, orchestrator.tvdb)
 
         workspace.close()

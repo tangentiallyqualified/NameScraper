@@ -87,6 +87,16 @@ class QtSmokeBase(unittest.TestCase):
         self._main_window_stack.enter_context(
             patch("plex_renamer.gui_qt.main_window.get_api_key", return_value=None)
         )
+        # Batch queue submission is asynchronous in production (the add_batch
+        # handoff runs in the thread pool). Run it synchronously here so the
+        # many queue tests keep their call-then-assert shape deterministic;
+        # tests that pin the async contract re-patch this locally with a
+        # deferred capture (see test_qt_queue_submission_async.py).
+        from plex_renamer.gui_qt.widgets import _media_workspace_queue_actions as _queue_actions
+
+        self._main_window_stack.enter_context(
+            patch.object(_queue_actions, "_submit_bg", lambda fn: fn())
+        )
 
     # -- Shared helpers --------------------------------------------------
 

@@ -65,13 +65,13 @@ class MatchPickerDialog(QDialog):
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(10)
 
-        helper = QLabel("Choose an existing result or search TMDB again.")
+        helper = QLabel("Choose an existing result or search again.")
         helper.setWordWrap(True)
         layout.addWidget(helper)
 
         search_row = QHBoxLayout()
         self._query = QLineEdit(initial_query)
-        self._query.setPlaceholderText("Search TMDB")
+        self._query.setPlaceholderText("Search by title")
         search_row.addWidget(self._query, stretch=1)
 
         self._search_button = QPushButton("Search")
@@ -91,7 +91,9 @@ class MatchPickerDialog(QDialog):
         self._overview.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
         layout.addWidget(self._overview)
 
-        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         self._ok_button = buttons.button(QDialogButtonBox.StandardButton.Ok)
@@ -107,7 +109,10 @@ class MatchPickerDialog(QDialog):
         return self._selected
 
     def keyPressEvent(self, event: QKeyEvent) -> None:
-        if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter) and self.focusWidget() is self._query:
+        if (
+            event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter)
+            and self.focusWidget() is self._query
+        ):
             self._run_search()
             event.accept()
             return

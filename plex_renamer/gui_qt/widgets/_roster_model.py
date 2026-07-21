@@ -67,7 +67,7 @@ class RosterRowData:
     checkable: bool
     chips: tuple[ChipSpec, ...]
     tooltip: str  # "" or duplicate-of note
-    poster_key: tuple[str, int] | None
+    poster_key: tuple[str, str, int] | None  # (media_type, provider_name, show_id)
     placeholder_initials: str
     placeholder_accent: str  # hex str (status color) for placeholder pixmap
 
@@ -96,17 +96,23 @@ class RosterModel(QAbstractListModel):
         media_type: str,
         settings_service=None,
         tmdb_provider=None,
+        provider_for_state=None,
         parent=None,
     ) -> None:
         super().__init__(parent)
         self._media_type = media_type
         self._settings = settings_service
         self._tmdb_provider = tmdb_provider
+        # Per-state provider resolver (ScanState -> client), e.g. routing a
+        # pinned/fallback-matched show's poster fetch through ITS provider
+        # instead of always the window's active client. Falls back to
+        # _tmdb_provider() when unset (movies, or no TV batch active).
+        self._provider_for_state = provider_for_state
         self._compact = False
         self._states: list[ScanState] = []
         self._entries: list[_HeaderEntry | _StateEntry] = []
-        self._poster_cache: OrderedDict[tuple[str, int], QPixmap] = OrderedDict()
-        self._poster_inflight: set[tuple[str, int]] = set()
+        self._poster_cache: OrderedDict[tuple[str, str, int], QPixmap] = OrderedDict()
+        self._poster_inflight: set[tuple[str, str, int]] = set()
         self._poster_bridge = RosterPosterBridge(self)
         self._poster_bridge.poster_ready.connect(self._apply_poster)
 
@@ -293,7 +299,14 @@ class RosterModel(QAbstractListModel):
         tooltip = ""
         if state.duplicate_of is not None:
             tooltip = f"Same match as {state.duplicate_of_relative_folder or state.duplicate_of}"
-        poster_key = (self._media_type, state.show_id) if state.show_id is not None else None
+        # provider_name is part of the key: a tmdb show and a tvdb show can
+        # share the same bare numeric id, and a (media_type, show_id) key
+        # would have them display each other's poster (M1 fix).
+        poster_key = (
+            (self._media_type, state.provider_name, state.show_id)
+            if state.show_id is not None
+            else None
+        )
         return RosterRowData(
             title=state.display_name,
             status_text=status_text.upper(),
@@ -325,22 +338,29 @@ class RosterModel(QAbstractListModel):
         for state in states:
             if state.show_id is None:
                 continue
-            self._request_poster_for_key(state, (self._media_type, state.show_id))
+            self._request_poster_for_key(
+                state, (self._media_type, state.provider_name, state.show_id)
+            )
 
     def _request_poster(self, state: ScanState, row_data: RosterRowData) -> None:
         if row_data.poster_key is None:
             return
         self._request_poster_for_key(state, row_data.poster_key)
 
-    def _request_poster_for_key(self, state: ScanState, key: tuple[str, int]) -> None:
-        if self._tmdb_provider is None:
+    def _resolve_poster_provider(self, state: ScanState):
+        if self._provider_for_state is not None:
+            return self._provider_for_state(state)
+        return self._tmdb_provider() if self._tmdb_provider is not None else None
+
+    def _request_poster_for_key(self, state: ScanState, key: tuple[str, str, int]) -> None:
+        if self._provider_for_state is None and self._tmdb_provider is None:
             return
         if key in self._poster_cache:
             self._poster_cache.move_to_end(key)
             return
         if key in self._poster_inflight:
             return
-        tmdb = self._tmdb_provider()
+        tmdb = self._resolve_poster_provider(state)
         if tmdb is None:
             return
         self._poster_inflight.add(key)

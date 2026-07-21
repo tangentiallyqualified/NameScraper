@@ -32,7 +32,7 @@ def fix_match(
     warning_box: Any = QMessageBox,
 ) -> None:
     state = workspace._selected_state()
-    if state is None or workspace._media_ctrl is None or workspace._tmdb_provider is None:
+    if state is None or workspace._media_ctrl is None:
         return
     if state.queued:
         workspace.status_message.emit(
@@ -40,9 +40,19 @@ def fix_match(
         )
         return
 
-    tmdb = workspace._tmdb_provider()
+    # Route the ENTIRE flow (search + adoption) through the state's OWN
+    # attributed provider, never the window's active client — a
+    # tvdb-attributed state's Fix Match must search tvdb and adopt a
+    # tvdb-shaped id, or the adopted match ends up wrapped in the wrong
+    # provider_name (wrong grouping, wrong job.data_source, wrong scan
+    # client). Movies have no provider pool, so they keep the plain active
+    # client (mirrors the _media_workspace_queue_actions.py gate).
+    if workspace._media_type == "tv":
+        tmdb = workspace._provider_for_state(state)
+    else:
+        tmdb = workspace._tmdb_provider() if workspace._tmdb_provider is not None else None
     if tmdb is None:
-        workspace.status_message.emit("TMDB is unavailable.", 4000)
+        workspace.status_message.emit("Metadata source is unavailable.", 4000)
         return
 
     score_results_callback: Callable[[Any], list[tuple[dict, float]]] | None = None
@@ -134,7 +144,7 @@ def prompt_assign_season(
     follow_up_state = effective_state if effective_state is not None else state
     workspace._restore_roster_selection_by_key(_roster_selection_key(follow_up_state))
     if workspace._media_type == "tv" and season_num > 0 and follow_up_state.show_id is not None:
-        tmdb = workspace._tmdb_provider() if workspace._tmdb_provider is not None else None
+        tmdb = workspace._provider_for_state(follow_up_state)
         if tmdb is not None:
             try:
                 workspace._media_ctrl.scan_show(follow_up_state, tmdb)
@@ -176,11 +186,20 @@ def apply_selected_match(
             workspace.status_message.emit(f"Updated match to {state.display_name}.", 4000)
             return
 
+        # fix_match already resolves its client via provider_for(state) (C1
+        # fix), so an explicit *tmdb* and the provider_for(state) fallback
+        # below are always the same client for a given state's attribution.
+        # Falling back here covers callers that don't already have the
+        # client in hand — e.g. an alternate match chosen from
+        # state.alternate_matches, which was populated by whichever
+        # provider originally matched this show; a fallback/pinned/switched
+        # show's alternates are foreign-provider dicts the active client
+        # can't score correctly.
         active_tmdb = tmdb
-        if active_tmdb is None and workspace._tmdb_provider is not None:
-            active_tmdb = workspace._tmdb_provider()
         if active_tmdb is None:
-            workspace.status_message.emit("TMDB is unavailable.", 4000)
+            active_tmdb = workspace._provider_for_state(state)
+        if active_tmdb is None:
+            workspace.status_message.emit("Metadata source is unavailable.", 4000)
             return
 
         _invalidate_episode_projection(workspace, state)
@@ -199,3 +218,67 @@ def finish_tv_rematch(workspace, updated_state: ScanState, tmdb: Any) -> None:
         workspace.refresh_from_controller()
         workspace._restore_roster_selection_by_key(_roster_selection_key(updated_state))
     workspace.status_message.emit(f"Re-matching {updated_state.display_name}...", 4000)
+
+
+def _pruned_provider_overrides(overrides: dict) -> dict:
+    """Drop pins whose provider isn't in the pool (Task 8 note: corrupt
+    pins are pruned the next time the GUI writes the overrides dict)."""
+    from ...providers import TV_PROVIDERS
+
+    return {
+        key: pin
+        for key, pin in overrides.items()
+        if isinstance(pin, dict) and pin.get("provider") in TV_PROVIDERS
+    }
+
+
+def _persist_provider_pin(workspace, state: ScanState, provider_name: str) -> None:
+    settings = getattr(workspace, "_settings", None)
+    if settings is None:
+        return
+    from ...engine.models import show_pin_key
+
+    overrides = _pruned_provider_overrides(settings.tv_provider_overrides)
+    key = show_pin_key(state.folder)
+    if provider_name == settings.tv_metadata_source:
+        # Switching back to the configured default source clears the pin
+        # instead of persisting a redundant one.
+        overrides.pop(key, None)
+    else:
+        overrides[key] = {"provider": provider_name, "show_id": state.show_id}
+    settings.tv_provider_overrides = overrides
+
+
+def switch_source(workspace, provider_name: str) -> None:
+    """Re-resolve the selected show on another pooled provider (workspace
+    Source control), persist the pin, and rescan through the new
+    provider's client — mirrors the rematch flow in ``finish_tv_rematch``.
+    """
+    state = workspace._selected_state()
+    if state is None or workspace._media_ctrl is None:
+        return
+    orchestrator = getattr(workspace._media_ctrl, "batch_orchestrator", None)
+    if orchestrator is None:
+        workspace.status_message.emit("Source switching is unavailable right now.", 4000)
+        return
+    if provider_name == state.provider_name:
+        return
+
+    _invalidate_episode_projection(workspace, state)
+    merged_state, switched = orchestrator.switch_provider(state, provider_name)
+    if not switched:
+        workspace.status_message.emit(
+            f"Could not find {merged_state.display_name} on that source.", 4000
+        )
+        return
+
+    _persist_provider_pin(workspace, merged_state, provider_name)
+    client = workspace._provider_for_state(merged_state)
+    if client is None:
+        workspace.refresh_from_controller()
+        workspace._restore_roster_selection_by_key(_roster_selection_key(merged_state))
+        workspace.status_message.emit(
+            f"Switched {merged_state.display_name} to {provider_name}.", 4000
+        )
+        return
+    finish_tv_rematch(workspace, merged_state, client)

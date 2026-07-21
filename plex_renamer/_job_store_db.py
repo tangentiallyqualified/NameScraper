@@ -7,7 +7,7 @@ from pathlib import Path
 
 from .constants import ensure_log_dir
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 
 CREATE_SQL = """
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -44,7 +44,7 @@ CREATE INDEX IF NOT EXISTS idx_jobs_position ON jobs(position);
 
 DEDUP_INDEX_SQL = """
 CREATE UNIQUE INDEX IF NOT EXISTS idx_jobs_dedup
-    ON jobs(job_kind, media_type, tmdb_id, library_root)
+    ON jobs(job_kind, media_type, tmdb_id, library_root, data_source)
     WHERE status IN ('pending', 'running');
 """
 
@@ -63,9 +63,7 @@ def initialize_job_store(conn: sqlite3.Connection) -> None:
     """Create the schema and run any needed migrations."""
     conn.executescript(CREATE_SQL)
     conn.executescript(DEDUP_INDEX_SQL)
-    row = conn.execute(
-        "SELECT version FROM schema_version LIMIT 1"
-    ).fetchone()
+    row = conn.execute("SELECT version FROM schema_version LIMIT 1").fetchone()
     if row is None:
         conn.execute(
             "INSERT INTO schema_version (version) VALUES (?)",
@@ -80,32 +78,29 @@ def migrate_job_store(conn: sqlite3.Connection, current_version: int) -> None:
     """Upgrade an existing job-store schema in place."""
     version = current_version
     if version < 2:
-        columns = {
-            row["name"] for row in conn.execute("PRAGMA table_info(jobs)").fetchall()
-        }
+        columns = {row["name"] for row in conn.execute("PRAGMA table_info(jobs)").fetchall()}
         if "poster_path" not in columns:
             conn.execute("ALTER TABLE jobs ADD COLUMN poster_path TEXT")
         conn.execute("UPDATE schema_version SET version = ?", (2,))
         version = 2
     if version < 3:
-        columns = {
-            row["name"] for row in conn.execute("PRAGMA table_info(jobs)").fetchall()
-        }
+        columns = {row["name"] for row in conn.execute("PRAGMA table_info(jobs)").fetchall()}
         if "output_root" not in columns:
             conn.execute("ALTER TABLE jobs ADD COLUMN output_root TEXT")
         conn.execute("UPDATE schema_version SET version = ?", (3,))
         version = 3
     if version < 4:
-        columns = {
-            row["name"] for row in conn.execute("PRAGMA table_info(jobs)").fetchall()
-        }
+        columns = {row["name"] for row in conn.execute("PRAGMA table_info(jobs)").fetchall()}
         if "active_temp" not in columns:
             conn.execute("ALTER TABLE jobs ADD COLUMN active_temp TEXT")
         conn.execute("UPDATE schema_version SET version = ?", (4,))
     if version < 5:
-        columns = {
-            row["name"] for row in conn.execute("PRAGMA table_info(jobs)").fetchall()
-        }
+        columns = {row["name"] for row in conn.execute("PRAGMA table_info(jobs)").fetchall()}
         if "metadata_plan" not in columns:
             conn.execute("ALTER TABLE jobs ADD COLUMN metadata_plan TEXT")
         conn.execute("UPDATE schema_version SET version = ?", (5,))
+        version = 5
+    if version < 6:
+        conn.execute("DROP INDEX IF EXISTS idx_jobs_dedup")
+        conn.executescript(DEDUP_INDEX_SQL)
+        conn.execute("UPDATE schema_version SET version = ?", (6,))

@@ -7,17 +7,32 @@ and roster chips, and drives the Enable/Disable AutoMux header button.
 
 from __future__ import annotations
 
+import threading
+from collections import deque
 from pathlib import Path
+from typing import Any
 
 from PySide6.QtCore import QObject, Signal
 
 from ...app.services import automux_service
+from ...engine.models import is_merge_row
 from ...thread_pool import submit as _submit_bg
 from ._automux_tracks import AutoMuxTracksWidget
+
+# Rest-of-library warm sweep fan-out. The shared pool has 8 workers; 3
+# leaves headroom for episode-guide builds, poster fetches, and async
+# queue submissions. NAS probes are latency-bound, so 3 concurrent
+# header reads is close to a 3x sweep speedup.
+_WARM_SWEEP_WORKERS = 3
 
 
 class _PlanBridge(QObject):
     plan_ready = Signal(object, int, object, str)  # state, index, plan|None, error
+    # A merge row's probe went through ensure_state_plans (I1), which
+    # already wrote the result into state.mux_plans/mux_probe_errors/
+    # merge_gate_errors itself -- this signal just asks the GUI thread to
+    # re-sync from those buckets, same tail as _on_plan_ready.
+    merge_plan_ready = Signal(object, int)  # state, index
 
 
 class MediaWorkspaceAutoMuxCoordinator:
@@ -29,7 +44,13 @@ class MediaWorkspaceAutoMuxCoordinator:
         parent = workspace if isinstance(workspace, QObject) else None
         self._bridge = _PlanBridge(parent)
         self._bridge.plan_ready.connect(self._on_plan_ready)
+        self._bridge.merge_plan_ready.connect(self._on_merge_plan_ready)
         self._inflight: set[tuple[int, int]] = set()  # (id(state), index)
+        self._inflight_lock = threading.Lock()
+        self._warm_lock = threading.Lock()
+        self._warm_queue: deque[tuple[Any, int]] = deque()
+        self._warm_sweep_active = 0
+        self._executor_busy = False
         self._widgets: dict[tuple[int, int], AutoMuxTracksWidget] = {}
 
     # ── Availability ──────────────────────────────────────────────────
@@ -76,30 +97,33 @@ class MediaWorkspaceAutoMuxCoordinator:
         prepared = self._begin_probe(state, index)
         if prepared is None:
             return
-        mkvmerge, source_root, settings = prepared
-        _submit_bg(lambda: self._run_probe(state, index, mkvmerge, source_root, settings))
+        mkvmerge, source_root, settings, ffprobe = prepared
+        _submit_bg(lambda: self._run_probe(state, index, mkvmerge, source_root, settings, ffprobe))
 
     def _begin_probe(
         self, state, index: int
-    ) -> tuple[Path, Path, automux_service.MuxSettings] | None:
+    ) -> tuple[Path, Path, automux_service.MuxSettings, Path | None] | None:
         """Validate settings and reserve the (state, index) slot in
-        ``_inflight``. Returns the resolved (mkvmerge, source_root, settings)
-        for the caller to hand to :meth:`_run_probe`, or ``None`` when the
-        probe should not proceed (already in flight, or AutoMux isn't
-        configured)."""
+        ``_inflight``. Returns the resolved (mkvmerge, source_root,
+        settings, ffprobe) for the caller to hand to :meth:`_run_probe`, or
+        ``None`` when the probe should not proceed (already in flight, or
+        AutoMux isn't configured). Check-and-reserve is atomic: concurrent
+        sweep workers racing the same slot must not both win it."""
         key = (id(state), index)
-        if key in self._inflight:
-            return None
         svc = self._workspace._settings
         source_root = self._source_root()
         mkvmerge = automux_service.resolve_mkvmerge(svc)
         if svc is None or source_root is None or mkvmerge is None:
             return None
+        ffprobe = automux_service.resolve_ffprobe(svc)
         settings = automux_service.mux_settings_from_service(svc)
-        self._inflight.add(key)
-        return mkvmerge, source_root, settings
+        with self._inflight_lock:
+            if key in self._inflight:
+                return None
+            self._inflight.add(key)
+        return mkvmerge, source_root, settings, ffprobe
 
-    def _run_probe(self, state, index: int, mkvmerge, source_root, settings) -> None:
+    def _run_probe(self, state, index: int, mkvmerge, source_root, settings, ffprobe=None) -> None:
         """The actual probe→plan work for one item. Safe to call either as
         a standalone pool task (``_request``) or inline from within a pool
         worker that is already fanning out sequentially over several items
@@ -118,7 +142,23 @@ class MediaWorkspaceAutoMuxCoordinator:
             if not (0 <= index < len(state.preview_items)):
                 return
             item = state.preview_items[index]
-            probe = automux_service.probe_file(mkvmerge, item.original)
+            if is_merge_row(item):
+                # Final-review I1: a merge row must never get the
+                # single-file plan_for_item path below -- that builds a
+                # plan with no append_sources, which a later track edit
+                # would then lock in via user_modified (C1 regression).
+                # ensure_state_plans's per-index path already routes merge
+                # rows to _plan_merge_item (probes every part, gates, and
+                # builds the real append plan); it writes the result
+                # straight onto state (same pattern queue submission uses
+                # from its own thread-pool worker -- see module docstring),
+                # so this handler just asks the GUI thread to re-sync.
+                svc = self._workspace._settings
+                if svc is not None:
+                    automux_service.ensure_state_plans(state, svc, source_root, only_index=index)
+                bridge.merge_plan_ready.emit(state, index)
+                return
+            probe = automux_service.probe_file(mkvmerge, item.original, ffprobe_path=ffprobe)
             if not probe.ok:
                 bridge.plan_ready.emit(state, index, None, probe.error or "Unreadable file")
                 return
@@ -134,7 +174,8 @@ class MediaWorkspaceAutoMuxCoordinator:
         except RuntimeError:
             pass  # bridge deleted during shutdown
         finally:
-            self._inflight.discard(key)
+            with self._inflight_lock:
+                self._inflight.discard(key)
 
     def _on_plan_ready(self, state, index: int, plan, error: str) -> None:
         if state not in self._workspace._current_states():
@@ -148,6 +189,17 @@ class MediaWorkspaceAutoMuxCoordinator:
                 state.mux_plans.pop(index, None)
             else:
                 state.mux_plans[index] = plan
+        self._sync_after_plan(state, index)
+
+    def _on_merge_plan_ready(self, state, index: int) -> None:
+        """Tail for the merge-row probe path (I1): ensure_state_plans
+        already wrote plan/error onto *state* itself, so just re-sync the
+        GUI surfaces (same tail _on_plan_ready runs)."""
+        if state not in self._workspace._current_states():
+            return  # stale: library was reloaded
+        self._sync_after_plan(state, index)
+
+    def _sync_after_plan(self, state, index: int) -> None:
         self._refresh_widget(state, index)
         self._refresh_roster_row(state)
         if state is self._workspace._selected_state():
@@ -194,39 +246,155 @@ class MediaWorkspaceAutoMuxCoordinator:
         if model is not None:
             model.refresh_state(state_index)
 
+    # ── Shutdown ──────────────────────────────────────────────────────
+
+    def shutdown(self) -> None:
+        """Stop feeding the warm sweep: clear the pending queue so each
+        worker exits after at most its current probe. Called at app close
+        BEFORE thread_pool.drain — without this the drain's bound is
+        decorative, since workers keep popping entries and spawning
+        120s-timeout mkvmerge probes long after the window is gone."""
+        with self._warm_lock:
+            self._warm_queue.clear()
+
+    def _effective_cap(self) -> int:
+        """Current sweep worker cap. Call only while holding _warm_lock."""
+        return 1 if self._executor_busy else _WARM_SWEEP_WORKERS
+
+    def set_executor_busy(self, busy: bool) -> None:
+        """Executor running -> downshift the sweep to one probe worker so
+        remux jobs get the NAS bandwidth; idle -> top back up to the full
+        cap from the existing queue. Thread-safe (state under _warm_lock;
+        submits outside it), though in practice the main window calls this
+        on the GUI thread via the executor bridge."""
+        with self._warm_lock:
+            self._executor_busy = bool(busy)
+            if busy:
+                return  # workers shed themselves at their next loop check
+            spawn = max(
+                0,
+                min(self._effective_cap(), len(self._warm_queue)) - self._warm_sweep_active,
+            )
+            self._warm_sweep_active += spawn
+        submitted = 0
+        try:
+            for _ in range(spawn):
+                _submit_bg(self._warm_sweep_worker)
+                submitted += 1
+        except Exception:
+            with self._warm_lock:
+                self._warm_sweep_active -= spawn - submitted
+            raise
+
     # ── Proactive plan warming (Task 4) ──────────────────────────────
 
     def warm_plans_for_states(self, states) -> None:
         """Kick background probes for every preview item that has no cached
         plan/error yet, so roster chips and the toggle button appear without
-        requiring an expansion. Cheap to call repeatedly: _request's
-        _inflight dedup plus the cached plan/error checks below make an
-        already-warmed state a no-op.
+        requiring an expansion. Cheap to call repeatedly: the queue is
+        rebuilt from live state each call, and per-item skip checks at
+        execution time plus _begin_probe's dedup make warmed items no-ops.
 
-        Final-review fix: warming every state's items through _request means
-        one pool task per preview item across the ENTIRE library, all
-        enqueued into the shared 8-worker pool before the selected show's
-        guide build is even submitted -- on a first library load this can
-        starve the pool the guide build and poster fetches also share. So
-        the currently selected state (if any) is warmed immediately, item by
-        item, the same way as before; every other state's items are instead
-        bundled into a single deferred pool task that fans out sequentially
-        over them one at a time, re-checking the per-item skip conditions at
-        execution time so a state that got warmed in the meantime (e.g. a
-        repeat refresh) doesn't get re-probed."""
+        Ordering: the selected state warms immediately (item-per-task, as
+        before); everything else goes into a shared deque drained by up to
+        _WARM_SWEEP_WORKERS pool workers, with CHECKED states first —
+        a checked show is the one the user is about to queue, so its
+        plans must be ready soonest.
+        """
         if not self.available():
+            return
+        states = list(states)
+        if not states:
             return
         selected = self._workspace._selected_state()
         if selected is not None and any(state is selected for state in states):
-            ordered_states = [selected] + [state for state in states if state is not selected]
+            self._warm_state_items(selected)
+            rest = [state for state in states if state is not selected]
         else:
-            ordered_states = list(states)
-        if not ordered_states:
-            return
-        first, *rest = ordered_states
-        self._warm_state_items(first)
-        if rest:
-            _submit_bg(lambda: self._warm_rest(rest))
+            rest = states
+        rest.sort(key=lambda state: 0 if state.checked else 1)  # stable
+        self._refill_warm_queue(rest)
+
+    def _pending_items(self, state) -> list[tuple[Any, int]]:
+        """(state, index) entries still needing a probe — same skip
+        conditions the old sequential sweep applied at execution time."""
+        return [
+            (state, index)
+            for index, item in enumerate(state.preview_items)
+            if automux_service.item_mux_probe_eligible(item)
+            and index not in state.mux_plans
+            and index not in state.mux_probe_errors
+        ]
+
+    def _refill_warm_queue(self, states) -> None:
+        """Replace the pending queue and top workers up to the cap.
+
+        Replacing (not appending) keeps repeat refreshes from growing the
+        queue unboundedly; entries already probing are deduped by
+        _begin_probe at execution time.
+        """
+        entries = [entry for state in states for entry in self._pending_items(state)]
+        with self._warm_lock:
+            self._warm_queue = deque(entries)
+            spawn = max(0, min(self._effective_cap(), len(entries)) - self._warm_sweep_active)
+            self._warm_sweep_active += spawn
+        # Submit OUTSIDE the lock: tests patch _submit_bg to run the worker
+        # inline, and the worker takes the lock itself.
+        submitted = 0
+        try:
+            for _ in range(spawn):
+                _submit_bg(self._warm_sweep_worker)
+                submitted += 1
+        except Exception:
+            with self._warm_lock:
+                self._warm_sweep_active -= spawn - submitted
+            raise
+
+    def _warm_sweep_worker(self) -> None:
+        """Drain the shared queue one (state, index) at a time. Several of
+        these run concurrently (capped by _WARM_SWEEP_WORKERS); the deque
+        pop under _warm_lock is the only coordination they need. Re-checks
+        each item's skip conditions at execution time so entries warmed or
+        invalidated since enqueueing (rescan shrank preview_items, a
+        repeat refresh already probed it) are skipped, and one item's
+        failure never aborts the sweep. The empty-queue exit decrements
+        _warm_sweep_active under the SAME lock hold that observed empty —
+        a separately-acquired decrement let a refill see dying workers as
+        active and strand a freshly filled queue with no drainer. Workers
+        also shed themselves when the effective cap drops below the active
+        count (executor busy)."""
+        exited = False
+        try:
+            while True:
+                with self._warm_lock:
+                    if self._warm_sweep_active > self._effective_cap():
+                        self._warm_sweep_active -= 1
+                        exited = True
+                        return
+                    if not self._warm_queue:
+                        self._warm_sweep_active -= 1
+                        exited = True
+                        return
+                    state, index = self._warm_queue.popleft()
+                try:
+                    if not (0 <= index < len(state.preview_items)):
+                        continue
+                    item = state.preview_items[index]
+                    if not automux_service.item_mux_probe_eligible(item):
+                        continue
+                    if index in state.mux_plans or index in state.mux_probe_errors:
+                        continue
+                    prepared = self._begin_probe(state, index)
+                    if prepared is None:
+                        continue
+                    mkvmerge, source_root, settings, ffprobe = prepared
+                    self._run_probe(state, index, mkvmerge, source_root, settings, ffprobe)
+                except Exception:
+                    continue
+        finally:
+            if not exited:
+                with self._warm_lock:
+                    self._warm_sweep_active -= 1
 
     def _warm_state_items(self, state) -> None:
         for index, item in enumerate(state.preview_items):
@@ -236,28 +404,34 @@ class MediaWorkspaceAutoMuxCoordinator:
                 continue
             self._request(state, index)
 
-    def _warm_rest(self, states) -> None:
-        """Runs inside a single pool worker: sequentially probes the
-        non-selected states' items inline (no further pool submissions),
-        one at a time, checking each item's skip conditions at execution
-        time rather than at submit time."""
-        for state in states:
-            for index, item in enumerate(state.preview_items):
-                if not automux_service.item_mux_probe_eligible(item):
-                    continue
-                if index in state.mux_plans or index in state.mux_probe_errors:
-                    continue
-                prepared = self._begin_probe(state, index)
-                if prepared is None:
-                    continue
-                mkvmerge, source_root, settings = prepared
-                try:
-                    self._run_probe(state, index, mkvmerge, source_root, settings)
-                except Exception:
-                    # One item's probe failure (unexpected mkvmerge error,
-                    # racing preview rebuild, ...) must not abort warming
-                    # for every remaining item/state in this sweep.
-                    continue
+    def prioritize_state(self, state) -> None:
+        """Move *state*'s unwarmed items to the FRONT of the warm queue —
+        called when the user checks a show (queue intent), so its plans
+        are ready by the time they click Add to Queue. No-op when AutoMux
+        is off or the state has nothing left to warm; tops workers back
+        up to the cap in case the sweep already drained and exited."""
+        if state is None or not self.available():
+            return
+        entries = self._pending_items(state)
+        if not entries:
+            return
+        with self._warm_lock:
+            remaining = [entry for entry in self._warm_queue if entry[0] is not state]
+            self._warm_queue = deque(entries + remaining)
+            spawn = max(
+                0,
+                min(self._effective_cap(), len(self._warm_queue)) - self._warm_sweep_active,
+            )
+            self._warm_sweep_active += spawn
+        submitted = 0
+        try:
+            for _ in range(spawn):
+                _submit_bg(self._warm_sweep_worker)
+                submitted += 1
+        except Exception:
+            with self._warm_lock:
+                self._warm_sweep_active -= spawn - submitted
+            raise
 
     # ── Movie panel (Task 6) / header button (Task 7) ─────────────────
 

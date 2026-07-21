@@ -6,8 +6,10 @@ import json
 import logging
 import os
 import subprocess
-from dataclasses import dataclass, field
+import threading
+from dataclasses import dataclass, field, replace
 from pathlib import Path
+from typing import Any
 
 from ._lang_normalize import normalize_lang
 
@@ -29,6 +31,11 @@ class MediaTrack:
     name: str
     is_default: bool
     is_forced: bool
+    channels: int = 0  # audio only; 0 = unknown
+    bitrate_bps: int = 0  # audio only; 0 = unknown
+    width: int = 0  # video only; 0 = unknown
+    height: int = 0  # video only; 0 = unknown
+    sample_rate: int = 0  # audio only; 0 = unknown
 
 
 @dataclass
@@ -37,6 +44,7 @@ class ProbeResult:
     ok: bool
     tracks: list[MediaTrack] = field(default_factory=list)
     container_type: str = ""
+    duration_ms: int = 0  # container duration; 0 = unknown
     error: str = ""
 
     @property
@@ -52,7 +60,24 @@ class ProbeResult:
         return [t for t in self.tracks if t.track_type == "video"]
 
 
-def parse_identify_json(path: str, payload: dict) -> ProbeResult:
+def _as_int(value: object) -> int:
+    """Tolerant int coercion — mkvmerge emits stats-tag values as strings."""
+    try:
+        return max(0, int(str(value)))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _parse_dimensions(props: dict[str, Any]) -> tuple[int, int]:
+    """Extract pixel dimensions from the 'pixel_dimensions' property string."""
+    raw = str(props.get("pixel_dimensions", ""))
+    if "x" in raw:
+        left, _, right = raw.partition("x")
+        return _as_int(left), _as_int(right)
+    return 0, 0
+
+
+def parse_identify_json(path: str, payload: dict[str, Any]) -> ProbeResult:
     """Pure parse of a ``mkvmerge -J`` JSON document."""
     container = payload.get("container", {})
     if not (container.get("recognized") and container.get("supported")):
@@ -62,6 +87,7 @@ def parse_identify_json(path: str, payload: dict) -> ProbeResult:
     tracks: list[MediaTrack] = []
     for raw in payload.get("tracks", []):
         props = raw.get("properties", {})
+        width, height = _parse_dimensions(props)
         tracks.append(
             MediaTrack(
                 track_id=int(raw.get("id", -1)),
@@ -71,6 +97,11 @@ def parse_identify_json(path: str, payload: dict) -> ProbeResult:
                 name=str(props.get("track_name", "")),
                 is_default=bool(props.get("default_track", False)),
                 is_forced=bool(props.get("forced_track", False)),
+                channels=_as_int(props.get("audio_channels")),
+                bitrate_bps=_as_int(props.get("tag_bps")),
+                width=width,
+                height=height,
+                sample_rate=_as_int(props.get("audio_sampling_frequency")),
             )
         )
     return ProbeResult(
@@ -78,11 +109,38 @@ def parse_identify_json(path: str, payload: dict) -> ProbeResult:
         ok=True,
         tracks=tracks,
         container_type=str(container.get("type", "")),
+        duration_ms=_as_int(container.get("properties", {}).get("duration")) // 1_000_000,
     )
 
 
+def merge_ffprobe_bitrates(result: ProbeResult, bitrates: list[int]) -> None:
+    """Fill unknown audio bitrates by stream order (audio tracks only).
+
+    ``MediaTrack`` is frozen, so a filled track is rebuilt via
+    ``dataclasses.replace`` rather than mutated in place; the rebuilt list
+    is written back to ``result.tracks``. ``bitrates`` is zipped against
+    the audio tracks in their order of appearance within ``result.tracks``
+    (zip-shortest semantics: extra bitrates or extra audio tracks beyond
+    the shorter list are left untouched). Non-audio tracks and audio
+    tracks whose bitrate is already known both pass through unchanged.
+    """
+    remaining = iter(bitrates)
+    new_tracks: list[MediaTrack] = []
+    for track in result.tracks:
+        if track.track_type != "audio":
+            new_tracks.append(track)
+            continue
+        bitrate = next(remaining, None)
+        if bitrate is not None and track.bitrate_bps == 0 and bitrate > 0:
+            new_tracks.append(replace(track, bitrate_bps=bitrate))
+        else:
+            new_tracks.append(track)
+    result.tracks = new_tracks
+
+
 def clear_probe_cache() -> None:
-    _cache.clear()
+    with _inflight_lock:
+        _cache.clear()
 
 
 def _cache_key(video_path: Path) -> tuple[str, int, int] | None:
@@ -93,15 +151,97 @@ def _cache_key(video_path: Path) -> tuple[str, int, int] | None:
     return (str(video_path), stat.st_size, stat.st_mtime_ns)
 
 
-def probe_file(mkvmerge_path: Path, video_path: Path) -> ProbeResult:
-    """Run ``mkvmerge -J`` on *video_path*; cached on (path, size, mtime)."""
+class _InflightProbe:
+    """Coalescing slot: the first caller probes, later callers wait on it."""
+
+    def __init__(self) -> None:
+        self.done = threading.Event()
+        self.result: ProbeResult | None = None
+
+
+_inflight: dict[tuple[str, int, int], _InflightProbe] = {}
+_inflight_lock = threading.Lock()
+
+# Waiters outlast the prober's own subprocess timeout (120s) slightly so a
+# timed-out probe still hands its error result to the waiters.
+_INFLIGHT_WAIT_SECONDS = 150.0
+
+
+def probe_file(
+    mkvmerge_path: Path, video_path: Path, *, ffprobe_path: Path | None = None
+) -> ProbeResult:
+    """Run ``mkvmerge -J`` on *video_path*; cached on (path, size, mtime).
+
+    Concurrent calls for the same key share one subprocess: the first
+    caller probes, the rest block on its result (duplicate ``mkvmerge -J``
+    of the same file was observed when the warm sweep and queue submission
+    raced).
+
+    When *ffprobe_path* is given, audio tracks whose bitrate mkvmerge
+    couldn't determine are enriched via ffprobe before the result is
+    cached (the cache key does not include ffprobe_path, so enrichment
+    must happen before caching to keep cached and fresh results in sync).
+    """
     key = _cache_key(video_path)
     if key is None:
         return ProbeResult(path=str(video_path), ok=False, error=f"File not found: {video_path}")
-    cached = _cache.get(key)
-    if cached is not None:
+    with _inflight_lock:
+        cached = _cache.get(key)
+        if cached is not None:
+            needs_enrichment = ffprobe_path is not None and any(
+                t.bitrate_bps == 0 for t in cached.audio_tracks
+            )
+        else:
+            needs_enrichment = False
+    if cached is not None and not needs_enrichment:
         return cached
+    if cached is not None and needs_enrichment:
+        # ffprobe_path became available after this entry was cached
+        # (first-time-setup flow): enrich outside the lock -- the
+        # subprocess call must never run while holding it -- then
+        # rewrite the entry under the lock so later hits see it too.
+        assert ffprobe_path is not None
+        from ._ffprobe import probe_audio_bitrates
 
+        bitrates = probe_audio_bitrates(ffprobe_path, video_path)
+        merge_ffprobe_bitrates(cached, bitrates)
+        with _inflight_lock:
+            if key in _cache:
+                _cache[key] = cached
+        return cached
+    with _inflight_lock:
+        slot = _inflight.get(key)
+        if slot is None:
+            slot = _InflightProbe()
+            _inflight[key] = slot
+            owner = True
+        else:
+            owner = False
+
+    if not owner:
+        slot.done.wait(timeout=_INFLIGHT_WAIT_SECONDS)
+        if slot.result is not None:
+            return slot.result
+        # Prober vanished without a result (unexpected): probe directly.
+        return _probe_uncoalesced(mkvmerge_path, video_path, key, ffprobe_path=ffprobe_path)
+
+    try:
+        result = _probe_uncoalesced(mkvmerge_path, video_path, key, ffprobe_path=ffprobe_path)
+        slot.result = result
+        return result
+    finally:
+        with _inflight_lock:
+            _inflight.pop(key, None)
+        slot.done.set()
+
+
+def _probe_uncoalesced(
+    mkvmerge_path: Path,
+    video_path: Path,
+    key: tuple[str, int, int],
+    *,
+    ffprobe_path: Path | None = None,
+) -> ProbeResult:
     try:
         proc = subprocess.run(
             [str(mkvmerge_path), "-J", str(video_path)],
@@ -125,7 +265,15 @@ def probe_file(mkvmerge_path: Path, video_path: Path) -> ProbeResult:
         return ProbeResult(path=str(video_path), ok=False, error=str(e))
 
     result = parse_identify_json(str(video_path), payload)
-    if len(_cache) >= _CACHE_MAX_ENTRIES:
-        _cache.clear()
-    _cache[key] = result
+    if ffprobe_path is not None and any(t.bitrate_bps == 0 for t in result.audio_tracks):
+        from ._ffprobe import probe_audio_bitrates
+
+        merge_ffprobe_bitrates(result, probe_audio_bitrates(ffprobe_path, video_path))
+    with _inflight_lock:
+        # FIFO eviction (dicts preserve insertion order): drop the oldest
+        # entries instead of wiping — a full clear mid-sweep silently
+        # re-probed everything already paid for on >512-file libraries.
+        while len(_cache) >= _CACHE_MAX_ENTRIES:
+            del _cache[next(iter(_cache))]
+        _cache[key] = result
     return result

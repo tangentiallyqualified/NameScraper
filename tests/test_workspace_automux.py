@@ -79,6 +79,8 @@ def _dispose_coordinator(coordinator):
     later test), racing Qt teardown (conftest_qt segfault note)."""
     with contextlib.suppress(RuntimeError):
         coordinator._bridge.plan_ready.disconnect()
+    with contextlib.suppress(RuntimeError):
+        coordinator._bridge.merge_plan_ready.disconnect()
     coordinator._widgets.clear()
 
 
@@ -180,6 +182,74 @@ class WorkspaceAutoMuxTests(QtSmokeBase):
         merge_box.setChecked(False)
         self.assertTrue(state.mux_plans[0]["user_modified"])
         self.assertEqual(state.mux_plans[0]["subtitle_merges"][0]["action"], "rename")
+
+    def test_run_probe_delegates_merge_rows_to_ensure_state_plans(self):
+        """Final-review I1 (GUI half): a merge row must never take the
+        single-file plan_for_item path -- that builds a plan with no
+        append_sources, which a later track edit's user_modified flag
+        would then lock in (C1 regression). _run_probe has to delegate to
+        ensure_state_plans(only_index=...) so the cached plan carries a
+        real append, gated the same way queue submission gates it."""
+        import plex_renamer.app.services.automux_service as svc_mod
+        from plex_renamer._mkv_probe import MediaTrack, ProbeResult
+        from plex_renamer.engine.models import PreviewItem, ScanState
+
+        base = Path(self._main_window_tmp.name)
+        parts = [base / "lib" / "Show" / f"Show S01E05 ({i}).mkv" for i in (1, 2)]
+        item = PreviewItem(
+            original=parts[0],
+            new_name="Show - S01E05 - Five.mkv",
+            target_dir=base / "out" / "Show (2020)" / "Season 01",
+            season=1,
+            episodes=[5],
+            status="OK",
+            media_type="tv",
+            merge_part_paths=list(parts),
+            merge_part_file_ids=[0, 1],
+        )
+        state = ScanState(
+            folder=base / "lib" / "Show",
+            media_info={"id": 7, "name": "Show", "year": "2020"},
+            preview_items=[item],
+            scanned=True,
+        )
+        coordinator, roster = self._coordinator(state, self._settings())
+
+        def fake_prober(mkv, path, **kwargs):
+            return ProbeResult(
+                path=str(path),
+                ok=True,
+                tracks=[
+                    MediaTrack(
+                        track_id=0,
+                        track_type="video",
+                        codec="AVC",
+                        language="und",
+                        name="",
+                        is_default=True,
+                        is_forced=False,
+                    ),
+                ],
+                container_type="Matroska",
+                duration_ms=600_000,
+            )
+
+        original_prober = svc_mod.probe_file
+        svc_mod.probe_file = fake_prober
+        self.addCleanup(setattr, svc_mod, "probe_file", original_prober)
+
+        prepared = coordinator._begin_probe(state, 0)
+        self.assertIsNotNone(prepared)
+        assert prepared is not None
+        mkvmerge, source_root, settings_obj, ffprobe = prepared
+        coordinator._run_probe(state, 0, mkvmerge, source_root, settings_obj, ffprobe)
+
+        plan = state.mux_plans.get(0)
+        self.assertIsNotNone(plan)
+        assert plan is not None
+        self.assertEqual([Path(p).name for p in plan["append_sources"]], ["Show S01E05 (2).mkv"])
+        # The GUI surfaces still get told to refresh (merge_plan_ready tail).
+        self.assertEqual(roster.refreshed, [0])
 
     def test_expansion_card_hosts_tracks_widget(self):
         from plex_renamer.gui_qt.widgets._automux_tracks import (
@@ -343,7 +413,7 @@ class AutoMuxButtonAndChipTests(QtSmokeBase):
         probe_patch = patch.object(
             svc_mod,
             "probe_file",
-            side_effect=lambda mkv, path: ProbeResult(path=str(path), ok=True, tracks=[]),
+            side_effect=lambda mkv, path, **kwargs: ProbeResult(path=str(path), ok=True, tracks=[]),
         )
         probe_patch.start()
         self.addCleanup(probe_patch.stop)
@@ -382,7 +452,7 @@ class AutoMuxButtonAndChipTests(QtSmokeBase):
 
         probed_names: list[str] = []
 
-        def _fake_probe(mkv, path):
+        def _fake_probe(mkv, path, **kwargs):
             probed_names.append(Path(path).name)
             return ProbeResult(path=str(path), ok=True, tracks=[])
 
@@ -402,15 +472,392 @@ class AutoMuxButtonAndChipTests(QtSmokeBase):
             "the selected state (b.mkv) must be probed before the other state",
         )
 
+    def test_begin_probe_reserves_slot_atomically_under_concurrent_callers(self):
+        # The check-then-add on _inflight had no lock: two sweep workers
+        # racing the same (state, index) could both pass the membership
+        # check and both probe. The slow __contains__ widens that race
+        # window so the test fails deterministically without the lock.
+        import threading
+        import time
+
+        workspace, states = self._workspace_with_states()
+        coordinator = workspace._automux
+        state = states[0]
+
+        class _SlowSet(set):
+            def __contains__(self, key):
+                time.sleep(0.05)
+                return super().__contains__(key)
+
+        coordinator._inflight = _SlowSet()
+        barrier = threading.Barrier(4)
+        results: list = []
+
+        def _attempt():
+            barrier.wait(timeout=10)
+            results.append(coordinator._begin_probe(state, 0))
+
+        threads = [threading.Thread(target=_attempt) for _ in range(4)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=10)
+
+        self.assertEqual(len(results), 4)
+        self.assertEqual(
+            sum(1 for prepared in results if prepared is not None),
+            1,
+            "exactly one concurrent caller may win the (state, index) slot",
+        )
+
+    def test_warm_sweep_probes_checked_states_before_unchecked(self):
+        # Checked shows signal queue intent: their files must warm before
+        # unchecked shows' files even when they sit later in roster order.
+        from unittest.mock import patch
+
+        from plex_renamer._mkv_probe import ProbeResult
+        from plex_renamer.app.services import automux_service as svc_mod
+        from plex_renamer.gui_qt.widgets import (
+            _media_workspace_automux as automux_mod,
+        )
+
+        states = [
+            self._make_named_state("a.mkv"),
+            self._make_named_state("b.mkv"),
+            self._make_named_state("c.mkv"),
+        ]
+        states[0].checked = False
+        states[1].checked = False
+        states[2].checked = True  # last in roster order, but checked
+        workspace, states = self._workspace_with_states(states=states)
+        sync_patch = patch.object(automux_mod, "_submit_bg", side_effect=lambda fn: fn())
+        sync_patch.start()
+        self.addCleanup(sync_patch.stop)
+
+        probed_names: list[str] = []
+
+        def _fake_probe(mkv, path, **kwargs):
+            probed_names.append(Path(path).name)
+            return ProbeResult(path=str(path), ok=True, tracks=[])
+
+        probe_patch = patch.object(svc_mod, "probe_file", side_effect=_fake_probe)
+        probe_patch.start()
+        self.addCleanup(probe_patch.stop)
+        plan_patch = patch.object(svc_mod, "plan_for_item", side_effect=lambda *a, **k: dict(PLAN))
+        plan_patch.start()
+        self.addCleanup(plan_patch.stop)
+
+        workspace._automux.warm_plans_for_states(states)
+
+        self.assertEqual(
+            probed_names,
+            ["c.mkv", "a.mkv", "b.mkv"],
+            "the checked state must be probed before unchecked states",
+        )
+
+    def test_warm_sweep_fans_out_to_capped_parallel_workers(self):
+        # The rest-of-library sweep must submit _WARM_SWEEP_WORKERS pool
+        # tasks that drain one shared queue — not one sequential worker,
+        # and not one task per item.
+        from unittest.mock import patch
+
+        from plex_renamer._mkv_probe import ProbeResult
+        from plex_renamer.app.services import automux_service as svc_mod
+        from plex_renamer.gui_qt.widgets import (
+            _media_workspace_automux as automux_mod,
+        )
+
+        states = [self._make_named_state(f"s{i}.mkv") for i in range(6)]
+        workspace, states = self._workspace_with_states(states=states)
+        deferred: list = []
+        defer_patch = patch.object(
+            automux_mod, "_submit_bg", side_effect=lambda fn: deferred.append(fn)
+        )
+        defer_patch.start()
+        self.addCleanup(defer_patch.stop)
+        probe_patch = patch.object(
+            svc_mod,
+            "probe_file",
+            side_effect=lambda mkv, path, **kwargs: ProbeResult(path=str(path), ok=True, tracks=[]),
+        )
+        probe_patch.start()
+        self.addCleanup(probe_patch.stop)
+        plan_patch = patch.object(svc_mod, "plan_for_item", side_effect=lambda *a, **k: dict(PLAN))
+        plan_patch.start()
+        self.addCleanup(plan_patch.stop)
+
+        workspace._automux.warm_plans_for_states(states)
+
+        self.assertEqual(
+            len(deferred),
+            automux_mod._WARM_SWEEP_WORKERS,
+            "sweep must fan out to exactly the capped worker count",
+        )
+        for worker in deferred:
+            worker()
+        for state in states:
+            self.assertTrue(state.mux_plans, "every state must still be warmed")
+
+    def test_warm_sweep_worker_count_balances_so_refills_respawn(self):
+        # Regression for the stranded-queue race: a worker's empty-queue
+        # exit must release its active slot atomically, so a later refill
+        # sees active=0 and spawns drainers for the new entries.
+        from unittest.mock import patch
+
+        from plex_renamer._mkv_probe import ProbeResult
+        from plex_renamer.app.services import automux_service as svc_mod
+        from plex_renamer.gui_qt.widgets import (
+            _media_workspace_automux as automux_mod,
+        )
+
+        states = [self._make_named_state("a.mkv"), self._make_named_state("b.mkv")]
+        workspace, states = self._workspace_with_states(states=states)
+        sync_patch = patch.object(automux_mod, "_submit_bg", side_effect=lambda fn: fn())
+        sync_patch.start()
+        self.addCleanup(sync_patch.stop)
+        probe_patch = patch.object(
+            svc_mod,
+            "probe_file",
+            side_effect=lambda mkv, path, **kwargs: ProbeResult(path=str(path), ok=True, tracks=[]),
+        )
+        probe_patch.start()
+        self.addCleanup(probe_patch.stop)
+        plan_patch = patch.object(svc_mod, "plan_for_item", side_effect=lambda *a, **k: dict(PLAN))
+        plan_patch.start()
+        self.addCleanup(plan_patch.stop)
+
+        coordinator = workspace._automux
+        coordinator.warm_plans_for_states(states)
+        self.assertEqual(coordinator._warm_sweep_active, 0, "all workers must release their slots")
+
+        # New unwarmed entries after the sweep finished: refill must respawn.
+        fresh = self._make_named_state("c.mkv")
+        deferred: list = []
+        defer_patch = patch.object(
+            automux_mod, "_submit_bg", side_effect=lambda fn: deferred.append(fn)
+        )
+        defer_patch.start()
+        self.addCleanup(defer_patch.stop)
+        coordinator._refill_warm_queue([fresh])
+        self.assertEqual(len(deferred), 1, "one entry -> one respawned worker")
+
+    def test_shutdown_clears_warm_queue_so_deferred_workers_probe_nothing(self):
+        # App-close regression: shutdown() must clear the pending queue so
+        # that workers already submitted (and running after the window is
+        # gone) find nothing left to pop and exit immediately -- without
+        # spawning any more 120s-timeout mkvmerge probes.
+        from unittest.mock import patch
+
+        from plex_renamer._mkv_probe import ProbeResult
+        from plex_renamer.app.services import automux_service as svc_mod
+        from plex_renamer.gui_qt.widgets import (
+            _media_workspace_automux as automux_mod,
+        )
+
+        states = [self._make_named_state("a.mkv"), self._make_named_state("b.mkv")]
+        workspace, states = self._workspace_with_states(states=states)
+        deferred: list = []
+        defer_patch = patch.object(
+            automux_mod, "_submit_bg", side_effect=lambda fn: deferred.append(fn)
+        )
+        defer_patch.start()
+        self.addCleanup(defer_patch.stop)
+
+        probed_names: list[str] = []
+
+        def _fake_probe(mkv, path, **kwargs):
+            probed_names.append(Path(path).name)
+            return ProbeResult(path=str(path), ok=True, tracks=[])
+
+        probe_patch = patch.object(svc_mod, "probe_file", side_effect=_fake_probe)
+        probe_patch.start()
+        self.addCleanup(probe_patch.stop)
+        plan_patch = patch.object(svc_mod, "plan_for_item", side_effect=lambda *a, **k: dict(PLAN))
+        plan_patch.start()
+        self.addCleanup(plan_patch.stop)
+
+        coordinator = workspace._automux
+        coordinator.warm_plans_for_states(states)
+        self.assertTrue(coordinator._warm_queue, "queue must be non-empty before shutdown")
+        self.assertTrue(deferred, "workers must have been spawned before shutdown")
+
+        coordinator.shutdown()
+
+        for worker in deferred:
+            worker()
+
+        self.assertEqual(probed_names, [], "no probes may run once the sweep is shut down")
+        self.assertEqual(
+            coordinator._warm_sweep_active,
+            0,
+            "workers must still release their active slots after an empty queue",
+        )
+
+    def test_executor_busy_downshifts_sweep_to_one_worker(self):
+        from unittest.mock import patch
+
+        from plex_renamer._mkv_probe import ProbeResult
+        from plex_renamer.app.services import automux_service as svc_mod
+        from plex_renamer.gui_qt.widgets import (
+            _media_workspace_automux as automux_mod,
+        )
+
+        states = [self._make_named_state(f"s{i}.mkv") for i in range(6)]
+        workspace, states = self._workspace_with_states(states=states)
+        coordinator = workspace._automux
+        deferred: list = []
+        defer_patch = patch.object(
+            automux_mod, "_submit_bg", side_effect=lambda fn: deferred.append(fn)
+        )
+        defer_patch.start()
+        self.addCleanup(defer_patch.stop)
+        probed: list[str] = []
+
+        def _fake_probe(mkv, path, **kwargs):
+            probed.append(Path(path).name)
+            return ProbeResult(path=str(path), ok=True, tracks=[])
+
+        probe_patch = patch.object(svc_mod, "probe_file", side_effect=_fake_probe)
+        probe_patch.start()
+        self.addCleanup(probe_patch.stop)
+        plan_patch = patch.object(svc_mod, "plan_for_item", side_effect=lambda *a, **k: dict(PLAN))
+        plan_patch.start()
+        self.addCleanup(plan_patch.stop)
+
+        coordinator.warm_plans_for_states(states)
+        self.assertEqual(len(deferred), automux_mod._WARM_SWEEP_WORKERS)
+
+        coordinator.set_executor_busy(True)
+        # The first worker must SHED (over cap) without probing anything.
+        deferred[0]()
+        self.assertEqual(probed, [])
+        self.assertEqual(coordinator._warm_sweep_active, 2)
+        # Second worker sheds too; the last one survives and drains alone.
+        deferred[1]()
+        self.assertEqual(probed, [])
+        self.assertEqual(coordinator._warm_sweep_active, 1)
+        deferred[2]()
+        self.assertEqual(len(probed), 6)  # work still completes
+        self.assertEqual(coordinator._warm_sweep_active, 0)
+
+    def test_executor_idle_respawns_sweep_to_full_cap(self):
+        from unittest.mock import patch
+
+        from plex_renamer.gui_qt.widgets import (
+            _media_workspace_automux as automux_mod,
+        )
+
+        states = [self._make_named_state(f"s{i}.mkv") for i in range(6)]
+        workspace, states = self._workspace_with_states(states=states)
+        coordinator = workspace._automux
+        deferred: list = []
+        defer_patch = patch.object(
+            automux_mod, "_submit_bg", side_effect=lambda fn: deferred.append(fn)
+        )
+        defer_patch.start()
+        self.addCleanup(defer_patch.stop)
+
+        coordinator.set_executor_busy(True)
+        coordinator.warm_plans_for_states(states)
+        self.assertEqual(len(deferred), 1)  # busy: capped at one worker
+
+        coordinator.set_executor_busy(False)
+        self.assertEqual(
+            len(deferred),
+            automux_mod._WARM_SWEEP_WORKERS,
+            "going idle must top workers back up to the full cap",
+        )
+
+    def test_prioritize_state_moves_its_items_to_the_queue_front(self):
+        from unittest.mock import patch
+
+        from plex_renamer._mkv_probe import ProbeResult
+        from plex_renamer.app.services import automux_service as svc_mod
+        from plex_renamer.gui_qt.widgets import (
+            _media_workspace_automux as automux_mod,
+        )
+
+        states = [
+            self._make_named_state("a.mkv"),
+            self._make_named_state("b.mkv"),
+            self._make_named_state("c.mkv"),
+        ]
+        for state in states:
+            state.checked = False
+        workspace, states = self._workspace_with_states(states=states)
+        deferred: list = []
+        defer_patch = patch.object(
+            automux_mod, "_submit_bg", side_effect=lambda fn: deferred.append(fn)
+        )
+        defer_patch.start()
+        self.addCleanup(defer_patch.stop)
+
+        probed_names: list[str] = []
+
+        def _fake_probe(mkv, path, **kwargs):
+            probed_names.append(Path(path).name)
+            return ProbeResult(path=str(path), ok=True, tracks=[])
+
+        probe_patch = patch.object(svc_mod, "probe_file", side_effect=_fake_probe)
+        probe_patch.start()
+        self.addCleanup(probe_patch.stop)
+        plan_patch = patch.object(svc_mod, "plan_for_item", side_effect=lambda *a, **k: dict(PLAN))
+        plan_patch.start()
+        self.addCleanup(plan_patch.stop)
+
+        workspace._automux.warm_plans_for_states(states)  # queue: a, b, c
+        workspace._automux.prioritize_state(states[2])  # c jumps the line
+
+        for worker in deferred:
+            worker()  # first worker drains the whole queue inline
+
+        self.assertEqual(
+            probed_names,
+            ["c.mkv", "a.mkv", "b.mkv"],
+            "the prioritized state's items must be probed first",
+        )
+
+    def test_set_state_checked_prioritizes_the_warm_sweep(self):
+        # Checking a show is the intent signal — the sync hook must tell
+        # the automux coordinator to move that show up the warm queue.
+        from types import SimpleNamespace
+
+        from plex_renamer.gui_qt.widgets._media_workspace_sync import (
+            MediaWorkspaceSyncCoordinator,
+        )
+
+        state = self._make_state()
+        prioritized: list = []
+        workspace = SimpleNamespace(
+            _media_type="tv",
+            _automux=SimpleNamespace(prioritize_state=prioritized.append),
+            _ensure_check_bindings=lambda s: None,
+            _selected_state=lambda: None,
+            _populate_preview=lambda s: None,
+        )
+        coordinator = MediaWorkspaceSyncCoordinator(workspace)
+
+        coordinator.set_state_checked(state, True)
+        self.assertEqual(prioritized, [state], "checking must prioritize the state")
+
+        coordinator.set_state_checked(state, False)
+        self.assertEqual(prioritized, [state], "unchecking must NOT re-prioritize")
+
     def test_warm_plans_covers_movie_items_without_file_id(self):
         # Task 1 (spec 1a): the movie scanner never sets file_id, so the old
         # `item.file_id is None` skip condition excluded every movie preview
         # item from background warming -- roster badges only appeared after
         # the user clicked the row. Movie items must warm via is_actionable
         # just like TV items do.
+        # Observed via the sweep's probe (the old _request hook only fired for
+        # the eagerly-warmed first state, which no longer exists without a
+        # selection).
         from unittest.mock import patch
 
+        from plex_renamer._mkv_probe import ProbeResult
+        from plex_renamer.app.services import automux_service as svc_mod
         from plex_renamer.engine.models import PreviewItem, ScanState
+        from plex_renamer.gui_qt.widgets import _media_workspace_automux as automux_mod
         from plex_renamer.gui_qt.widgets._media_workspace_automux import (
             MediaWorkspaceAutoMuxCoordinator,
         )
@@ -446,18 +893,30 @@ class AutoMuxButtonAndChipTests(QtSmokeBase):
         coordinator = MediaWorkspaceAutoMuxCoordinator(workspace)
         self.addCleanup(_dispose_coordinator, coordinator)
 
-        requested: list[int] = []
-        request_patch = patch.object(
-            MediaWorkspaceAutoMuxCoordinator,
-            "_request",
-            side_effect=lambda state, index: requested.append(index),
-        )
-        request_patch.start()
-        self.addCleanup(request_patch.stop)
+        sync_patch = patch.object(automux_mod, "_submit_bg", side_effect=lambda fn: fn())
+        sync_patch.start()
+        self.addCleanup(sync_patch.stop)
+
+        probed: list[str] = []
+
+        def _fake_probe(mkv, path, **kwargs):
+            probed.append(Path(path).name)
+            return ProbeResult(path=str(path), ok=True, tracks=[])
+
+        probe_patch = patch.object(svc_mod, "probe_file", side_effect=_fake_probe)
+        probe_patch.start()
+        self.addCleanup(probe_patch.stop)
+        plan_patch = patch.object(svc_mod, "plan_for_item", side_effect=lambda *a, **k: dict(PLAN))
+        plan_patch.start()
+        self.addCleanup(plan_patch.stop)
 
         coordinator.warm_plans_for_states([state])
 
-        self.assertEqual(requested, [0], "movie item with file_id=None must still be warmed")
+        self.assertEqual(
+            probed,
+            ["Movie (2020).mkv"],
+            "movie item with file_id=None must still be warmed",
+        )
 
     def test_warm_releases_inflight_when_preview_list_shrinks_midflight(self):
         # Round-4 hardening: _run_probe used to read preview_items[index]
@@ -466,7 +925,7 @@ class AutoMuxButtonAndChipTests(QtSmokeBase):
         # skipped the finally and leaked the _inflight key -- a later
         # expansion of that row then dedup-skipped forever, wedging its
         # tracks widget on "Reading tracks...". One bad item also aborted
-        # _warm_rest's whole sweep. Both must now be survivable.
+        # _warm_sweep_worker's whole sweep. Both must now be survivable.
         from unittest.mock import patch
 
         from plex_renamer._mkv_probe import ProbeResult
@@ -489,7 +948,7 @@ class AutoMuxButtonAndChipTests(QtSmokeBase):
         probe_patch = patch.object(
             svc_mod,
             "probe_file",
-            side_effect=lambda mkv, path: ProbeResult(path=str(path), ok=True, tracks=[]),
+            side_effect=lambda mkv, path, **kwargs: ProbeResult(path=str(path), ok=True, tracks=[]),
         )
         probe_patch.start()
         self.addCleanup(probe_patch.stop)
@@ -525,11 +984,14 @@ class AutoMuxButtonAndChipTests(QtSmokeBase):
         # correctly named has is_actionable=False (no rename needed), but
         # it must still be warmed so AutoMux badges/labels appear without
         # requiring an on-demand expansion probe.
+        # Observed via the sweep's probe (the old _request hook only fired for
+        # the eagerly-warmed first state, which no longer exists without a
+        # selection).
         from unittest.mock import patch
 
-        from plex_renamer.gui_qt.widgets._media_workspace_automux import (
-            MediaWorkspaceAutoMuxCoordinator,
-        )
+        from plex_renamer._mkv_probe import ProbeResult
+        from plex_renamer.app.services import automux_service as svc_mod
+        from plex_renamer.gui_qt.widgets import _media_workspace_automux as automux_mod
 
         state = self._make_state()
         item = state.preview_items[0]
@@ -539,18 +1001,30 @@ class AutoMuxButtonAndChipTests(QtSmokeBase):
 
         workspace, states = self._workspace_with_states(states=[state])
 
-        requested: list[int] = []
-        request_patch = patch.object(
-            MediaWorkspaceAutoMuxCoordinator,
-            "_request",
-            side_effect=lambda state, index: requested.append(index),
-        )
-        request_patch.start()
-        self.addCleanup(request_patch.stop)
+        sync_patch = patch.object(automux_mod, "_submit_bg", side_effect=lambda fn: fn())
+        sync_patch.start()
+        self.addCleanup(sync_patch.stop)
+
+        probed: list[str] = []
+
+        def _fake_probe(mkv, path, **kwargs):
+            probed.append(Path(path).name)
+            return ProbeResult(path=str(path), ok=True, tracks=[])
+
+        probe_patch = patch.object(svc_mod, "probe_file", side_effect=_fake_probe)
+        probe_patch.start()
+        self.addCleanup(probe_patch.stop)
+        plan_patch = patch.object(svc_mod, "plan_for_item", side_effect=lambda *a, **k: dict(PLAN))
+        plan_patch.start()
+        self.addCleanup(plan_patch.stop)
 
         workspace._automux.warm_plans_for_states(states)
 
-        self.assertEqual(requested, [0], "correctly-named TV item must still be probe-warmed")
+        self.assertEqual(
+            probed,
+            ["a.mkv"],
+            "correctly-named TV item must still be probe-warmed",
+        )
 
     def test_button_hidden_when_no_plan_has_actions(self):
         workspace, state = self._workspace_with_selected_state(plan_actions=False)

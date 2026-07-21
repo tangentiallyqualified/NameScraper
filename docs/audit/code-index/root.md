@@ -1,14 +1,19 @@
-<!-- Generated from audit input acb30e68f57a; do not edit. regenerate: scripts\audit.cmd --fast -->
+<!-- Generated from audit input 0a6c53da574f; do not edit. regenerate: scripts\audit.cmd --fast -->
 
 
 # Package detail: root
 
 
 ### `plex_renamer/__init__.py` — NameScraper — rename media files into a library-standard (Plex/Jellyfin) naming format.
-- Tests: tests/conftest_qt.py, tests/test_alt_title_matching_orchestrator.py, tests/test_keys.py, tests/test_mkv_locate.py, tests/test_mkv_locate_fallbacks.py, tests/test_mkv_probe.py, tests/test_mkvmerge_integration.py, tests/test_queue_executor_progress.py, tests/test_remux_execution.py, tests/test_thread_pool.py
+- Tests: tests/conftest_qt.py, tests/test_alt_title_matching_orchestrator.py, tests/test_ffprobe_fallback.py, tests/test_keys.py, tests/test_mkv_locate.py, tests/test_mkv_locate_fallbacks.py, tests/test_mkv_probe.py, tests/test_mkvmerge_integration.py, tests/test_queue_executor_progress.py, tests/test_remux_append_execution.py, tests/test_remux_execution.py, tests/test_thread_pool.py
 
 ### `plex_renamer/__main__.py` — Entry point for NameScraper.
 - `main()` — (no docstring)
+
+### `plex_renamer/_ffprobe.py` — Optional ffprobe helper: per-stream audio bitrates for containers
+- `find_ffprobe(explicit) -> Path | None` — Resolve the ffprobe binary: an explicit path if it is a real file, (used by: plex_renamer.app.services.automux_service)
+- `probe_audio_bitrates(ffprobe, video_path, runner) -> list[int]` — Bitrate per audio stream in stream order; 0 unknown; [] on failure. (used by: plex_renamer._mkv_probe)
+- Tests: tests/test_ffprobe_fallback.py
 
 ### `plex_renamer/_job_execution_filesystem.py` — Filesystem helpers for queued rename execution.
 - `remap_target_into_final_root(target_dir, root_folder, final_root) -> Path` — Route root-relative targets into the final renamed show folder. (used by: plex_renamer.job_executor)
@@ -27,7 +32,7 @@
 ### `plex_renamer/_job_execution_remux.py` — mkvmerge execution for REMUX job ops (spec §7).
 - `run_mkvmerge(args, on_percent) -> tuple[int, str]` — Run mkvmerge, streaming progress.  Returns (returncode, output tail).
 - `execute_remux_op(op, *, source_root, output_root, result, on_percent, set_active_temp, runner, title, tags_path, cover_path) -> bool` — Execute one mux op.  Returns True on success; errors go to *result*. (used by: plex_renamer.job_executor)
-- Tests: tests/test_executor_metadata_integration.py, tests/test_remux_embed_extras.py
+- Tests: tests/test_executor_metadata_integration.py, tests/test_remux_append_execution.py, tests/test_remux_embed_extras.py
 
 ### `plex_renamer/_job_path_propagation.py` — Helpers for rewriting queued job paths after directory renames.
 - `rewrite_job_paths(*, library_root, source_folder, rename_ops, renamed_dirs) -> tuple[str, list[dict[str, Any]], bool]` — Apply renamed directory prefixes to one queued job payload. (used by: plex_renamer.job_store)
@@ -45,6 +50,7 @@
 - `connect_job_store(db_path) -> sqlite3.Connection` — Create one SQLite connection configured for the job queue. (used by: plex_renamer.job_store)
 - `initialize_job_store(conn) -> None` — Create the schema and run any needed migrations. (used by: plex_renamer.job_store)
 - `migrate_job_store(conn, current_version) -> None` — Upgrade an existing job-store schema in place.
+- Tests: tests/test_job_store_provider_provenance.py
 
 ### `plex_renamer/_job_store_ordering.py` — Queue ordering helpers for the persistent job store.
 - `compact_positions(conn) -> None` — Reassign positions 1..N for pending/running jobs.
@@ -53,14 +59,14 @@
 - `move_pending_jobs_to_top(conn, *, job_ids, now) -> bool` — Move the given pending jobs to the top while preserving order. (used by: plex_renamer.job_store)
 
 ### `plex_renamer/_lang_normalize.py` — Language-tag normalization for AutoMux.
-- `normalize_lang(tag) -> str | None` — Return the canonical ISO 639-2/B code for *tag*, or None. (used by: plex_renamer._mkv_probe, plex_renamer.engine._mux_planner, plex_renamer.gui_qt.widgets._settings_automux_page)
+- `normalize_lang(tag) -> str | None` — Return the canonical ISO 639-2/B code for *tag*, or None. (used by: plex_renamer._mkv_probe, plex_renamer.app.services.automux_service, plex_renamer.engine._mux_planner, plex_renamer.gui_qt.widgets._settings_automux_page)
 - `normalize_lang_list(values) -> list[str]` — Normalize a list of tags: order-preserving, deduped, invalid dropped. (used by: plex_renamer.engine._mux_planner, plex_renamer.gui_qt.widgets._settings_automux_page)
 - Tests: tests/test_lang_normalize.py
 
 ### `plex_renamer/_mkv_command.py` — Build the mkvmerge argv for one remux op from its MuxPlan.
-- `build_mkvmerge_args(*, mkvmerge_path, source, output, plan, resolve_sub, title, global_tags_path, cover_path) -> list[str]` — (no docstring) (used by: plex_renamer._job_execution_remux)
+- `build_mkvmerge_args(*, mkvmerge_path, source, output, plan, resolve_sub, resolve_part, title, global_tags_path, cover_path) -> list[str]` — (no docstring) (used by: plex_renamer._job_execution_remux)
 - `build_mkvpropedit_args(propedit_path, target, *, title, tags_path, cover_path) -> list[str]` — argv for in-place container edits (title/tags/cover, no remux). (used by: plex_renamer._job_execution_metadata)
-- Tests: tests/test_mkv_command.py, tests/test_mkv_metadata_helpers.py
+- Tests: tests/test_mkv_command.py, tests/test_mkv_command_append.py, tests/test_mkv_metadata_helpers.py
 
 ### `plex_renamer/_mkv_locate.py` — Locate the mkvmerge executable (spec §3.1).
 - `find_mkvmerge(explicit_path) -> Path | None` — Resolve the mkvmerge binary. (used by: plex_renamer._job_execution_remux, plex_renamer.app.services.automux_service, plex_renamer.gui_qt.widgets._settings_automux_page)
@@ -68,12 +74,13 @@
 - Tests: tests/test_mkv_locate.py, tests/test_mkv_metadata_helpers.py, tests/test_mkvmerge_integration.py
 
 ### `plex_renamer/_mkv_probe.py` — Track inspection via ``mkvmerge -J`` with a stat-keyed result cache.
-- `MediaTrack` — (no docstring) (used by: plex_renamer.engine._mux_planner)
-- `ProbeResult` — (no docstring) (used by: plex_renamer.app.services.automux_service, plex_renamer.engine._mux_planner)
+- `MediaTrack` — (no docstring) (used by: plex_renamer.engine._merge_gate, plex_renamer.engine._mux_audio_dedup, plex_renamer.engine._mux_planner)
+- `ProbeResult` — (no docstring) (used by: plex_renamer.app.services.automux_service, plex_renamer.engine._merge_gate, plex_renamer.engine._mux_planner)
 - `parse_identify_json(path, payload) -> ProbeResult` — Pure parse of a ``mkvmerge -J`` JSON document.
+- `merge_ffprobe_bitrates(result, bitrates) -> None` — Fill unknown audio bitrates by stream order (audio tracks only).
 - `clear_probe_cache() -> None` — (no docstring)
-- `probe_file(mkvmerge_path, video_path) -> ProbeResult` — Run ``mkvmerge -J`` on *video_path*; cached on (path, size, mtime). (used by: plex_renamer.app.services.automux_service)
-- Tests: tests/test_automux_service.py, tests/test_mkv_probe.py, tests/test_mkvmerge_integration.py, tests/test_mux_planner.py, tests/test_queue_submission_automux.py, tests/test_workspace_automux.py
+- `probe_file(mkvmerge_path, video_path, *, ffprobe_path) -> ProbeResult` — Run ``mkvmerge -J`` on *video_path*; cached on (path, size, mtime). (used by: plex_renamer.app.services.automux_service)
+- Tests: tests/test_automux_merge_planning.py, tests/test_automux_service.py, tests/test_ffprobe_fallback.py, tests/test_merge_gate.py, tests/test_mkv_probe.py, tests/test_mkv_probe_gate_fields.py, tests/test_mkvmerge_integration.py, tests/test_mux_audio_dedup.py, tests/test_mux_planner.py, tests/test_queue_submission_automux.py, tests/test_workspace_automux.py
 
 ### `plex_renamer/_mkv_tags_render.py` — Render Matroska global-tags XML from cached TMDB payloads.
 - `render_movie_tags(details) -> str` — (no docstring) (used by: plex_renamer.app.services.metadata_service)
@@ -89,6 +96,12 @@
 ### `plex_renamer/_parsing_episodes.py` — Episode-number extraction helpers.
 - `extract_episode(filename) -> tuple[list[int], str | None, bool]` — Extract episode number(s) and title text from a filename. (used by: plex_renamer.parsing)
 - `extract_season_number(filename) -> int | None` — Extract the explicit season number from a season/episode filename pattern. (used by: plex_renamer.parsing)
+- Tests: tests/test_parsing_parts.py
+
+### `plex_renamer/_parsing_id_tags.py` — Bracketed provider-ID tags: {tmdb-123}, [tvdb-81189], {tvdbid=55}, ...
+- `extract_provider_id_tag(name) -> tuple[str, int] | None` — First provider-ID tag in *name*, or None. (used by: plex_renamer.parsing)
+- `strip_provider_id_tags(name) -> str` — *name* with every provider-ID tag removed and whitespace collapsed. (used by: plex_renamer._parsing_titles, plex_renamer.parsing)
+- Tests: tests/test_id_tag_parsing.py
 
 ### `plex_renamer/_parsing_names.py` — Name-building and fuzzy-normalization helpers.
 - `build_tv_name(show, year, season, episodes, titles, ext) -> str` — Build a library-standard (Plex/Jellyfin) TV episode filename. (used by: plex_renamer.parsing)
@@ -99,6 +112,11 @@
 - `normalize_for_specials(text) -> str` — Normalize text for specials/extras fuzzy matching. (used by: plex_renamer.parsing)
 - `is_already_complete(items) -> bool` — Check if all OK items are already properly named (no rename needed). (used by: plex_renamer.parsing)
 - Tests: tests/test_run_extension_guards.py, tests/test_symbol_folding.py
+
+### `plex_renamer/_parsing_parts.py` — Part-marker extraction for multi-file (split) episodes.
+- `split_unambiguous_part_marker(stem) -> tuple[str, int | None]` — Return ``(base_stem, part_number)`` for HIGH-precision markers only. (used by: plex_renamer._parsing_episodes)
+- `split_part_marker(stem) -> tuple[str, int | None]` — Return ``(base_stem, part_number)``; ``(stem, None)`` when unmarked. (used by: plex_renamer.engine._episode_resolution, plex_renamer.gui_qt.widgets._media_workspace_actions)
+- Tests: tests/test_parsing_parts.py
 
 ### `plex_renamer/_parsing_seasons.py` — Season-folder parsing helpers.
 - `get_season(folder) -> int | None` — Extract the season number from a folder name. (used by: plex_renamer.parsing)
@@ -129,8 +147,8 @@
 
 ### `plex_renamer/_tmdb_batch_search.py` — Batch search orchestration helpers for the TMDB client.
 - `resolve_movie_batch_query(query, year, *, search_with_fallback, search_fn) -> list[dict]` — (no docstring) (used by: plex_renamer.tmdb)
-- `resolve_tv_batch_query(query, year, *, search_with_fallback, search_fn) -> list[dict]` — (no docstring) (used by: plex_renamer.tmdb)
-- `run_batch_search(queries, *, search_query, max_workers, progress_callback) -> list[list[dict]]` — (no docstring) (used by: plex_renamer.tmdb)
+- `resolve_tv_batch_query(query, year, *, search_with_fallback, search_fn) -> list[dict]` — (no docstring) (used by: plex_renamer.tmdb, plex_renamer.tvdb)
+- `run_batch_search(queries, *, search_query, max_workers, progress_callback) -> list[list[dict]]` — (no docstring) (used by: plex_renamer.tmdb, plex_renamer.tvdb)
 
 ### `plex_renamer/_tmdb_image_cache.py` — Image and poster cache helpers for the TMDB client.
 
@@ -146,22 +164,26 @@
 
 ### `plex_renamer/_tmdb_search_helpers.py` — Search and alternate-title helpers for the TMDB client.
 - `extract_alternative_titles(data) -> list[tuple[str, str]]` — (no docstring) (used by: plex_renamer.tmdb)
-- `search_with_fallback(query, search_fn, min_words, **kwargs) -> list[dict]` — (no docstring) (used by: plex_renamer.tmdb)
+- `search_with_fallback(query, search_fn, min_words, **kwargs) -> list[dict]` — (no docstring) (used by: plex_renamer.tmdb, plex_renamer.tvdb)
 
 ### `plex_renamer/_tmdb_transport.py` — Transport helpers for TMDB client networking and retry behavior.
-- `TMDBError` — Base class for TMDB client errors. (used by: plex_renamer.tmdb)
-- `TMDBNetworkError` — Network or connection failure — transient, may be retried. (used by: plex_renamer.tmdb)
-- `TMDBRateLimitError` — API rate limit hit (HTTP 429). (used by: plex_renamer.tmdb)
+- `TMDBError` — Base class for TMDB client errors. (used by: plex_renamer._tvdb_transport, plex_renamer.tmdb, plex_renamer.tvdb)
+- `TMDBNetworkError` — Network or connection failure — transient, may be retried. (used by: plex_renamer._tvdb_transport, plex_renamer.tmdb)
+- `TMDBRateLimitError` — API rate limit hit (HTTP 429). (used by: plex_renamer._tvdb_transport, plex_renamer.tmdb)
 - `TMDBAPIError` — Non-retryable API error (4xx other than 429). (used by: plex_renamer.tmdb)
 - `TMDBTransport` — Own the HTTP session, token bucket, and retry policy for TMDB requests. (used by: plex_renamer.tmdb)
-- Tests: tests/test_tmdb_transport.py
+- Tests: tests/test_tmdb_transport.py, tests/test_tvdb.py
+
+### `plex_renamer/_tvdb_transport.py` — HTTP transport for TheTVDB v4 API: bearer auth, JSON GETs, image bytes.
+- `TVDBTransport` — Logs in lazily on first request; re-logs-in once on 401 (token expiry). (used by: plex_renamer.tvdb)
+- Tests: tests/test_tvdb.py
 
 ### `plex_renamer/constants.py` — Shared constants and configuration for NameScraper.
 - `ensure_log_dir() -> None` — Create the log directory if it doesn't exist. Called lazily on first use. (used by: plex_renamer._job_store_db, plex_renamer.app.services.cache_service, plex_renamer.app.services.settings_service, plex_renamer.keys)
 - `JobStatus` — Status values for job queue entries. (used by: plex_renamer.app.controllers._queue_history_helpers, plex_renamer.app.controllers.queue_controller, plex_renamer.gui_qt.models.job_table_model, plex_renamer.gui_qt.widgets._history_tab_state, plex_renamer.gui_qt.widgets._job_detail_data, plex_renamer.gui_qt.widgets._job_list_tab, plex_renamer.gui_qt.widgets._queue_tab_actions, plex_renamer.gui_qt.widgets._queue_tab_state, plex_renamer.gui_qt.widgets.history_tab, plex_renamer.gui_qt.widgets.queue_tab, plex_renamer.job_executor, plex_renamer.job_store)
 - `JobKind` — Job type discriminator — extensible for future task types. (used by: plex_renamer.engine._queue_bridge, plex_renamer.gui_qt.widgets._queue_tab_actions, plex_renamer.job_executor, plex_renamer.job_store)
 - `MediaType` — Media type constants — StrEnum for type safety and string compatibility. (used by: plex_renamer._job_execution_filesystem, plex_renamer.app.controllers._controller_event_helpers, plex_renamer.app.controllers._controller_match_helpers, plex_renamer.app.controllers._controller_projection_workflow, plex_renamer.app.controllers._controller_session_models, plex_renamer.app.controllers._controller_state_helpers, plex_renamer.app.controllers._job_projection_helpers, plex_renamer.app.controllers._match_state_helpers, plex_renamer.app.controllers._movie_batch_helpers, plex_renamer.app.controllers._movie_state_helpers, plex_renamer.app.controllers._queue_submission_helpers, plex_renamer.app.controllers._tab_session_helpers, plex_renamer.app.controllers._tv_batch_helpers, plex_renamer.app.controllers.media_controller, plex_renamer.app.services.metadata_service, plex_renamer.app.services.refresh_policy_service, plex_renamer.engine._movie_scanner, plex_renamer.engine._queue_bridge, plex_renamer.engine.models, plex_renamer.gui_qt.widgets._media_helpers, plex_renamer.job_executor, plex_renamer.job_store)
-- Tests: tests/test_executor_metadata_integration.py, tests/test_job_execution_metadata.py, tests/test_media_controller.py, tests/test_metadata_embed_extras.py, tests/test_metadata_local_inventory.py, tests/test_metadata_service.py, tests/test_qt_job_detail_panel.py, tests/test_qt_main_window.py, tests/test_qt_queue_history.py, tests/test_queue_bridge_mux.py, tests/test_queue_controller.py, tests/test_queue_executor_progress.py, tests/test_queue_metadata_wiring.py, tests/test_queue_submission_automux.py, tests/test_queue_tab_remux.py, tests/test_refresh_policy_service.py, tests/test_remux_confirmation.py, tests/test_remux_embed_extras.py, tests/test_remux_job_model.py, tests/test_remux_revert.py, tests/test_scan_improvements.py, tests/test_scan_state_scanner.py
+- Tests: tests/test_executor_metadata_integration.py, tests/test_job_execution_metadata.py, tests/test_media_controller.py, tests/test_metadata_embed_extras.py, tests/test_metadata_local_inventory.py, tests/test_metadata_service.py, tests/test_qt_job_detail_panel.py, tests/test_qt_main_window.py, tests/test_qt_queue_history.py, tests/test_queue_bridge_merge.py, tests/test_queue_bridge_mux.py, tests/test_queue_controller.py, tests/test_queue_executor_progress.py, tests/test_queue_metadata_wiring.py, tests/test_queue_submission_automux.py, tests/test_queue_tab_remux.py, tests/test_refresh_policy_service.py, tests/test_remux_confirmation.py, tests/test_remux_embed_extras.py, tests/test_remux_job_model.py, tests/test_remux_revert.py, tests/test_scan_improvements.py, tests/test_scan_state_scanner.py
 
 ### `plex_renamer/job_executor.py` — Job queue executor — processes jobs from the queue.
 - `revert_job(job) -> tuple[bool, list[str]]` — Revert a single completed job using its stored undo data. (used by: plex_renamer.app.controllers.queue_controller)
@@ -169,24 +191,37 @@
 - Tests: tests/test_executor_metadata_integration.py, tests/test_queue_executor_progress.py, tests/test_remux_embed_extras.py, tests/test_remux_revert.py, tests/test_scan_improvements.py
 
 ### `plex_renamer/job_store.py` — Persistent job queue backed by SQLite.
-- `RenameOp` — One file's rename plan — fully serializable, no Path objects. (used by: plex_renamer.app.services.metadata_service, plex_renamer.engine._queue_bridge, plex_renamer.gui_qt.widgets._job_detail_preview)
+- `RenameOp` — One file's rename plan — fully serializable, no Path objects. (used by: plex_renamer._job_execution_remux, plex_renamer.app.services.metadata_service, plex_renamer.engine._queue_bridge, plex_renamer.gui_qt.widgets._job_detail_preview)
 - `RenameJob` — A single unit of work in the job queue. (used by: plex_renamer.app.controllers, plex_renamer.app.controllers._queue_history_helpers, plex_renamer.app.controllers._queue_submission_helpers, plex_renamer.app.controllers.queue_controller, plex_renamer.engine._queue_bridge, plex_renamer.gui_qt._main_window_feedback, plex_renamer.gui_qt.main_window, plex_renamer.gui_qt.models.job_table_model, plex_renamer.gui_qt.widgets._job_detail_data, plex_renamer.gui_qt.widgets._job_detail_poster, plex_renamer.gui_qt.widgets._job_detail_preview, plex_renamer.gui_qt.widgets._job_list_tab, plex_renamer.gui_qt.widgets.job_detail_panel, plex_renamer.job_executor)
 - `DuplicateJobError` — Raised when adding a job that duplicates a pending/running job. (used by: plex_renamer.app.controllers._queue_submission_helpers)
 - `JobStore` — SQLite-backed persistent job queue with path propagation. (used by: plex_renamer.app.controllers._queue_history_helpers, plex_renamer.app.controllers.media_controller, plex_renamer.app.controllers.queue_controller, plex_renamer.gui_qt.main_window, plex_renamer.job_executor)
-- Tests: tests/conftest_qt.py, tests/test_executor_metadata_integration.py, tests/test_job_execution_metadata.py, tests/test_job_preview_grouping.py, tests/test_job_store_metadata_plan.py, tests/test_media_controller.py, tests/test_metadata_embed_extras.py, tests/test_metadata_service.py, tests/test_mkvmerge_integration.py, tests/test_qt_job_detail_panel.py, tests/test_qt_main_window.py, tests/test_qt_queue_history.py, tests/test_queue_controller.py, tests/test_queue_executor_progress.py, tests/test_queue_tab_remux.py, tests/test_remux_confirmation.py, tests/test_remux_embed_extras.py, tests/test_remux_execution.py, tests/test_remux_job_model.py, tests/test_remux_revert.py, tests/test_scan_improvements.py
+- Tests: tests/conftest_qt.py, tests/test_executor_metadata_integration.py, tests/test_job_execution_metadata.py, tests/test_job_preview_grouping.py, tests/test_job_store_metadata_plan.py, tests/test_job_store_provider_provenance.py, tests/test_media_controller.py, tests/test_metadata_embed_extras.py, tests/test_metadata_service.py, tests/test_mkvmerge_integration.py, tests/test_qt_job_detail_panel.py, tests/test_qt_main_window.py, tests/test_qt_queue_history.py, tests/test_queue_controller.py, tests/test_queue_executor_progress.py, tests/test_queue_tab_remux.py, tests/test_remux_append_execution.py, tests/test_remux_confirmation.py, tests/test_remux_embed_extras.py, tests/test_remux_execution.py, tests/test_remux_job_model.py, tests/test_remux_revert.py, tests/test_scan_improvements.py, tests/test_tv_provider_selection.py
 
 ### `plex_renamer/keys.py` — API key storage with OS keyring preference and local fallback.
 - `save_api_key(service, key) -> None` — Persist an API key using keyring when available, else local fallback. (used by: plex_renamer.gui_qt.widgets._settings_tab_actions)
-- `get_api_key(service) -> str | None` — Retrieve a stored API key from keyring or the local fallback file. (used by: plex_renamer.gui_qt._main_window_bootstrap, plex_renamer.gui_qt.main_window, plex_renamer.gui_qt.widgets._settings_tab_sections)
+- `get_api_key(service) -> str | None` — Retrieve a stored API key from keyring or the local fallback file. (used by: plex_renamer.gui_qt._main_window_bootstrap, plex_renamer.gui_qt.main_window, plex_renamer.gui_qt.widgets._settings_tab_actions, plex_renamer.gui_qt.widgets._settings_tab_sections, plex_renamer.gui_qt.widgets._work_panel)
 
 ### `plex_renamer/parsing.py` — Filename parsing and name-building utilities.
-- Tests: tests/test_bare_episode_prefix_titles.py, tests/test_companion_subtitles.py, tests/test_episode_resolution.py, tests/test_extras_and_prefix_fixes.py, tests/test_filename_formatting.py, tests/test_haikyuu_matching.py, tests/test_jojo_matching.py, tests/test_parsing_corpus.py, tests/test_parsing_edgecases.py, tests/test_release_junk_titles.py, tests/test_run_extension_guards.py, tests/test_scan_improvements.py, tests/test_symbol_folding.py, tests/test_tv_scanner_normal.py, tests/test_umbrella_season_merge.py, tests/test_underscore_segments.py
+- Tests: tests/test_bare_episode_prefix_titles.py, tests/test_companion_subtitles.py, tests/test_episode_resolution.py, tests/test_extras_and_prefix_fixes.py, tests/test_filename_formatting.py, tests/test_haikyuu_matching.py, tests/test_id_tag_parsing.py, tests/test_jojo_matching.py, tests/test_parsing_corpus.py, tests/test_parsing_edgecases.py, tests/test_release_junk_titles.py, tests/test_run_extension_guards.py, tests/test_scan_improvements.py, tests/test_symbol_folding.py, tests/test_tv_scanner_normal.py, tests/test_umbrella_season_merge.py, tests/test_underscore_segments.py
+
+### `plex_renamer/providers.py` — Metadata-provider protocol and registry.
+- `MetadataProvider` — Structural port for TV metadata clients (TMDB today, TVDB, ...). (used by: plex_renamer.engine._batch_orchestrators, plex_renamer.engine._batch_tv_match_policy, plex_renamer.engine._tv_scanner, plex_renamer.engine.matching)
+- `ProviderSpec` — Registry entry: settings value, UI label, keys.py service, factory.
+- `get_tv_provider_spec(name) -> ProviderSpec` — Spec for *name*, falling back to TMDB for unknown values. (used by: plex_renamer.gui_qt._main_window_tmdb)
+- `other_tv_provider_spec(active_name) -> ProviderSpec | None` — The non-active TV provider spec, or ``None`` when there isn't one. (used by: plex_renamer.gui_qt._main_window_tmdb, plex_renamer.gui_qt.widgets._settings_tab_actions)
+- Tests: tests/test_provider_agnostic_matching.py, tests/test_providers.py
 
 ### `plex_renamer/thread_pool.py` — Shared thread pool for background work.
-- `submit(fn, *args, **kwargs) -> Future` — Submit *fn* to the shared pool.  Returns a :class:`~concurrent.futures.Future`. (used by: plex_renamer.app.controllers._movie_batch_helpers, plex_renamer.app.controllers._single_show_scan_helpers, plex_renamer.app.controllers._tv_batch_helpers, plex_renamer.gui_qt.main_window, plex_renamer.gui_qt.widgets._episode_table_model, plex_renamer.gui_qt.widgets._job_detail_poster, plex_renamer.gui_qt.widgets._match_picker_search, plex_renamer.gui_qt.widgets._media_workspace_automux, plex_renamer.gui_qt.widgets._roster_model, plex_renamer.gui_qt.widgets._work_panel, plex_renamer.gui_qt.widgets.settings_tab)
+- `submit(fn, *args, **kwargs) -> Future` — Submit *fn* to the shared pool.  Returns a :class:`~concurrent.futures.Future`. (used by: plex_renamer.app.controllers._movie_batch_helpers, plex_renamer.app.controllers._single_show_scan_helpers, plex_renamer.app.controllers._tv_batch_helpers, plex_renamer.gui_qt.main_window, plex_renamer.gui_qt.widgets._episode_table_model, plex_renamer.gui_qt.widgets._job_detail_poster, plex_renamer.gui_qt.widgets._match_picker_search, plex_renamer.gui_qt.widgets._media_workspace_automux, plex_renamer.gui_qt.widgets._media_workspace_queue_actions, plex_renamer.gui_qt.widgets._roster_model, plex_renamer.gui_qt.widgets._work_panel, plex_renamer.gui_qt.widgets.settings_tab)
 - `drain(timeout) -> bool` — Cancel queued work and wait (bounded) for running work to finish.
 - `shutdown(wait) -> None` — Shut down the shared pool (also registered as an *atexit* hook).
 
 ### `plex_renamer/tmdb.py` — TMDB (The Movie Database) API client.
-- `TMDBClient` — TMDB client with connection pooling, response caching, rate limiting, (used by: plex_renamer.app.services.metadata_service, plex_renamer.engine._batch_orchestrators, plex_renamer.engine._batch_tv_match_policy, plex_renamer.engine._movie_scanner, plex_renamer.engine._tv_scanner, plex_renamer.engine.matching, plex_renamer.gui_qt.main_window)
-- Tests: tests/test_alt_title_matching.py, tests/test_alt_title_matching_orchestrator.py, tests/test_scan_state_scanner.py, tests/test_tmdb.py, tests/test_tmdb_export_assets.py
+- `TMDBClient` — TMDB client with connection pooling, response caching, rate limiting, (used by: plex_renamer.app.services.metadata_service, plex_renamer.engine._batch_orchestrators, plex_renamer.engine._movie_scanner, plex_renamer.gui_qt._main_window_tmdb, plex_renamer.gui_qt.main_window, plex_renamer.providers)
+- Tests: tests/test_alt_title_matching.py, tests/test_alt_title_matching_orchestrator.py, tests/test_providers.py, tests/test_scan_state_scanner.py, tests/test_tmdb.py, tests/test_tmdb_export_assets.py
+
+### `plex_renamer/tvdb.py` — TheTVDB v4 API client implementing the MetadataProvider protocol.
+- `normalize_episode_meta(ep) -> dict[str, Any]` — TVDB episode record -> TMDB-shaped episode meta (protocol contract).
+- `normalize_series_details(payload, episodes) -> dict[str, Any]` — TVDB /series/{id}/extended + full episode list -> TMDB-shaped details.
+- `TVDBClient` — (no docstring) (used by: plex_renamer.providers)
+- Tests: tests/test_providers.py, tests/test_tvdb.py

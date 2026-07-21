@@ -39,12 +39,14 @@ class MediaControllerTVWorkflow:
         self,
         folder: Path,
         tmdb: Any,
+        fallback_provider: Any | None = None,
     ) -> None:
         start_tv_batch_session(
             self._controller,
             folder,
             tmdb,
             self._controller._tv_discovery,
+            fallback_provider=fallback_provider,
         )
 
     def scan_all_shows(self) -> None:

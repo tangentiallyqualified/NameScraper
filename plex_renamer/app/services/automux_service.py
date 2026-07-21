@@ -1,8 +1,10 @@
 """Session-scoped AutoMux planning: probe files and attach mux plans.
 
 Qt-free. The GUI coordinator marshals threading/signals around these
-functions; queue submission calls ensure_state_plans() synchronously
-under its busy overlay (mkvmerge -J results are cached by _mkv_probe).
+functions; queue submission calls ensure_state_plans() from its
+thread-pool worker — never on the GUI thread, since cold probes over a
+network share take minutes (mkvmerge -J results are cached and
+concurrency-coalesced by _mkv_probe).
 """
 
 from __future__ import annotations
@@ -10,13 +12,24 @@ from __future__ import annotations
 from collections.abc import Callable
 from pathlib import Path, PurePath
 
+from ..._lang_normalize import normalize_lang
 from ..._mkv_locate import find_mkvmerge
 from ..._mkv_probe import ProbeResult, probe_file
-from ...engine._mux_planner import MuxSettings, build_mux_plan
+from ...engine._merge_gate import check_append_compatibility
+from ...engine._movie_scanner import _build_subtitle_companions
+from ...engine._mux_planner import (
+    MuxPlan,
+    MuxSettings,
+    SubtitleMergeDecision,
+    _companion_is_forced,
+    _companion_language,
+    build_mux_plan,
+)
 from ...engine.models import (
     PreviewItem,
     ScanState,
     file_mux_active,  # noqa: F401  (round6 §1: engine owns these so _queue_bridge can use them)
+    is_merge_row,
     plan_has_actions,
 )
 from .settings_service import SettingsService
@@ -36,6 +49,14 @@ def mux_settings_from_service(svc: SettingsService) -> MuxSettings:
         strip_track_names=svc.automux_strip_track_names,
         no_fear=svc.automux_no_fear,
         exclude_commentary=svc.automux_exclude_commentary,
+        convert_containers=svc.automux_convert_containers,
+        dedupe_audio=svc.automux_dedupe_audio,
+        dedupe_keep_per_layout=svc.automux_dedupe_keep_per_layout,
+        lossless_policy=svc.automux_lossless_policy,
+        tie_prefer_smaller=svc.automux_tie_prefer_smaller,
+        tie_tolerance_pct=svc.automux_tie_tolerance_pct,
+        transparency_kbps_per_channel=svc.automux_transparency_kbps_per_channel,
+        codec_weights=svc.automux_codec_weights,
     )
 
 
@@ -43,6 +64,14 @@ def resolve_mkvmerge(svc: SettingsService | None) -> Path | None:
     if svc is None:
         return None
     return find_mkvmerge(svc.mkvmerge_path)
+
+
+def resolve_ffprobe(svc: SettingsService | None) -> Path | None:
+    if svc is None:
+        return None
+    from ..._ffprobe import find_ffprobe
+
+    return find_ffprobe(svc.ffprobe_path)
 
 
 def automux_active(svc: SettingsService | None) -> bool:
@@ -98,8 +127,118 @@ def plan_for_item(
         settings=settings,
         new_name=item.new_name or "",
         mkvmerge_path=mkvmerge_path,
+        source_name=item.original.name,
     )
     return plan.to_dict() if plan is not None else None
+
+
+def _relative_to_root(path: Path, source_root: Path) -> str:
+    try:
+        return str(path.relative_to(source_root))
+    except ValueError:
+        return str(path)
+
+
+def _plan_merge_item(
+    state: ScanState,
+    index: int,
+    *,
+    prober: Callable[..., ProbeResult],
+    mkvmerge: Path,
+    ffprobe: Path | None,
+    settings: MuxSettings,
+    source_root: Path,
+) -> None:
+    """Probe every part, gate, and attach an append plan (or a gate error).
+
+    Merge planning is toggle-independent (spec §5): even with AutoMux off
+    *settings* is a bare ``MuxSettings()`` (plain append, all tracks kept)
+    rather than skipping the row outright, since the append itself is the
+    action the user asked for by grouping the parts.
+    """
+    item = state.preview_items[index]
+    probes = [prober(mkvmerge, part, ffprobe_path=ffprobe) for part in item.merge_part_paths]
+    failed = next((p for p in probes if not p.ok), None)
+    if failed is not None:
+        state.mux_probe_errors[index] = failed.error or "Unreadable file"
+        state.mux_plans.pop(index, None)
+        state.merge_gate_errors.pop(index, None)
+        return
+    state.mux_probe_errors.pop(index, None)
+    reason = check_append_compatibility(probes)
+    if reason is not None:
+        state.merge_gate_errors[index] = reason
+        state.mux_plans.pop(index, None)
+        return
+    state.merge_gate_errors.pop(index, None)
+
+    # Base plan from part 1 (track policies apply to every part because the
+    # gate guarantees identical layouts). Part 1's external subs ride the
+    # normal companion path with zero offset.
+    plan = build_mux_plan(
+        probe=probes[0],
+        companion_subs=companion_subs_for_item(item, source_root),
+        settings=settings,
+        new_name=item.new_name or "",
+        mkvmerge_path=str(mkvmerge),
+        source_name=item.original.name,
+    )
+    if plan is None:
+        # No stripping/merge actions of its own, but the append itself is
+        # an action, so a bare plan must still be built.
+        plan = MuxPlan(
+            output_name=str(PurePath(item.new_name or "").with_suffix(".mkv")),
+            mkvmerge_path=str(mkvmerge),
+        )
+    plan.append_sources = [
+        _relative_to_root(part, source_root) for part in item.merge_part_paths[1:]
+    ]
+
+    # Later parts' external subs: merge with a cumulative-duration offset.
+    # offset_ms tracks the running total of PRECEDING parts' durations;
+    # going negative means some preceding duration was unknown, so this
+    # part and every later part fall back to warn-and-skip rather than
+    # risk a misaligned merge.
+    video_stem = PurePath(item.new_name or "").stem
+    offset_ms = 0
+    for part_probe, part_path in zip(probes[:-1], item.merge_part_paths[1:], strict=True):
+        if part_probe.duration_ms <= 0:
+            offset_ms = -1
+        elif offset_ms >= 0:
+            offset_ms += part_probe.duration_ms
+        for companion in _build_subtitle_companions(part_path, item.new_name or ""):
+            if companion.file_type != "subtitle":
+                continue
+            rel = _relative_to_root(companion.original, source_root)
+            if offset_ms < 0:
+                plan.warnings.append(
+                    "External subtitle left behind (no reliable duration for "
+                    f"offset): {companion.original.name}"
+                )
+                continue
+            if not settings.merge_subs:
+                plan.warnings.append(
+                    f"External subtitle left behind (merging disabled): {companion.original.name}"
+                )
+                continue
+            comp_stem = PurePath(companion.new_name or "").stem
+            raw_tag = comp_stem[len(video_stem) :] if comp_stem.startswith(video_stem) else ""
+            lang = (
+                _companion_language(raw_tag)
+                or normalize_lang(settings.untagged_sub_language)
+                or "und"
+            )
+            plan.subtitle_merges.append(
+                SubtitleMergeDecision(
+                    source_relative=rel,
+                    action="merge",
+                    language=lang,
+                    set_default=False,
+                    forced=_companion_is_forced(raw_tag),
+                    sync_offset_ms=offset_ms,
+                )
+            )
+    state.mux_plans[index] = plan.to_dict()
 
 
 def ensure_state_plans(
@@ -107,21 +246,34 @@ def ensure_state_plans(
     svc: SettingsService,
     source_root: Path,
     *,
-    prober: Callable | None = None,
+    prober: Callable[..., ProbeResult] | None = None,
     only_index: int | None = None,
 ) -> None:
     """Probe + plan actionable preview items, storing results on *state*.
 
-    Skips user-modified plans (spec §5.1). No-op when the entry has
-    AutoMux disabled or AutoMux is unavailable. Probe failures land in
-    state.mux_probe_errors and leave the file on the plain rename path.
+    Skips user-modified plans (spec §5.1). No-op when AutoMux is
+    unavailable (no mkvmerge) and the entry has no merge rows. Track-edit
+    planning (stripping/renaming tracks, subtitle merges from settings) is
+    additionally suppressed when the entry has AutoMux disabled
+    (``state.automux_disabled``) -- but a merge (part-append) row is
+    planned regardless, since the append itself is the action the user
+    already approved by grouping the parts, not an optional AutoMux edit
+    (spec §5: merge is toggle- and opt-out-independent). Probe failures
+    land in state.mux_probe_errors and leave the file on the plain rename
+    path.
     """
-    if state.automux_disabled or not automux_active(svc):
+    has_merge_rows = any(is_merge_row(item) for item in state.preview_items)
+    active = automux_active(svc)
+    track_edits_active = active and not state.automux_disabled
+    if not track_edits_active and not has_merge_rows:
         return
     # Late-bound so tests can monkeypatch probe_file at module level.
     prober = prober or probe_file
     mkvmerge = resolve_mkvmerge(svc)
-    settings = mux_settings_from_service(svc)
+    if mkvmerge is None:
+        return
+    ffprobe = resolve_ffprobe(svc)
+    settings = mux_settings_from_service(svc) if track_edits_active else MuxSettings()
     if only_index is not None:
         indices: list[int] = [only_index]
     else:
@@ -131,13 +283,47 @@ def ensure_state_plans(
     for index in indices:
         if not (0 <= index < len(state.preview_items)):
             continue
-        existing = state.mux_plans.get(index)
-        if existing and existing.get("user_modified"):
-            continue
         item = state.preview_items[index]
+        existing = state.mux_plans.get(index)
+        # A merge row's append is not user-editable (final-review I1): a
+        # user_modified plan that lost its append_sources -- e.g. a
+        # single-file plan the GUI cached for this row before the append
+        # was ever planned -- must not stay locked in, or the row queues
+        # as a plain rename of part 1 (spec C1). That one case rebuilds
+        # below instead of honoring the stale skip; every other
+        # user_modified plan (including a merge row whose append is
+        # already intact) keeps the skip. Any track edits the user made on
+        # a rebuilt plan are NOT carried over: the old plan's track
+        # decisions came from a single-file probe/settings context, and
+        # re-validating that layout against the append gate's
+        # identical-layout guarantee is out of scope here -- the rebuild
+        # starts clean.
+        stale_append_less_merge_plan = (
+            existing is not None and is_merge_row(item) and not existing.get("append_sources")
+        )
+        if existing and existing.get("user_modified") and not stale_append_less_merge_plan:
+            continue
         if not item.new_name:
             continue
-        probe = prober(mkvmerge, item.original)
+        if not track_edits_active and not item.merge_part_paths:
+            # Track edits are off (AutoMux toggle off, or this entry has
+            # AutoMux disabled): only merge rows survive (toggle- and
+            # opt-out-independent append plans). Normal rows keep the
+            # pre-merge behavior of being skipped entirely -- no probe, no
+            # plan (spec §5).
+            continue
+        if item.merge_part_paths:
+            _plan_merge_item(
+                state,
+                index,
+                prober=prober,
+                mkvmerge=mkvmerge,
+                ffprobe=ffprobe,
+                settings=settings,
+                source_root=source_root,
+            )
+            continue
+        probe = prober(mkvmerge, item.original, ffprobe_path=ffprobe)
         if not probe.ok:
             state.mux_probe_errors[index] = probe.error or "Unreadable file"
             state.mux_plans.pop(index, None)
@@ -186,12 +372,23 @@ def state_mux_eligible(state: ScanState) -> bool:
 
 def effective_mux_plans(state: ScanState) -> dict[int, dict] | None:
     """Plans to bake into a queue job — None when AutoMux contributes
-    nothing (disabled entry, or every plan edited down to a no-op)."""
-    if state.automux_disabled:
-        return None
-    plans = {
-        index: plan
-        for index, plan in state.mux_plans.items()
-        if index not in state.mux_opt_outs and plan_has_actions(plan)
-    }
+    nothing (every plan opted out or edited down to a no-op).
+
+    A disabled entry (``state.automux_disabled``) drops its track-edit
+    plans but keeps merge (part-append) plans: the append is not an
+    optional AutoMux edit, it is the action the user already approved by
+    grouping the parts (spec §5)."""
+    plans: dict[int, dict] = {}
+    for index, plan in state.mux_plans.items():
+        if index in state.mux_opt_outs or not plan_has_actions(plan):
+            continue
+        if state.automux_disabled and not _is_merge_row(state, index):
+            continue
+        plans[index] = plan
     return plans or None
+
+
+def _is_merge_row(state: ScanState, index: int) -> bool:
+    if not (0 <= index < len(state.preview_items)):
+        return False
+    return is_merge_row(state.preview_items[index])

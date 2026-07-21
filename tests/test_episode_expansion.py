@@ -489,7 +489,9 @@ class EpisodeExpansionCardTests(QtSmokeBase):
         self.assertEqual(fired, [True])
 
     def test_episode_row_actions_vocabulary_is_frozen(self):
-        # The frozen contract: ids/order for every status must not change.
+        # The frozen contract: ids/order for every status must not change --
+        # merge_parts/ungroup (Task 12) are the sanctioned append-only
+        # extensions, not reorderings of the existing ids.
         from plex_renamer.app.models.state_models import EpisodeGuideRow
         from plex_renamer.gui_qt.widgets._episode_expansion import episode_row_actions
 
@@ -500,10 +502,42 @@ class EpisodeExpansionCardTests(QtSmokeBase):
         self.assertEqual(ids("Missing File"), ["assign_file"])
         self.assertEqual(
             ids("Conflict"),
-            ["keep_this", "reassign", "assign_to_more", "unassign"],
+            ["keep_this", "reassign", "assign_to_more", "merge_parts", "unassign"],
         )
         self.assertEqual(ids("Review"), ["approve", "reassign", "assign_to_more", "unassign"])
         self.assertEqual(ids("Mapped"), ["reassign", "assign_to_more", "unassign"])
+
+    def test_row_actions_vocabulary_includes_merge_parts_on_conflict(self):
+        from plex_renamer.gui_qt.widgets._episode_expansion import episode_row_actions
+
+        class _Row:
+            status = "Conflict"
+            primary_file = None
+
+        ids = [action_id for action_id, _label in episode_row_actions(_Row())]
+        self.assertIn("merge_parts", ids)
+
+    def test_ungroup_action_appears_only_for_grouped_primary(self):
+        from plex_renamer.app.models.state_models import EpisodeGuideRow
+        from plex_renamer.gui_qt.widgets._episode_expansion import episode_row_actions
+
+        state, guide = _guide_state()
+        ungrouped_row = guide.rows[0]
+        ungrouped_ids = [aid for aid, _ in episode_row_actions(ungrouped_row)]
+        self.assertNotIn("ungroup", ungrouped_ids)
+
+        grouped_primary = state.preview_items[0]
+        grouped_primary.merge_part_paths = [Path("a.mkv"), Path("b.mkv")]
+        grouped_row = EpisodeGuideRow(
+            season=ungrouped_row.season,
+            episode=ungrouped_row.episode,
+            title=ungrouped_row.title,
+            status="Mapped",
+            primary_file=grouped_primary,
+        )
+        grouped_ids = [aid for aid, _ in episode_row_actions(grouped_row)]
+        self.assertIn("ungroup", grouped_ids)
+        self.assertLess(grouped_ids.index("ungroup"), grouped_ids.index("unassign"))
 
     # -- Task 7 (spec §4): tracks-widget whitespace diagnosis -------------
 

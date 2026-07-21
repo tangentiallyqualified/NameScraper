@@ -14,16 +14,28 @@ import subprocess
 import uuid
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any, Protocol, cast
 
 from ._mkv_command import build_mkvmerge_args
 from ._mkv_locate import find_mkvmerge
 from .engine._mux_planner import MuxPlan
 from .engine.models import RenameResult
+from .job_store import RenameOp
 
 _log = logging.getLogger(__name__)
 
 _PROGRESS_RE = re.compile(r"[Pp]rogress:?\s*#?\s*(\d{1,3})\s*%")
 _CREATION_FLAGS = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+
+
+class _MkvmergeRunner(Protocol):
+    """Shape of ``run_mkvmerge`` and its test doubles: named ``on_percent``
+    so callers can pass it as a keyword, unlike a bare ``Callable[[...], R]``.
+    """
+
+    def __call__(
+        self, args: list[str], on_percent: Callable[[int], None] | None = None
+    ) -> tuple[int, str]: ...
 
 
 def run_mkvmerge(
@@ -32,8 +44,13 @@ def run_mkvmerge(
 ) -> tuple[int, str]:
     """Run mkvmerge, streaming progress.  Returns (returncode, output tail)."""
     proc = subprocess.Popen(
-        args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-        text=True, encoding="utf-8", errors="replace", bufsize=0,
+        args,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        bufsize=0,
         creationflags=_CREATION_FLAGS,
     )
     tail: list[str] = []
@@ -62,14 +79,14 @@ def run_mkvmerge(
 
 
 def execute_remux_op(
-    op,
+    op: RenameOp,
     *,
     source_root: Path,
     output_root: Path,
     result: RenameResult,
     on_percent: Callable[[int], None] | None = None,
     set_active_temp: Callable[[str | None], None] | None = None,
-    runner: Callable | None = None,
+    runner: _MkvmergeRunner | None = None,
     title: str | None = None,
     tags_path: Path | None = None,
     cover_path: Path | None = None,
@@ -77,19 +94,29 @@ def execute_remux_op(
     """Execute one mux op.  Returns True on success; errors go to *result*."""
     # Late-bound default so tests can monkeypatch run_mkvmerge at module level.
     runner = runner or run_mkvmerge
-    plan = MuxPlan.from_dict(op.mux)
+    # Callers only invoke this for ops with a mux plan (job_executor filters
+    # on truthy op.mux before dispatch); the cast documents that invariant
+    # without altering the crash-on-None behavior for a caller that doesn't.
+    plan = MuxPlan.from_dict(cast(dict[str, Any], op.mux))
     src = source_root / op.original_relative
     target_dir = output_root / op.target_dir_relative
     final = target_dir / op.new_name
 
     source_boundary = source_root.resolve(strict=False)
     output_boundary = output_root.resolve(strict=False)
+    merged_sources = [source_root / rel for rel in plan.merged_sub_paths]
+    append_sources = [source_root / rel for rel in plan.append_source_paths]
     try:
         src.resolve().relative_to(source_boundary)
         final.resolve(strict=False).relative_to(output_boundary)
+        # I2: append_sources/merged_sources are serialized plan data, not
+        # boundary-checked op fields -- an absolute or ..\ path there would
+        # otherwise replace source_root under the pathlib join below, get
+        # fed straight to mkvmerge, and (under No Fear) be deleted.
+        for extra in (*merged_sources, *append_sources):
+            extra.resolve(strict=False).relative_to(source_boundary)
     except (OSError, ValueError):
-        result.errors.append(
-            f"Remux paths escape their roots: {op.original_relative}")
+        result.errors.append(f"Remux paths escape their roots: {op.original_relative}")
         return False
 
     if not src.exists():
@@ -107,18 +134,24 @@ def execute_remux_op(
             return False
         mkvmerge = str(located)
 
-    merged_sources = [
-        source_root / rel for rel in plan.merged_sub_paths
-    ]
     for sub in merged_sources:
         if not sub.exists():
             result.errors.append(f"Subtitle source not found: {sub.name}")
             return False
 
+    for part in append_sources:
+        if not part.exists():
+            result.errors.append(f"Merge part not found: {part.name}")
+            return False
+
     temp = target_dir / f"{op.new_name}.tmp-{uuid.uuid4().hex[:8]}.mkv"
     args = build_mkvmerge_args(
-        mkvmerge_path=mkvmerge, source=src, output=temp, plan=plan,
+        mkvmerge_path=mkvmerge,
+        source=src,
+        output=temp,
+        plan=plan,
         resolve_sub=lambda rel: source_root / rel,
+        resolve_part=lambda rel: source_root / rel,
         title=title,
         global_tags_path=tags_path,
         cover_path=cover_path,
@@ -137,10 +170,9 @@ def execute_remux_op(
         if set_active_temp is not None:
             set_active_temp(None)
 
-    if returncode not in (0, 1):      # 1 = completed with warnings
+    if returncode not in (0, 1):  # 1 = completed with warnings
         temp.unlink(missing_ok=True)
-        result.errors.append(
-            f"mkvmerge exited {returncode} for {src.name}: {output_tail}")
+        result.errors.append(f"mkvmerge exited {returncode} for {src.name}: {output_tail}")
         return False
 
     os.replace(temp, final)
@@ -149,7 +181,7 @@ def execute_remux_op(
 
     if plan.no_fear:
         # Source deletion only after the final output exists (spec §7.1).
-        for path in [src, *merged_sources]:
+        for path in [src, *append_sources, *merged_sources]:
             try:
                 path.unlink(missing_ok=True)
             except OSError as e:

@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Protocol
+from typing import Any, Protocol
 
 from ...constants import MediaType
 from ...engine import (
@@ -14,6 +15,7 @@ from ...engine import (
     build_rename_job_from_items,
     build_rename_job_from_state,
 )
+from ...engine.models import is_merge_row
 from ...job_store import DuplicateJobError, RenameJob
 from ...parsing import build_movie_name, build_show_folder_name
 from ..services.automux_service import (
@@ -29,11 +31,54 @@ _log = logging.getLogger(__name__)
 
 def _mux_plans_for_state(state, settings_service, library_root) -> dict[int, dict] | None:
     """Ensure and collect this entry's mux plans at queue time (spec §5.1:
-    plans are baked into the job's ops when it is queued)."""
-    if settings_service is None or not automux_active(settings_service):
+    plans are baked into the job's ops when it is queued).
+
+    Merge (multi-part append) planning is toggle-independent (spec §5): a
+    group row must still be planned and baked even when the global AutoMux
+    toggle is off, so the gate is AutoMux-active OR the state has at least
+    one merge row. ``ensure_state_plans``/``effective_mux_plans`` already
+    know how to plan/bake ONLY the merge rows in that inactive-toggle case.
+    """
+    if settings_service is None:
+        return None
+    has_merge_rows = any(is_merge_row(item) for item in state.preview_items)
+    if not automux_active(settings_service) and not has_merge_rows:
         return None
     ensure_state_plans(state, settings_service, library_root)
     return effective_mux_plans(state)
+
+
+def _merge_row_skip_reasons(
+    state: ScanState,
+    checked_indices: set[int],
+    mux_plans: dict[int, dict] | None,
+) -> list[str]:
+    """Named reasons for checked merge rows that will not queue.
+
+    Mirrors the skip condition in ``_queue_bridge._build_rename_ops``
+    (final-review C1): a merge row without a materialized append plan
+    (missing entirely, or present but with empty ``append_sources``) is
+    dropped from the job silently at the ops layer, so this is the one
+    place that surfaces WHY to the caller/GUI before that happens.
+    """
+    plans = mux_plans or {}
+    reasons: list[str] = []
+    for index in sorted(checked_indices):
+        if not (0 <= index < len(state.preview_items)):
+            continue
+        item = state.preview_items[index]
+        if not is_merge_row(item):
+            continue
+        plan = plans.get(index)
+        if plan and plan.get("append_sources"):
+            continue
+        reason = (
+            state.merge_gate_errors.get(index)
+            or state.mux_probe_errors.get(index)
+            or "mkvmerge is not available"
+        )
+        reasons.append(f"{state.display_name}: {item.original.name} — merge not queued ({reason})")
+    return reasons
 
 
 def _bake_metadata_plan(job, settings_service, tmdb_client, library_root) -> None:
@@ -72,6 +117,11 @@ class BatchQueueResult:
     skipped_queued: int = 0
     blocked: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
+    # Per-row skips inside an otherwise-added job (final-review C1): a
+    # checked merge row dropped for lack of an append plan. Distinct from
+    # ``blocked`` (whole show never queued) because the rest of the job
+    # still queues normally.
+    skipped_rows: list[str] = field(default_factory=list)
 
     @property
     def total_skipped(self) -> int:
@@ -112,6 +162,7 @@ def add_single_queue_job(
     )
     if not job.selected_ops:
         raise ValueError("No actionable rename operations are selected.")
+    job.data_source = getattr(tmdb_client, "provider_name", "tmdb")
     _bake_metadata_plan(job, settings_service, tmdb_client, library_root)
     job_store.add_job(job)
     return job
@@ -126,12 +177,19 @@ def add_tv_batch_jobs(
     command_gating: CommandGatingService,
     settings_service=None,
     tmdb_client=None,
+    provider_for_state: Callable[[ScanState], Any] | None = None,
+    progress: Callable[[str, int, int], None] | None = None,
 ) -> BatchQueueResult:
     result = BatchQueueResult()
+    total = sum(1 for state in states if state.checked)
+    position = 0
 
     for state in states:
         if not state.checked:
             continue
+        position += 1
+        if progress is not None:
+            progress(state.display_name, position, total)
 
         eligibility = command_gating.evaluate_scan_state(
             state,
@@ -157,6 +215,7 @@ def add_tv_batch_jobs(
             str(state.media_info.get("year", "")),
         )
         mux_plans = _mux_plans_for_state(state, settings_service, library_root)
+        result.skipped_rows.extend(_merge_row_skip_reasons(state, checked, mux_plans))
         job = build_rename_job_from_state(
             state=state,
             library_root=library_root,
@@ -165,7 +224,14 @@ def add_tv_batch_jobs(
             checked_indices=checked,
             mux_plans=mux_plans,
         )
-        _bake_metadata_plan(job, settings_service, tmdb_client, library_root)
+        # The batch's single tmdb_client is one client for the whole call;
+        # a mixed batch (pins, fallback matches, manual switches) can hold
+        # shows attributed to a DIFFERENT provider than that one, so the
+        # ground-truth source is the state's own attribution, and the bake
+        # client is resolved per-show when a resolver is given.
+        job.data_source = state.provider_name
+        state_client = provider_for_state(state) if provider_for_state is not None else tmdb_client
+        _bake_metadata_plan(job, settings_service, state_client, library_root)
 
         try:
             job_store.add_job(job)
@@ -188,12 +254,18 @@ def add_movie_batch_jobs(
     command_gating: CommandGatingService,
     settings_service=None,
     tmdb_client=None,
+    progress: Callable[[str, int, int], None] | None = None,
 ) -> BatchQueueResult:
     result = BatchQueueResult()
+    total = sum(1 for state in states if state.checked)
+    position = 0
 
     for state in states:
         if not state.checked:
             continue
+        position += 1
+        if progress is not None:
+            progress(state.display_name, position, total)
 
         eligibility = command_gating.evaluate_scan_state(state, require_resolved_review=True)
         if not eligibility.enabled:

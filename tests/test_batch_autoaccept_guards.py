@@ -31,6 +31,7 @@ from plex_renamer.engine.matching import MOVIE_CAP_SEQUEL_MISMATCH
 class _FakeTMDBSameNameShows:
     """Two shows with the SAME name (US/UK remake pair), no usable details."""
 
+    provider_name = "tmdb"
     language = "en-US"
 
     GHOSTS_US = {
@@ -167,6 +168,7 @@ class _FakeTMDBSameNameYearedShows:
     approach erase the real 0.30 raw margin.
     """
 
+    provider_name = "tmdb"
     language = "en-US"
 
     PPG_2016 = {

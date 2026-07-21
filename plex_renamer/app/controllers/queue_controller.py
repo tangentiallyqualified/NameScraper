@@ -136,12 +136,19 @@ class QueueController:
         command_gating: CommandGatingService,
         settings_service=None,
         tmdb_client=None,
+        provider_for_state: Callable[[ScanState], Any] | None = None,
+        progress: Callable[[str, int, int], None] | None = None,
     ) -> BatchQueueResult:
         """Evaluate and enqueue all checked TV shows.
 
         Iterates *states*, evaluates eligibility via *command_gating*,
         builds jobs, and returns a structured summary.  States are
-        marked ``queued = True`` on successful submission.
+        marked ``queued = True`` on successful submission.  *progress*
+        (display_name, position, total) is called before each show's
+        slow bake work.  *provider_for_state*, when given, resolves each
+        show's OWN provider client for its metadata-plan bake (a mixed
+        batch can hold shows pinned/fallback-matched to different
+        providers) — falls back to *tmdb_client* when omitted.
         """
         return add_tv_batch_jobs(
             self.job_store,
@@ -151,6 +158,8 @@ class QueueController:
             command_gating=command_gating,
             settings_service=settings_service,
             tmdb_client=tmdb_client,
+            provider_for_state=provider_for_state,
+            progress=progress,
         )
 
     def add_movie_batch(
@@ -161,11 +170,14 @@ class QueueController:
         command_gating: CommandGatingService,
         settings_service=None,
         tmdb_client=None,
+        progress: Callable[[str, int, int], None] | None = None,
     ) -> BatchQueueResult:
         """Evaluate and enqueue all eligible movies.
 
         Each movie becomes its own job.  States are marked
-        ``queued = True`` on successful submission.
+        ``queued = True`` on successful submission.  *progress*
+        (display_name, position, total) is called before each movie's
+        slow bake work.
         """
         return add_movie_batch_jobs(
             self.job_store,
@@ -175,6 +187,7 @@ class QueueController:
             command_gating=command_gating,
             settings_service=settings_service,
             tmdb_client=tmdb_client,
+            progress=progress,
         )
 
     # ── Direct rename recording ────────────────────────────────────

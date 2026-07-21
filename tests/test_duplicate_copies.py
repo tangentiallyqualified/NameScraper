@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+from plex_renamer.engine._batch_tv_duplicates import apply_duplicate_labels
 from plex_renamer.engine._episode_projection import project_preview_items
 from plex_renamer.engine._episode_resolution import (
     CONF_AGREE,
@@ -11,9 +12,12 @@ from plex_renamer.engine._episode_resolution import (
 )
 from plex_renamer.engine.episode_assignments import (
     REASON_DUPLICATE_COPY,
+    ROLE_PART,
+    ROLE_PRIMARY,
     EpisodeAssignmentTable,
     EpisodeSlot,
 )
+from plex_renamer.engine.models import ScanState
 
 
 def _dexter_table():
@@ -145,9 +149,12 @@ def test_variant_tagged_copies_resolve_as_duplicates():
     assert reason.startswith(REASON_DUPLICATE_COPY)
 
 
-def test_numeric_parenthetical_is_not_a_variant_tag():
-    # '(1)' vs '(2)' are part numbers — two different episodes squeezed
-    # onto one slot must stay a visible conflict, never fold to one copy.
+def test_numeric_parenthetical_run_groups_as_parts():
+    # '(1)' vs '(2)' are part numbers. Pre-multi-part, the safest reading
+    # was a visible conflict; the multi-part merge spec (2026-07-20)
+    # supersedes that: a complete same-base (1)(2) run in one directory is
+    # a part SET — one logical claim (primary + part), surfaced for review
+    # and never silently folded to a duplicate copy or dropped.
     table = EpisodeAssignmentTable()
     table.add_slot(EpisodeSlot(season=0, episode=1, title="Punchline"))
     part1 = table.add_file(
@@ -176,7 +183,15 @@ def test_numeric_parenthetical_is_not_a_variant_tag():
             evidence=frozenset({"number", "special-number-only"}),
         )
     resolve_table_conflicts(table)
-    assert (0, 1) in table.conflicts()
+    assert table.conflicts() == {}
+    first = table.assignment_for(part1.file_id)
+    second = table.assignment_for(part2.file_id)
+    assert first is not None and second is not None
+    assert (first.role, first.part_order) == (ROLE_PRIMARY, 1)
+    assert (second.role, second.part_order) == (ROLE_PART, 2)
+    # Neither file may be folded away as a duplicate copy.
+    assert part1.file_id not in table.unassigned_reasons
+    assert part2.file_id not in table.unassigned_reasons
 
 
 def test_duplicate_projects_with_duplicate_status(tmp_path):
@@ -192,3 +207,16 @@ def test_duplicate_projects_with_duplicate_status(tmp_path):
     assert len(duplicate_items) == 1
     assert duplicate_items[0].is_duplicate
     assert duplicate_items[0].new_name is None
+
+
+def _make_state(folder: Path, *, show_id: int) -> ScanState:
+    return ScanState(folder=folder, media_info={"id": show_id, "name": folder.name})
+
+
+def test_same_numeric_id_different_provider_not_duplicates(tmp_path: Path) -> None:
+    a = _make_state(tmp_path / "Show A", show_id=42)
+    b = _make_state(tmp_path / "Show B", show_id=42)
+    b.provider_name = "tvdb"
+    apply_duplicate_labels([a, b])
+    assert a.duplicate_of is None
+    assert b.duplicate_of is None

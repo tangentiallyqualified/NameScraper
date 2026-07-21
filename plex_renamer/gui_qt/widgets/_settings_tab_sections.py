@@ -210,6 +210,33 @@ class SettingsTabSectionsBuilder:
         tab = self._tab
         section = SettingsSectionCard.page("API Keys")
 
+        source_row = QHBoxLayout()
+        source_row.addWidget(QLabel("TV metadata source"))
+        tab._tv_source_combo = QComboBox()
+        from ...providers import TV_PROVIDERS
+
+        for spec in TV_PROVIDERS.values():
+            tab._tv_source_combo.addItem(spec.label, spec.name)
+        current_source = tab._settings.tv_metadata_source if tab._settings else "tmdb"
+        source_idx = tab._tv_source_combo.findData(current_source)
+        tab._tv_source_combo.setCurrentIndex(source_idx if source_idx >= 0 else 0)
+        tab._tv_source_combo.currentIndexChanged.connect(tab._on_tv_source_changed)
+        source_row.addWidget(tab._tv_source_combo)
+        source_row.addStretch()
+        section.add_layout(source_row)
+
+        tab._fallback_cb = QCheckBox("Fall back to the other source on weak matches")
+        if tab._settings:
+            tab._fallback_cb.setChecked(tab._settings.tv_fallback_enabled)
+        tab._fallback_cb.toggled.connect(tab._on_fallback_toggled)
+        section.add_widget(tab._fallback_cb)
+
+        tab._id_tag_routing_cb = QCheckBox("Follow {tmdb-}/{tvdb-} ID tags in folder names")
+        if tab._settings:
+            tab._id_tag_routing_cb.setChecked(tab._settings.tv_id_tag_routing_enabled)
+        tab._id_tag_routing_cb.toggled.connect(tab._on_id_tag_routing_toggled)
+        section.add_widget(tab._id_tag_routing_cb)
+
         row = QHBoxLayout()
         row.addWidget(QLabel("TMDB API key"))
         tab._api_key_input = QLineEdit()
@@ -242,9 +269,29 @@ class SettingsTabSectionsBuilder:
 
         section.add_layout(row)
 
+        tvdb_row = QHBoxLayout()
+        tvdb_row.addWidget(QLabel("TheTVDB API key"))
+        tab._tvdb_key_input = QLineEdit()
+        tab._tvdb_key_input.setEchoMode(QLineEdit.EchoMode.Password)
+        tab._tvdb_key_input.setPlaceholderText("Enter TheTVDB API key...")
+        tab._tvdb_key_input.setMinimumWidth(280)
+        try:
+            from ...keys import get_api_key
+
+            existing_tvdb = get_api_key("TVDB")
+            if existing_tvdb:
+                tab._tvdb_key_input.setText(existing_tvdb)
+        except Exception:
+            pass
+        tvdb_row.addWidget(tab._tvdb_key_input)
+        tvdb_row.addStretch()
+        section.add_layout(tvdb_row)
+
         tab._key_status = QLabel("")
         tab._key_status.setProperty("cssClass", "caption")
         section.add_widget(tab._key_status)
+
+        tab._actions_coordinator.refresh_fallback_availability()
 
         self._add_page(section)
 

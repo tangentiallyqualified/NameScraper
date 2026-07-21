@@ -155,12 +155,104 @@ class RosterModelTests(QtSmokeBase):
         self.assertFalse(pixmap.isNull())
         self.assertEqual(len(calls), 1)
 
+    def test_poster_fetch_routes_through_provider_for_state(self):
+        from unittest.mock import patch
+
+        from PIL import Image
+
+        from plex_renamer.gui_qt.widgets import _roster_model as rm
+
+        state = _make_state("Frieren")
+        state.provider_name = "tvdb"
+        calls: list[str] = []
+
+        class _Tmdb:
+            def fetch_poster(self, show_id, *, media_type="tv", target_width=240):
+                calls.append("tmdb")
+                return Image.new("RGB", (4, 6), (10, 20, 30))
+
+        class _Tvdb:
+            def fetch_poster(self, show_id, *, media_type="tv", target_width=240):
+                calls.append("tvdb")
+                return Image.new("RGB", (4, 6), (10, 20, 30))
+
+        def _provider_for_state(s):
+            return _Tvdb() if s.provider_name == "tvdb" else _Tmdb()
+
+        model = rm.RosterModel(
+            media_type="tv",
+            tmdb_provider=lambda: _Tmdb(),
+            provider_for_state=_provider_for_state,
+        )
+        with patch.object(rm, "_submit_bg", side_effect=lambda fn: fn()):
+            model.set_states([state], collapsed_groups={})
+        row = model.row_for_state_index(0)
+        self.assertGreaterEqual(row, 0)
+        self.assertEqual(calls, ["tvdb"])
+
+    def test_poster_cache_key_includes_provider_name(self):
+        """M1: a tmdb show and a tvdb show sharing the same bare numeric id
+        must not display each other's poster — the cache key must include
+        provider_name, not just (media_type, show_id)."""
+        from unittest.mock import patch
+
+        from PIL import Image
+
+        from plex_renamer.gui_qt.widgets import _roster_model as rm
+
+        tmdb_state = _make_state("Tmdb Show")
+        tmdb_state.media_info["id"] = 100
+        tmdb_state.provider_name = "tmdb"
+
+        tvdb_state = _make_state("Tvdb Show")
+        tvdb_state.media_info["id"] = 100  # same numeric id as tmdb_state
+        tvdb_state.provider_name = "tvdb"
+
+        calls: list[str] = []
+
+        class _Tmdb:
+            def fetch_poster(self, show_id, *, media_type="tv", target_width=240):
+                calls.append("tmdb")
+                return Image.new("RGB", (4, 6), (255, 0, 0))
+
+        class _Tvdb:
+            def fetch_poster(self, show_id, *, media_type="tv", target_width=240):
+                calls.append("tvdb")
+                return Image.new("RGB", (4, 6), (0, 255, 0))
+
+        def _provider_for_state(s):
+            return _Tvdb() if s.provider_name == "tvdb" else _Tmdb()
+
+        model = rm.RosterModel(
+            media_type="tv",
+            tmdb_provider=lambda: _Tmdb(),
+            provider_for_state=_provider_for_state,
+        )
+        with patch.object(rm, "_submit_bg", side_effect=lambda fn: fn()):
+            model.set_states([tmdb_state, tvdb_state], collapsed_groups={})
+
+        # Both fetched independently — no collision between provider dicts
+        # sharing the same numeric id.
+        self.assertEqual(sorted(calls), ["tmdb", "tvdb"])
+        self.assertEqual(len(model._poster_cache), 2)
+
+        tmdb_row = model.row_for_state_index(0)
+        tvdb_row = model.row_for_state_index(1)
+        from plex_renamer.gui_qt.widgets._roster_model import ROW_DATA_ROLE
+
+        tmdb_key = model.index(tmdb_row, 0).data(ROW_DATA_ROLE).poster_key
+        tvdb_key = model.index(tvdb_row, 0).data(ROW_DATA_ROLE).poster_key
+        self.assertNotEqual(tmdb_key, tvdb_key)
+        self.assertNotEqual(
+            model._poster_cache[tmdb_key].toImage(), model._poster_cache[tvdb_key].toImage()
+        )
+
     def test_loaded_posters_returns_cached_pixmaps(self):
         from PySide6.QtGui import QPixmap
 
         model = self._model([_make_state("Frieren")])
         pixmap = QPixmap(10, 14)
-        model._poster_cache[("tv", 1)] = pixmap
+        model._poster_cache[("tv", "tmdb", 1)] = pixmap
         loaded = model.loaded_posters()
         self.assertEqual(len(loaded), 1)
         self.assertIs(loaded[0], pixmap)

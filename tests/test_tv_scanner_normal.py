@@ -183,6 +183,11 @@ class _SeasonMapTMDB:
     def get_tv_details(self, show_id):
         return {"seasons": []}
 
+    def get_alternative_titles(
+        self, media_id: int, media_type: str = "movie"
+    ) -> list[tuple[str, str]]:
+        return []
+
 
 def _season(titles: dict[int, str]) -> dict:
     return {"titles": titles, "posters": {}, "episodes": {}, "count": len(titles)}

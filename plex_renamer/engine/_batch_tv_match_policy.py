@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from ..parsing import clean_folder_name, get_season, normalize_for_match
-from ..tmdb import TMDBClient
+from ..providers import MetadataProvider
 from .show_details import ShowDetails, show_details_from_tmdb
 
 
@@ -37,7 +37,7 @@ def _season_episode_count(details: ShowDetails, explicit_seasons: set[int]) -> i
 
 
 def episode_count_tiebreak(
-    tmdb: TMDBClient,
+    tmdb: MetadataProvider,
     scored: list[tuple[dict, float]],
     file_count: int,
     threshold: float = 0.10,
@@ -74,11 +74,7 @@ def episode_count_tiebreak(
             # zero-episode show — fabricated evidence that can hand a
             # near-tie to the wrong show. Abstain from re-ranking entirely.
             return scored[0][0], scored[0][1], False
-        count = (
-            details.number_of_seasons
-            if compare_seasons
-            else details.number_of_episodes
-        )
+        count = details.number_of_seasons if compare_seasons else details.number_of_episodes
         if use_season_subset:
             season_count = _season_episode_count(details, explicit_seasons)
             if season_count is not None:

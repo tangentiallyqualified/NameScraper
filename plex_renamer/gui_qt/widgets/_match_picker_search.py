@@ -35,7 +35,7 @@ class MatchPickerSearchCoordinator:
         dialog = self._dialog
         query = dialog._query.text().strip()
         if not query:
-            QMessageBox.information(dialog, "Search Required", "Enter a title to search TMDB.")
+            QMessageBox.information(dialog, "Search Required", "Enter a title to search.")
             return False
 
         dialog._search_in_progress = True

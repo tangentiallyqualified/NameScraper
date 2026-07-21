@@ -20,6 +20,7 @@ from plex_renamer.parsing import (
 
 
 class _FakeTMDB:
+    provider_name = "tmdb"
     language = "en-US"
 
     def search_tv_batch(self, queries, progress_callback=None):
@@ -2733,6 +2734,9 @@ class FakeTMDB:
 
     def get_tv_details(self, show_id):
         return {"seasons": []}
+
+    def get_alternative_titles(self, media_id, media_type="movie"):
+        return []
 
 
 SHOW_INFO = {"id": 5, "name": "Demo Show", "year": "2020"}

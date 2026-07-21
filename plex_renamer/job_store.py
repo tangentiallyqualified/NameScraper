@@ -24,6 +24,7 @@ import uuid
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from ._job_path_propagation import rewrite_job_paths
 from ._job_store_codec import (
@@ -68,13 +69,13 @@ class RenameOp:
     # renamed alongside it.  Extensible for future companion types (e.g. "nfo").
     file_type: str = "video"
     # Serialized MuxPlan dict for REMUX jobs; None for plain move ops.
-    mux: dict | None = None
+    mux: dict[str, Any] | None = None
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, d: dict) -> RenameOp:
+    def from_dict(cls, d: dict[str, Any]) -> RenameOp:
         d = dict(d)
         d.setdefault("file_type", "video")  # Back-compat: old rows lack this field
         d.setdefault("mux", None)  # Back-compat: old rows lack this field
@@ -284,7 +285,7 @@ class JobStore:
                     other = conn.execute(
                         "SELECT job_id FROM jobs "
                         "WHERE job_kind IN (?, ?) AND media_type = ? "
-                        "AND tmdb_id = ? AND library_root = ? "
+                        "AND tmdb_id = ? AND library_root = ? AND data_source = ? "
                         "AND status IN ('pending', 'running')",
                         (
                             JobKind.RENAME,
@@ -292,6 +293,7 @@ class JobStore:
                             job.media_type,
                             job.tmdb_id,
                             job.library_root,
+                            job.data_source,
                         ),
                     ).fetchone()
                     if other:
@@ -343,9 +345,15 @@ class JobStore:
                     existing = conn.execute(
                         "SELECT job_id FROM jobs "
                         "WHERE job_kind = ? AND media_type = ? "
-                        "AND tmdb_id = ? AND library_root = ? "
+                        "AND tmdb_id = ? AND library_root = ? AND data_source = ? "
                         "AND status IN ('pending', 'running')",
-                        (job.job_kind, job.media_type, job.tmdb_id, job.library_root),
+                        (
+                            job.job_kind,
+                            job.media_type,
+                            job.tmdb_id,
+                            job.library_root,
+                            job.data_source,
+                        ),
                     ).fetchone()
                     existing_id = existing["job_id"] if existing else "?"
                     raise DuplicateJobError(existing_id, job.media_name) from e

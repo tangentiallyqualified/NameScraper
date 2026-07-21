@@ -79,6 +79,10 @@ class PreviewItem:
     episode_confidence: float = 1.0
     source_relative_folder: str = ""
     file_id: int | None = None  # Link back to EpisodeAssignmentTable.files
+    # Multi-part episode merge: ordered source paths / file ids of ALL
+    # parts (primary first). Empty for normal single-file rows.
+    merge_part_paths: list[Path] = field(default_factory=list)
+    merge_part_file_ids: list[int] = field(default_factory=list)
 
     @property
     def is_conflict(self) -> bool:
@@ -218,6 +222,7 @@ class ScanState:
     # Match metadata
     confidence: float = 0.0
     match_origin: str = "auto"
+    provider_name: str = "tmdb"
     alternate_matches: list[dict] = field(default_factory=list)
     search_results: list[dict] = field(default_factory=list)
     relative_folder: str = ""
@@ -242,8 +247,10 @@ class ScanState:
     # rescan/app restart. Keys are preview-item indices; values are
     # serialized MuxPlan dicts (engine/_mux_planner.MuxPlan.to_dict()).
     automux_disabled: bool = False
-    mux_plans: dict[int, dict] = field(default_factory=dict)
+    mux_plans: dict[int, dict[str, Any]] = field(default_factory=dict)
     mux_probe_errors: dict[int, str] = field(default_factory=dict)
+    # Preview index -> append-gate failure reason (multi-part merge).
+    merge_gate_errors: dict[int, str] = field(default_factory=dict)
     # Per-file AutoMux opt-out (session-scoped; spec: gui-round5 §4b).
     mux_opt_outs: set[int] = field(default_factory=set)
 
@@ -271,6 +278,15 @@ class ScanState:
         return media_id if isinstance(media_id, int) else None
 
     @property
+    def provider_show_key(self) -> tuple[str, int] | None:
+        """Cross-provider show identity — numeric IDs collide between
+        providers, so bare show_id must never be compared across states."""
+        show_id = self.show_id
+        if show_id is None:
+            return None
+        return (self.provider_name, show_id)
+
+    @property
     def display_name(self) -> str:
         name = self.media_info.get("name") or self.media_info.get("title") or self.folder.name
         year = self.media_info.get("year", "")
@@ -280,6 +296,8 @@ class ScanState:
     def needs_review(self) -> bool:
         if self.show_id is not None and self.match_origin == "manual":
             return False
+        if self.match_origin == "fallback":
+            return True
         if self.tie_detected:
             return True
         return self.confidence < get_auto_accept_threshold()
@@ -310,6 +328,7 @@ class ScanState:
         self.automux_disabled = False
         self.mux_plans.clear()
         self.mux_probe_errors.clear()
+        self.merge_gate_errors.clear()
         self.mux_opt_outs.clear()
 
     def reset_scan(self) -> None:
@@ -322,26 +341,58 @@ class ScanState:
         self.reset_gui_state()
 
 
+def show_pin_key(folder: Path) -> str:
+    """Stable per-show key for provider pins: cleaned title, plus year
+    when the folder name carries one ("breaking bad|2008")."""
+    from ..parsing import best_tv_match_title, extract_year
+
+    title = best_tv_match_title(folder, include_year=False).casefold()
+    year = extract_year(folder.name)
+    return f"{title}|{year}" if year else title
+
+
 def plan_has_actions(plan: dict) -> bool:
     """Mirror of MuxPlan.has_actions for serialized plans (user edits can
     reduce a plan to a no-op; such plans must not force a remux).
 
     Moved from automux_service (round6 §1) so engine-level code can use it
-    without an engine -> app import; automux_service re-exports it."""
+    without an engine -> app import; automux_service re-exports it. Must
+    stay in sync with MuxPlan.has_actions (engine/_mux_planner.py), which
+    also counts a non-empty ``append_sources`` — a multi-part merge is a
+    mux action even when nothing else about the plan changed."""
+    if plan.get("container_conversion"):
+        return True
     if any(not d.get("keep", True) for d in plan.get("track_decisions", [])):
         return True
-    return any(m.get("action") == "merge" for m in plan.get("subtitle_merges", []))
+    if any(m.get("action") == "merge" for m in plan.get("subtitle_merges", [])):
+        return True
+    return bool(plan.get("append_sources"))
+
+
+def is_merge_row(item: PreviewItem) -> bool:
+    """True when this preview item is a multi-part merge row -- one or
+    more sibling part paths to append via mkvmerge (spec: multi-part
+    episode merge). A merge row's video op must never queue without its
+    materialized append plan (final-review C1); shared here so
+    ``_queue_bridge``, ``automux_service``, and the GUI coordinator all
+    test the same shape instead of re-deriving it."""
+    return bool(item.merge_part_paths)
 
 
 def file_mux_active(state: ScanState, index: int) -> bool:
     """True when this preview item will actually be muxed: cached plan
-    with actions, not opted out, AutoMux not disabled for the entry.
+    with actions, not opted out, and (AutoMux not disabled for the entry
+    OR the row is a merge row -- an approved part-append survives a
+    per-show AutoMux disable, spec §5).
 
     Moved from automux_service (round6 §1) — see plan_has_actions."""
-    if state.automux_disabled or index in state.mux_opt_outs:
+    if index in state.mux_opt_outs:
         return False
     plan = state.mux_plans.get(index)
-    return plan is not None and plan_has_actions(plan)
+    if plan is None or not plan_has_actions(plan):
+        return False
+    merge_row = 0 <= index < len(state.preview_items) and is_merge_row(state.preview_items[index])
+    return merge_row or not state.automux_disabled
 
 
 @dataclass(frozen=True)

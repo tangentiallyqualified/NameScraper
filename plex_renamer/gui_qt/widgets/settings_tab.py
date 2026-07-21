@@ -242,6 +242,15 @@ class SettingsTab(QScrollArea):
     def _on_save_key(self) -> None:
         self._actions_coordinator.save_key()
 
+    def _on_tv_source_changed(self, index: int) -> None:
+        self._actions_coordinator.on_tv_source_changed(index)
+
+    def _on_fallback_toggled(self, checked: bool) -> None:
+        self._actions_coordinator.on_fallback_toggled(checked)
+
+    def _on_id_tag_routing_toggled(self, checked: bool) -> None:
+        self._actions_coordinator.on_id_tag_routing_toggled(checked)
+
     def _on_test_key(self) -> None:
         self._actions_coordinator.test_key(submit_bg=_submit_bg)
 

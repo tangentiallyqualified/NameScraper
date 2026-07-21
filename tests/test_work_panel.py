@@ -909,3 +909,78 @@ class WorkPanelTests(QtSmokeBase):
         self.assertEqual(panel._source_pill.text(), "TMDB")
         self.assertNotIn("%", panel._source_pill.text())
         panel.close()
+
+    def test_source_button_hidden_without_both_provider_keys(self):
+        from unittest.mock import patch
+
+        from plex_renamer.gui_qt.widgets import _work_panel as wp
+
+        panel, state = self._panel_with_matched_state(confidence=0.93)
+        with patch.object(wp, "_dual_tv_providers_available", return_value=False):
+            panel.refresh_header(state)
+        self.assertFalse(panel.source_button.isVisible())
+        panel.close()
+
+    def test_source_button_checks_the_states_provider(self):
+        from unittest.mock import patch
+
+        from plex_renamer.gui_qt.widgets import _work_panel as wp
+
+        panel, state = self._panel_with_matched_state(confidence=0.93)
+        panel.show()
+        state.provider_name = "tvdb"
+        with patch.object(wp, "_dual_tv_providers_available", return_value=True):
+            panel.refresh_header(state)
+        self.assertTrue(panel.source_button.isVisible())
+        checked_labels = [action.text() for action in panel._source_actions if action.isChecked()]
+        self.assertEqual(checked_labels, ["TheTVDB"])
+        panel.close()
+
+    def test_source_action_emits_source_selected(self):
+        from unittest.mock import patch
+
+        from plex_renamer.gui_qt.widgets import _work_panel as wp
+
+        panel, state = self._panel_with_matched_state(confidence=0.93)
+        with patch.object(wp, "_dual_tv_providers_available", return_value=True):
+            panel.refresh_header(state)
+        selected: list[str] = []
+        panel.source_selected.connect(selected.append)
+        tvdb_action = next(a for a in panel._source_actions if a.data() == "tvdb")
+        tvdb_action.trigger()
+        self.assertEqual(selected, ["tvdb"])
+        panel.close()
+
+    def test_overview_fetch_routes_through_provider_for_state(self):
+        from unittest.mock import patch
+
+        from plex_renamer.gui_qt.widgets import _work_panel as wp
+        from plex_renamer.gui_qt.widgets._work_panel import MediaWorkPanel
+
+        state, guide = _guide_state()
+        state.provider_name = "tvdb"
+        calls: list[str] = []
+
+        class _Tmdb:
+            def get_tv_details(self, show_id):
+                calls.append("tmdb")
+                return {"overview": "tmdb overview"}
+
+        class _Tvdb:
+            def get_tv_details(self, show_id):
+                calls.append("tvdb")
+                return {"overview": "tvdb overview"}
+
+        def _provider_for_state(s):
+            return _Tvdb() if s.provider_name == "tvdb" else _Tmdb()
+
+        panel = MediaWorkPanel(
+            media_type="tv",
+            guide_provider=lambda _s: guide,
+            tmdb_provider=lambda: _Tmdb(),
+            provider_for_state=_provider_for_state,
+        )
+        with patch.object(wp, "_submit_bg", side_effect=lambda fn: fn()):
+            panel.show_state(state, collapsed_sections=set(), folder_preview=None)
+        self.assertEqual(calls, ["tvdb"])
+        panel.close()

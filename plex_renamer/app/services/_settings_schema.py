@@ -22,6 +22,7 @@ SETTINGS_SCHEMA: dict[str, tuple[type, ...]] = {
     "recent_movie_folders": (list,),
     "cache_max_size_bytes": (int,),
     "mkvmerge_path": (str,),
+    "ffprobe_path": (str,),
     "automux_merge_subs": (bool,),
     "automux_merge_sub_languages": (list,),
     "automux_default_sub_language": (str,),
@@ -34,6 +35,14 @@ SETTINGS_SCHEMA: dict[str, tuple[type, ...]] = {
     "automux_strip_track_names": (bool,),
     "automux_no_fear": (bool,),
     "automux_exclude_commentary": (bool,),
+    "automux_convert_containers": (bool,),
+    "automux_dedupe_audio": (bool,),
+    "automux_dedupe_keep_per_layout": (bool,),
+    "automux_lossless_policy": (str,),
+    "automux_tie_prefer_smaller": (bool,),
+    "automux_tie_tolerance_pct": (int,),
+    "automux_transparency_kbps_per_channel": (int,),
+    "automux_codec_weights": (dict,),
     "metadata_enabled": (bool,),
     "metadata_prefer_local": (bool,),
     "metadata_write_nfo": (bool,),
@@ -47,6 +56,10 @@ SETTINGS_SCHEMA: dict[str, tuple[type, ...]] = {
     "metadata_embed_title": (bool,),
     "metadata_embed_cover": (bool,),
     "metadata_embed_tags": (bool,),
+    "tv_metadata_source": (str,),
+    "tv_fallback_enabled": (bool,),
+    "tv_id_tag_routing_enabled": (bool,),
+    "tv_provider_overrides": (dict,),
 }
 
 MAX_RECENT_FOLDERS = 10
@@ -66,8 +79,9 @@ DEFAULT_SETTINGS: dict[str, object] = {
     "splitter_positions": None,
     "recent_tv_folders": [],
     "recent_movie_folders": [],
-    "cache_max_size_bytes": 1024 ** 3,   # 1 GiB (GUI-V4 R2, S2)
+    "cache_max_size_bytes": 1024**3,  # 1 GiB (GUI-V4 R2, S2)
     "mkvmerge_path": "",
+    "ffprobe_path": "",
     "automux_merge_subs": False,
     "automux_merge_sub_languages": [],
     "automux_default_sub_language": "",
@@ -80,6 +94,14 @@ DEFAULT_SETTINGS: dict[str, object] = {
     "automux_strip_track_names": False,
     "automux_no_fear": False,
     "automux_exclude_commentary": False,
+    "automux_convert_containers": True,
+    "automux_dedupe_audio": False,
+    "automux_dedupe_keep_per_layout": True,
+    "automux_lossless_policy": "quality",
+    "automux_tie_prefer_smaller": True,
+    "automux_tie_tolerance_pct": 15,
+    "automux_transparency_kbps_per_channel": 160,
+    "automux_codec_weights": {},
     "metadata_enabled": False,
     "metadata_prefer_local": False,
     "metadata_write_nfo": True,
@@ -93,6 +115,10 @@ DEFAULT_SETTINGS: dict[str, object] = {
     "metadata_embed_title": True,
     "metadata_embed_cover": True,
     "metadata_embed_tags": True,
+    "tv_metadata_source": "tmdb",
+    "tv_fallback_enabled": False,
+    "tv_id_tag_routing_enabled": True,
+    "tv_provider_overrides": {},
 }
 
 

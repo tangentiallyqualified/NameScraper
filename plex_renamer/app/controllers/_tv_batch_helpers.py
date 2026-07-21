@@ -62,6 +62,8 @@ def start_tv_batch_session(
     folder: Path,
     tmdb: Any,
     discovery_service: TVLibraryDiscoveryService,
+    *,
+    fallback_provider: Any | None = None,
 ) -> None:
     controller._batch_mode = True
     controller._active_content_mode = MediaType.TV
@@ -71,6 +73,14 @@ def start_tv_batch_session(
         tmdb,
         folder,
         discovery_service=discovery_service,
+        fallback_provider=fallback_provider,
+        provider_overrides=controller._settings.tv_provider_overrides,
+        id_tag_routing=controller._settings.tv_id_tag_routing_enabled,
+        # fallback_provider is pooled whenever its key exists (I1 fix) —
+        # this flag independently gates the confidence-based second-opinion
+        # matching PASS on the fallback-MATCHING setting, so pin/id-tag
+        # routing and the Source selector still work with matching off.
+        fallback_matching=controller._settings.tv_fallback_enabled,
     )
     controller._batch_states = []
     controller._active_scan = None

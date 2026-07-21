@@ -12,6 +12,7 @@ from .constants import (
     YEAR_MAX,
     YEAR_MIN_EXTRACT,
 )
+from ._parsing_id_tags import strip_provider_id_tags
 
 _LEADING_WEBSITE_RELEASE_PREFIX = re.compile(
     r"^\s*(?:https?://)?www\.[A-Za-z0-9][A-Za-z0-9-]*"
@@ -49,6 +50,7 @@ def clean_folder_name(name: str, *, include_year: bool = True) -> str:
       7. If a 4-digit year is found and include_year is True, preserve it
          in parentheses
     """
+    name = strip_provider_id_tags(name)
     name = _LEADING_WEBSITE_RELEASE_PREFIX.sub("", name)
     acronyms: list[tuple[str, str, bool]] = []
 

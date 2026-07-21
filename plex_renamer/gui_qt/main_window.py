@@ -12,6 +12,7 @@ workspace widget.
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import (
@@ -68,6 +69,7 @@ class MainWindow(QMainWindow):
 
         # ── TMDB client (lazily created) ─────────────────────────
         self._tmdb: TMDBClient | None = None
+        self._tv_provider: Any | None = None
         self._tv_snapshot: dict | None = None
         self._movie_snapshot: dict | None = None
         self._tmdb_coordinator = MainWindowTmdbCoordinator(
@@ -160,6 +162,15 @@ class MainWindow(QMainWindow):
             api_key_lookup=get_api_key,
             tmdb_client_factory=TMDBClient,
         )
+
+    def _ensure_tv_provider(self) -> Any | None:
+        return self._tmdb_coordinator.ensure_tv_provider(api_key_lookup=get_api_key)
+
+    def _ensure_other_provider(self) -> Any | None:
+        return self._tmdb_coordinator.ensure_other_provider(api_key_lookup=get_api_key)
+
+    def _provider_named(self, name: str) -> Any | None:
+        return self._tmdb_coordinator.provider_named(name, api_key_lookup=get_api_key)
 
     def _persist_tmdb_cache_snapshot(self) -> None:
         self._tmdb_coordinator.persist_tmdb_cache_snapshot()
@@ -286,9 +297,11 @@ class MainWindow(QMainWindow):
 
     def _on_job_started(self, _job: RenameJob) -> None:
         self._feedback_coordinator.on_job_started(_job)
+        self._set_workspace_executor_busy(True)
 
     def _on_job_completed(self, job: RenameJob, result: RenameResult) -> None:
         self._feedback_coordinator.on_job_completed(job, result)
+        self._release_executor_busy_if_idle()
 
     def _flush_success_toast_batch(self) -> None:
         self._feedback_coordinator.flush_success_toast_batch()
@@ -299,12 +312,30 @@ class MainWindow(QMainWindow):
 
     def _on_job_failed(self, job: RenameJob, error: str) -> None:
         self._feedback_coordinator.on_job_failed(job, error)
+        self._release_executor_busy_if_idle()
+
+    def _release_executor_busy_if_idle(self) -> None:
+        # execute_single_job fires "started" but never "finished" (that
+        # event belongs to the full-queue worker loop) — without this, one
+        # single-job run leaves the warm sweep downshifted all session.
+        # During full-queue runs the running flag stays set between jobs,
+        # so this never flaps mid-batch.
+        if not self.queue_ctrl.is_running:
+            self._set_workspace_executor_busy(False)
 
     def _on_job_progress(self, job: RenameJob, op_index: int, op_count: int, percent: int) -> None:
         self._queue_tab.update_job_progress(job, op_index, op_count, percent)
 
     def _on_queue_finished(self) -> None:
         self._feedback_coordinator.on_queue_finished()
+        self._set_workspace_executor_busy(False)
+
+    def _set_workspace_executor_busy(self, busy: bool) -> None:
+        # Sweep yields to the executor (spec: mkv-conversion-and-latency §3).
+        for workspace in (self._tv_workspace, self._movie_workspace):
+            automux = getattr(workspace, "_automux", None)
+            if automux is not None:
+                automux.set_executor_busy(busy)
 
     # ── Other actions ────────────────────────────────────────────
 

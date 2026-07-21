@@ -1,4 +1,5 @@
 """Tracks section widget: rendering, editing, safety floor, locking."""
+
 from __future__ import annotations
 
 from conftest_qt import QtSmokeBase
@@ -6,22 +7,50 @@ from conftest_qt import QtSmokeBase
 PLAN = {
     "output_name": "X.mkv",
     "track_decisions": [
-        {"track_id": 0, "track_type": "video", "codec": "h264",
-         "language": "und", "name": "", "keep": True,
-         "make_default": True, "reason": "video"},
-        {"track_id": 1, "track_type": "audio", "codec": "aac",
-         "language": "eng", "name": "", "keep": True,
-         "make_default": True, "reason": "retained"},
-        {"track_id": 2, "track_type": "subtitles", "codec": "srt",
-         "language": "fre", "name": "", "keep": False,
-         "make_default": False, "reason": "not in retain list"},
+        {
+            "track_id": 0,
+            "track_type": "video",
+            "codec": "h264",
+            "language": "und",
+            "name": "",
+            "keep": True,
+            "make_default": True,
+            "reason": "video",
+        },
+        {
+            "track_id": 1,
+            "track_type": "audio",
+            "codec": "aac",
+            "language": "eng",
+            "name": "",
+            "keep": True,
+            "make_default": True,
+            "reason": "retained",
+        },
+        {
+            "track_id": 2,
+            "track_type": "subtitles",
+            "codec": "srt",
+            "language": "fre",
+            "name": "",
+            "keep": False,
+            "make_default": False,
+            "reason": "not in retain list",
+        },
     ],
     "subtitle_merges": [
-        {"source_relative": "Show/a.eng.srt", "action": "merge",
-         "language": "eng", "set_default": False},
+        {
+            "source_relative": "Show/a.eng.srt",
+            "action": "merge",
+            "language": "eng",
+            "set_default": False,
+        },
     ],
-    "strip_track_names": False, "no_fear": False, "mkvmerge_path": "",
-    "warnings": [], "user_modified": False,
+    "strip_track_names": False,
+    "no_fear": False,
+    "mkvmerge_path": "",
+    "warnings": [],
+    "user_modified": False,
 }
 
 
@@ -40,35 +69,45 @@ class AutoMuxTracksWidgetTests(QtSmokeBase):
 
     def _plan_with_tracks(self, count=30):
         decisions = [
-            {"track_id": i, "track_type": "audio", "codec": "aac",
-             "language": "eng", "name": f"Track {i}", "keep": True,
-             "make_default": i == 0, "reason": "retained"}
+            {
+                "track_id": i,
+                "track_type": "audio",
+                "codec": "aac",
+                "language": "eng",
+                "name": f"Track {i}",
+                "keep": True,
+                "make_default": i == 0,
+                "reason": "retained",
+            }
             for i in range(count)
         ]
         return {
             "output_name": "Many.mkv",
             "track_decisions": decisions,
             "subtitle_merges": [],
-            "strip_track_names": False, "no_fear": False, "mkvmerge_path": "",
-            "warnings": [], "user_modified": False,
+            "strip_track_names": False,
+            "no_fear": False,
+            "mkvmerge_path": "",
+            "warnings": [],
+            "user_modified": False,
         }
 
     def test_show_plan_renders_rows(self):
         widget = self._widget()
         widget.show_plan(PLAN)
         boxes = self._boxes(widget)
-        self.assertEqual(len(boxes), 4)          # 3 embedded + 1 merge
+        self.assertEqual(len(boxes), 4)  # 3 embedded + 1 merge
         video_box = boxes[0]
         self.assertFalse(video_box.isEnabled())  # video is never editable
-        self.assertFalse(boxes[2].isChecked())   # stripped sub unchecked
-        self.assertTrue(boxes[3].isChecked())    # merge checked
+        self.assertFalse(boxes[2].isChecked())  # stripped sub unchecked
+        self.assertTrue(boxes[3].isChecked())  # merge checked
 
     def test_edit_emits_user_modified_plan(self):
         widget = self._widget()
         widget.show_plan(PLAN)
         emitted = []
         widget.plan_edited.connect(emitted.append)
-        self._boxes(widget)[3].setChecked(False)     # merge → rename
+        self._boxes(widget)[3].setChecked(False)  # merge → rename
         self.assertEqual(len(emitted), 1)
         plan = emitted[0]
         self.assertTrue(plan["user_modified"])
@@ -84,8 +123,8 @@ class AutoMuxTracksWidgetTests(QtSmokeBase):
         widget.plan_edited.connect(emitted.append)
         audio_box = self._boxes(widget)[1]
         audio_box.setChecked(False)
-        self.assertTrue(audio_box.isChecked())       # snapped back
-        self.assertEqual(emitted, [])                # no edit emitted
+        self.assertTrue(audio_box.isChecked())  # snapped back
+        self.assertEqual(emitted, [])  # no edit emitted
 
     def test_locked_disables_all_controls(self):
         widget = self._widget()
@@ -98,6 +137,7 @@ class AutoMuxTracksWidgetTests(QtSmokeBase):
         widget.show_plan(plan)
         widget.adjustSize()
         from plex_renamer.gui_qt import _scale
+
         # Task 7: the notice moved inline onto the heading row (no separate
         # bottom row), so the cap-plus-slack tolerance dropped from the
         # pre-Task-7 formula's +80 (heading row + row cap + a standalone
@@ -140,8 +180,7 @@ class AutoMuxTracksWidgetTests(QtSmokeBase):
         self._app.processEvents()
         self.assertIs(widget._notice.parent(), widget._heading_row)
         self.assertIs(widget._heading.parent(), widget._heading_row)
-        self.assertLess(
-            widget._notice.geometry().y(), widget._rows_scroll.geometry().y())
+        self.assertLess(widget._notice.geometry().y(), widget._rows_scroll.geometry().y())
 
     def test_fill_mode_lifts_the_row_cap(self):
         from plex_renamer.gui_qt import _scale
@@ -150,8 +189,7 @@ class AutoMuxTracksWidgetTests(QtSmokeBase):
         widget.set_fill_mode(True)
         self.assertEqual(widget._rows_scroll.maximumHeight(), 16777215)
         widget.set_fill_mode(False)
-        self.assertEqual(
-            widget._rows_scroll.maximumHeight(), _scale.px(8 * 24))
+        self.assertEqual(widget._rows_scroll.maximumHeight(), _scale.px(8 * 24))
 
     def test_fill_mode_keeps_minimum_height_bounded_with_large_plan(self):
         # Review finding (Task 7): in fill mode sizeHint() may grow with
@@ -167,9 +205,10 @@ class AutoMuxTracksWidgetTests(QtSmokeBase):
         widget = self._widget()
         widget.set_fill_mode(True)
         widget.show_plan(self._plan_with_tracks(count=20))
-        cap_plus_chrome = _scale.px(8 * 24 + 40)   # row cap + heading row slack
+        cap_plus_chrome = _scale.px(8 * 24 + 40)  # row cap + heading row slack
         self.assertLessEqual(
-            widget.minimumSizeHint().height(), cap_plus_chrome,
+            widget.minimumSizeHint().height(),
+            cap_plus_chrome,
             f"fill-mode minimumSizeHint {widget.minimumSizeHint().height()}px "
             f"scales with track count -- it must stay bounded at the 8-row "
             f"cap (+chrome) so the splitter pane can shrink",
@@ -200,8 +239,7 @@ class AutoMuxTracksWidgetTests(QtSmokeBase):
         self.assertEqual(widget._notice.toolTip(), "Reading tracks…")
 
         widget.show_no_actions()
-        self.assertEqual(
-            widget._notice.toolTip(), "No AutoMux actions apply to this file.")
+        self.assertEqual(widget._notice.toolTip(), "No AutoMux actions apply to this file.")
 
         plan = dict(PLAN)
         plan["warnings"] = [long_error]
@@ -213,18 +251,55 @@ class AutoMuxTracksWidgetTests(QtSmokeBase):
             AutoMuxTracksWidget,
         )
 
-        forced = AutoMuxTracksWidget._embedded_label({
-            "track_type": "subtitles", "language": "eng",
-            "codec": "srt", "name": "Signs",
-            "is_forced": True, "is_commentary": False})
+        forced = AutoMuxTracksWidget._embedded_label(
+            {
+                "track_type": "subtitles",
+                "language": "eng",
+                "codec": "srt",
+                "name": "Signs",
+                "is_forced": True,
+                "is_commentary": False,
+            }
+        )
         self.assertIn("forced", forced)
-        commentary = AutoMuxTracksWidget._embedded_label({
-            "track_type": "audio", "language": "eng",
-            "codec": "aac", "name": "Director Commentary",
-            "is_forced": False, "is_commentary": True})
+        commentary = AutoMuxTracksWidget._embedded_label(
+            {
+                "track_type": "audio",
+                "language": "eng",
+                "codec": "aac",
+                "name": "Director Commentary",
+                "is_forced": False,
+                "is_commentary": True,
+            }
+        )
         self.assertIn("commentary", commentary)
-        plain = AutoMuxTracksWidget._embedded_label({
-            "track_type": "audio", "language": "eng",
-            "codec": "aac", "name": "",
-            "is_forced": False, "is_commentary": False})
+        plain = AutoMuxTracksWidget._embedded_label(
+            {
+                "track_type": "audio",
+                "language": "eng",
+                "codec": "aac",
+                "name": "",
+                "is_forced": False,
+                "is_commentary": False,
+            }
+        )
         self.assertNotIn("forced", plain)
+
+    def test_show_plan_renders_conversion_row(self):
+        widget = self._widget()
+        plan = {
+            "output_name": "X.mkv",
+            "track_decisions": [],
+            "subtitle_merges": [],
+            "strip_track_names": False,
+            "no_fear": False,
+            "mkvmerge_path": "",
+            "warnings": [],
+            "container_conversion": True,
+        }
+        widget.show_plan(plan)
+        self.assertIsNotNone(widget._conversion_label)
+        self.assertIn("Convert container to MKV", widget._conversion_label.text())
+
+        widget.show_plan({**plan, "container_conversion": False})
+        self.assertIsNone(widget._conversion_label)

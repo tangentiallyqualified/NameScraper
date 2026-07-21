@@ -142,7 +142,7 @@ class QueueControllerTests(unittest.TestCase):
             self.assertIn("poster_path", columns)
             self.assertIn("active_temp", columns)
             self.assertIn("metadata_plan", columns)
-            self.assertEqual(version, 5)
+            self.assertEqual(version, 6)
         finally:
             migrated.close()
 
@@ -188,7 +188,7 @@ class QueueControllerTests(unittest.TestCase):
             self.assertIn("output_root", columns)
             self.assertIn("active_temp", columns)
             self.assertIn("metadata_plan", columns)
-            self.assertEqual(version, 5)
+            self.assertEqual(version, 6)
         finally:
             migrated.close()
 

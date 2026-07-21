@@ -108,6 +108,7 @@ def episode_row_actions(row) -> list[tuple[str, str]]:
             ("keep_this", "Keep this file (unassign others)"),
             ("reassign", "Reassign..."),
             ("assign_to_more", "Assign to more..."),
+            ("merge_parts", "Merge into one episode..."),
             ("unassign", "Unassign"),
         ]
     actions: list[tuple[str, str]] = []
@@ -115,6 +116,9 @@ def episode_row_actions(row) -> list[tuple[str, str]]:
         actions.append(("approve", "Approve"))
     actions.append(("reassign", "Reassign..."))
     actions.append(("assign_to_more", "Assign to more..."))
+    primary = getattr(row, "primary_file", None)
+    if primary is not None and getattr(primary, "merge_part_paths", []):
+        actions.append(("ungroup", "Ungroup parts"))
     actions.append(("unassign", "Unassign"))
     return actions
 
@@ -304,6 +308,13 @@ class EpisodeExpansionCard(QFrame):
             else:
                 self._build_labeled_path("Subtitle Source", str(subtitle.original), open_dir=True)
                 self._build_labeled_path("Subtitle Output", subtitle.new_name or "", open_dir=False)
+        if preview_index is not None and preview_index in state.merge_gate_errors:
+            blocked = QLabel(
+                f"<b>Merge blocked:</b> {html.escape(state.merge_gate_errors[preview_index])}"
+            )
+            blocked.setProperty("cssClass", "caption")
+            blocked.setWordWrap(True)
+            self._files_section.addWidget(blocked)
         self._build_actions_row(
             episode_row_actions(row),
             above_fold_ids=above_fold_ids,

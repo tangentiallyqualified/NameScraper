@@ -75,6 +75,7 @@ class AutoMuxTracksWidget(QFrame):
         super().__init__(parent)
         self.setProperty("cssClass", "automux-tracks")
         self._plan: dict | None = None
+        self._conversion_label: QLabel | None = None
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, _scale.px(4), 0, _scale.px(4))
         layout.setSpacing(_scale.px(4))
@@ -132,6 +133,14 @@ class AutoMuxTracksWidget(QFrame):
         self._plan = copy.deepcopy(plan)
         self._clear_rows()
         self._set_notice("; ".join(plan.get("warnings", [])))
+        self._conversion_label = None
+        if self._plan.get("container_conversion"):
+            label = QLabel("Convert container to MKV")
+            label.setProperty("cssClass", "caption")
+            label.setMinimumHeight(_scale.px(20))
+            self._rows.addWidget(label)
+            label.show()  # same visibility/sizeHint gap as the row comment below
+            self._conversion_label = label
         for pos, decision in enumerate(self._plan.get("track_decisions", [])):
             box = QCheckBox(self._embedded_label(decision))
             box.setChecked(bool(decision["keep"]))
@@ -262,6 +271,7 @@ class AutoMuxTracksWidget(QFrame):
         self._notice.setToolTip(text)
 
     def _clear_rows(self) -> None:
+        self._conversion_label = None
         while self._rows.count():
             item = self._rows.takeAt(0)
             widget = item.widget()

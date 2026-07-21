@@ -7,6 +7,7 @@ front (a deferred QTimer show can never fire while the loop is blocked).  The
 default deferred mode is for waits where the loop stays alive (off-thread
 work): the overlay appears only if the wait exceeds ``delay_ms``.
 """
+
 from __future__ import annotations
 
 from contextlib import contextmanager
@@ -92,6 +93,10 @@ class BusyOverlay(QWidget):
         scrim = QColor(theme.color("bg"))
         scrim.setAlpha(_SCRIM_ALPHA)
         painter.fillRect(self.rect(), scrim)
+
+    def set_text(self, text: str) -> None:
+        """Update the status label (e.g. per-item progress) while shown."""
+        self._label.setText(text)
 
     def show_now(self) -> None:
         self._cancel_timer()
