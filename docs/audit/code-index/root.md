@@ -1,11 +1,11 @@
-<!-- Generated from audit input 97f0f3283c15; do not edit. regenerate: scripts\audit.cmd --fast -->
+<!-- Generated from audit input 7637587931de; do not edit. regenerate: scripts\audit.cmd --fast -->
 
 
 # Package detail: root
 
 
 ### `plex_renamer/__init__.py` — NameScraper — rename media files into a library-standard (Plex/Jellyfin) naming format.
-- Tests: tests/conftest_qt.py, tests/test_alt_title_matching_orchestrator.py, tests/test_ffprobe_fallback.py, tests/test_keys.py, tests/test_mkv_locate.py, tests/test_mkv_locate_fallbacks.py, tests/test_mkv_probe.py, tests/test_mkvmerge_integration.py, tests/test_queue_executor_progress.py, tests/test_remux_execution.py, tests/test_thread_pool.py
+- Tests: tests/conftest_qt.py, tests/test_alt_title_matching_orchestrator.py, tests/test_ffprobe_fallback.py, tests/test_keys.py, tests/test_mkv_locate.py, tests/test_mkv_locate_fallbacks.py, tests/test_mkv_probe.py, tests/test_mkvmerge_integration.py, tests/test_queue_executor_progress.py, tests/test_remux_append_execution.py, tests/test_remux_execution.py, tests/test_thread_pool.py
 
 ### `plex_renamer/__main__.py` — Entry point for NameScraper.
 - `main()` — (no docstring)

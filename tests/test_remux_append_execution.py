@@ -71,7 +71,14 @@ def test_missing_append_source_fails_before_running(tmp_path: Path) -> None:
 
 
 def test_append_paths_reach_the_argv(tmp_path: Path, monkeypatch: Any) -> None:
-    monkeypatch.setattr(remux_execution, "find_mkvmerge", lambda _setting: None)
+    plan = _plan(tmp_path)
+    located_mkvmerge = Path(plan.mkvmerge_path)
+    plan.mkvmerge_path = ""
+
+    def find_test_mkvmerge(_setting: str) -> Path:
+        return located_mkvmerge
+
+    monkeypatch.setattr(remux_execution, "find_mkvmerge", find_test_mkvmerge)
     source_root, output_root = _setup(tmp_path)
     result = RenameResult()
     seen: list[list[str]] = []
@@ -84,7 +91,7 @@ def test_append_paths_reach_the_argv(tmp_path: Path, monkeypatch: Any) -> None:
         return 0, ""
 
     ok = execute_remux_op(
-        _op(_plan(tmp_path)),
+        _op(plan),
         source_root=source_root,
         output_root=output_root,
         result=result,
@@ -92,6 +99,7 @@ def test_append_paths_reach_the_argv(tmp_path: Path, monkeypatch: Any) -> None:
     )
     assert ok, result.errors
     argv = seen[0]
+    assert argv[0] == str(located_mkvmerge)
     assert str(source_root / "p2.mkv") in argv and str(source_root / "p3.mkv") in argv
     assert argv.count("+") == 2
 
