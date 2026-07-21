@@ -106,7 +106,9 @@ def _bootstrap_quality_baseline_once(current: dict) -> dict:
 
 
 def build_baseline(current: dict, previous_baseline: dict, accept_enlarged: bool = False) -> dict:
-    """Refresh evidence; accepting debt requires callers to pre-gate exact expected entries."""
+    """If ``accept_enlarged=True``, callers must first pass the same evidence through
+    ``gate_refresh_debt`` with exact operator-reviewed expectations; ``build_baseline``
+    itself only refreshes evidence and does not authorize debt."""
     if not accept_enlarged and isinstance(previous_baseline.get("coverage"), dict):
         if not isinstance(current.get("coverage"), dict):
             raise QualityEvidenceError("current coverage evidence missing")
@@ -456,8 +458,7 @@ def run_quality_baseline_update(
         _quality_refresh.gate_refresh_debt(violations, accept_enlarged, expected_entries)
         baseline = build_baseline(current, previous, accept_enlarged)
         path = repo_root / "scripts" / "audit" / "quality-baseline.json"
-        serialized = json.dumps(baseline, indent=1, sort_keys=True) + "\n"
-        path.write_text(serialized, encoding="utf-8", newline="\n")
+        _artifacts.write_text_lf(path, json.dumps(baseline, indent=1, sort_keys=True) + "\n")
     except _quality_refresh.QualityBaselineRefused as exc:
         print(f"quality baseline: refused - {exc}")
         return 1
@@ -465,8 +466,7 @@ def run_quality_baseline_update(
         print(f"quality baseline: failed - {exc}")
         return 1
 
-    findings = len(baseline["findings"])
-    ceilings = len(baseline["ceilings"])
+    findings, ceilings = len(baseline["findings"]), len(baseline["ceilings"])
     legacy_files = len(baseline["typing"]["legacy_python_files"])
     legacy_label = "file" if legacy_files == 1 else "files"
     print(

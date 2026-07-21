@@ -147,6 +147,58 @@ def test_accept_enlarged_requires_exact_expectations(
     assert message in capsys.readouterr().out
 
 
+def test_malformed_expectation_precedes_duplicate_expectation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    path, before = _write_enlarged_debt_fixture(tmp_path, monkeypatch)
+
+    result = _main(
+        [
+            "--update-quality-baseline",
+            "--accept-enlarged",
+            "--expect-enlarged",
+            EXPECTED_LOC,
+            "--expect-enlarged",
+            EXPECTED_LOC,
+            "--expect-enlarged",
+            "inventory|LOC",
+            "--repo-root",
+            str(tmp_path),
+        ]
+    )
+
+    assert result == 1
+    assert path.read_bytes() == before
+    assert capsys.readouterr().out.splitlines()[0] == (
+        "quality baseline: refused - malformed expectation: inventory|LOC"
+    )
+
+
+def test_unexpected_actual_debt_precedes_missing_expected_debt(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    path, before = _write_enlarged_debt_fixture(tmp_path, monkeypatch)
+
+    result = _main(
+        [
+            "--update-quality-baseline",
+            "--accept-enlarged",
+            "--expect-enlarged",
+            EXPECTED_LOC,
+            "--expect-enlarged",
+            "ruff|F401|plex_renamer/extra.py",
+            "--repo-root",
+            str(tmp_path),
+        ]
+    )
+
+    assert result == 1
+    assert path.read_bytes() == before
+    assert capsys.readouterr().out.splitlines()[0] == (
+        "quality baseline: refused - unexpected debt: coverage|package-floor|plex_renamer"
+    )
+
+
 def test_accept_enlarged_refuses_an_extra_actual_duplicate_identity() -> None:
     violations: list[dict[str, object]] = [
         {
