@@ -106,7 +106,12 @@ def _bootstrap_quality_baseline_once(current: dict) -> dict:
 
 
 def build_baseline(current: dict, previous_baseline: dict, accept_enlarged: bool = False) -> dict:
-    """Refresh current evidence while preserving/pruning the frozen legacy inventory."""
+    """Refresh evidence while preserving the frozen legacy inventory.
+
+    When ``accept_enlarged`` is true, the caller must first pass the same
+    evidence through ``gate_refresh_debt`` with an exact operator-reviewed
+    expected-entry set. This low-level function does not authorize debt.
+    """
     if not accept_enlarged and isinstance(previous_baseline.get("coverage"), dict):
         if not isinstance(current.get("coverage"), dict):
             raise QualityEvidenceError("current coverage evidence missing")

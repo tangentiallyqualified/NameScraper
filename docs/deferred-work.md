@@ -22,9 +22,9 @@ Last reviewed: 2026-07-21 at `eb7f6df`
 
 | Priority | Meaning | Active IDs |
 | --- | --- | --- |
-| P1 | Correctness, recovery, or safety-gate gaps | `MATCH-001`, `MATCH-002`, `GUI-001`, `QUAL-001`, `AUDIT-001` |
-| P2 | Bounded feature and maintainability work | `PARSE-001`–`PARSE-005`, `MATCH-003`–`MATCH-004`, `META-001`–`META-006`, `MUX-001`–`MUX-003`, `MUX-005`, `GUI-002`, `ARCH-001`–`ARCH-003`, `QUAL-002`, `AUDIT-003` |
-| P3 | Opportunistic polish and decision-covered debt | `MUX-004`, `MUX-006`, `GUI-003`, `QUAL-003`, `AUDIT-002`, `AUDIT-004`–`AUDIT-005` |
+| P1 | Correctness, recovery, or safety-gate gaps | `MATCH-001`, `MATCH-002`, `GUI-001`, `QUAL-001` |
+| P2 | Bounded feature and maintainability work | `PARSE-001`–`PARSE-005`, `MATCH-003`–`MATCH-004`, `META-001`–`META-006`, `MUX-001`–`MUX-003`, `MUX-005`, `GUI-002`, `ARCH-001`–`ARCH-003`, `QUAL-002` |
+| P3 | Opportunistic polish and decision-covered debt | `MUX-004`, `MUX-006`, `GUI-003`, `QUAL-003`, `AUDIT-004`–`AUDIT-005` |
 
 ## Matching and parsing
 
@@ -420,42 +420,6 @@ Last reviewed: 2026-07-21 at `eb7f6df`
   findings.
 
 ## Audit-harness hardening
-
-### AUDIT-001 — Guard expected entries for `--accept-enlarged`
-
-- **Status:** Active deferred
-- **Priority:** P1
-- **Scope:** Quality-baseline refresh CLI acceptance of enlarged debt.
-- **Outcome:** Add an expected-entry set or count so a refresh fails when it would
-  enroll more debt than the operator explicitly reviewed.
-- **Acceptance:** Exact-match acceptance succeeds; missing, additional, duplicate, and
-  malformed expectations fail before the baseline is written.
-- **Evidence:** `scripts/audit/_quality_refresh.py:gate_refresh_debt` currently accepts
-  and prints every enlarged entry when the boolean opt-in is set.
-
-### AUDIT-002 — Document the `build_baseline` caller contract
-
-- **Status:** Active deferred
-- **Priority:** P3
-- **Scope:** `scripts/audit/_ratchets.py:build_baseline` with
-  `accept_enlarged=True`.
-- **Outcome:** State that callers must gate violations before bypassing the internal
-  coverage/debt refusal path.
-- **Acceptance:** The function docstring names the precondition and its test or caller
-  documentation points to `gate_refresh_debt`.
-- **Evidence:** `run_quality_baseline_update` gates at line 453 before calling
-  `build_baseline`, but the function's current one-line docstring omits that contract.
-
-### AUDIT-003 — Assert the precise argparse guard error
-
-- **Status:** Active deferred
-- **Priority:** P2
-- **Scope:** The `--accept-enlarged`-without-update CLI test.
-- **Outcome:** Pin the specific parser error instead of accepting any `SystemExit(2)`.
-- **Acceptance:** The test asserts the `--accept-enlarged requires
-  --update-quality-baseline` stderr text and fails if the option is merely unknown.
-- **Evidence:** `tests/audit/test_quality_baseline_accept.py` currently asserts only
-  exit code 2; `scripts/audit/__main__.py` defines the intended message.
 
 ### AUDIT-004 — Retire the decision-covered SIM103 residue
 
