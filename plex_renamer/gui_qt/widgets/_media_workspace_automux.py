@@ -15,6 +15,7 @@ from typing import Any
 from PySide6.QtCore import QObject, Signal
 
 from ...app.services import automux_service
+from ...engine.models import is_merge_row
 from ...thread_pool import submit as _submit_bg
 from ._automux_tracks import AutoMuxTracksWidget
 
@@ -27,6 +28,11 @@ _WARM_SWEEP_WORKERS = 3
 
 class _PlanBridge(QObject):
     plan_ready = Signal(object, int, object, str)  # state, index, plan|None, error
+    # A merge row's probe went through ensure_state_plans (I1), which
+    # already wrote the result into state.mux_plans/mux_probe_errors/
+    # merge_gate_errors itself -- this signal just asks the GUI thread to
+    # re-sync from those buckets, same tail as _on_plan_ready.
+    merge_plan_ready = Signal(object, int)  # state, index
 
 
 class MediaWorkspaceAutoMuxCoordinator:
@@ -38,6 +44,7 @@ class MediaWorkspaceAutoMuxCoordinator:
         parent = workspace if isinstance(workspace, QObject) else None
         self._bridge = _PlanBridge(parent)
         self._bridge.plan_ready.connect(self._on_plan_ready)
+        self._bridge.merge_plan_ready.connect(self._on_merge_plan_ready)
         self._inflight: set[tuple[int, int]] = set()  # (id(state), index)
         self._inflight_lock = threading.Lock()
         self._warm_lock = threading.Lock()
@@ -135,6 +142,22 @@ class MediaWorkspaceAutoMuxCoordinator:
             if not (0 <= index < len(state.preview_items)):
                 return
             item = state.preview_items[index]
+            if is_merge_row(item):
+                # Final-review I1: a merge row must never get the
+                # single-file plan_for_item path below -- that builds a
+                # plan with no append_sources, which a later track edit
+                # would then lock in via user_modified (C1 regression).
+                # ensure_state_plans's per-index path already routes merge
+                # rows to _plan_merge_item (probes every part, gates, and
+                # builds the real append plan); it writes the result
+                # straight onto state (same pattern queue submission uses
+                # from its own thread-pool worker -- see module docstring),
+                # so this handler just asks the GUI thread to re-sync.
+                svc = self._workspace._settings
+                if svc is not None:
+                    automux_service.ensure_state_plans(state, svc, source_root, only_index=index)
+                bridge.merge_plan_ready.emit(state, index)
+                return
             probe = automux_service.probe_file(mkvmerge, item.original, ffprobe_path=ffprobe)
             if not probe.ok:
                 bridge.plan_ready.emit(state, index, None, probe.error or "Unreadable file")
@@ -166,6 +189,17 @@ class MediaWorkspaceAutoMuxCoordinator:
                 state.mux_plans.pop(index, None)
             else:
                 state.mux_plans[index] = plan
+        self._sync_after_plan(state, index)
+
+    def _on_merge_plan_ready(self, state, index: int) -> None:
+        """Tail for the merge-row probe path (I1): ensure_state_plans
+        already wrote plan/error onto *state* itself, so just re-sync the
+        GUI surfaces (same tail _on_plan_ready runs)."""
+        if state not in self._workspace._current_states():
+            return  # stale: library was reloaded
+        self._sync_after_plan(state, index)
+
+    def _sync_after_plan(self, state, index: int) -> None:
         self._refresh_widget(state, index)
         self._refresh_roster_row(state)
         if state is self._workspace._selected_state():

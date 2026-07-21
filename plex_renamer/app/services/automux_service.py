@@ -29,6 +29,7 @@ from ...engine.models import (
     PreviewItem,
     ScanState,
     file_mux_active,  # noqa: F401  (round6 §1: engine owns these so _queue_bridge can use them)
+    is_merge_row,
     plan_has_actions,
 )
 from .settings_service import SettingsService
@@ -261,7 +262,7 @@ def ensure_state_plans(
     land in state.mux_probe_errors and leave the file on the plain rename
     path.
     """
-    has_merge_rows = any(item.merge_part_paths for item in state.preview_items)
+    has_merge_rows = any(is_merge_row(item) for item in state.preview_items)
     active = automux_active(svc)
     track_edits_active = active and not state.automux_disabled
     if not track_edits_active and not has_merge_rows:
@@ -282,10 +283,26 @@ def ensure_state_plans(
     for index in indices:
         if not (0 <= index < len(state.preview_items)):
             continue
-        existing = state.mux_plans.get(index)
-        if existing and existing.get("user_modified"):
-            continue
         item = state.preview_items[index]
+        existing = state.mux_plans.get(index)
+        # A merge row's append is not user-editable (final-review I1): a
+        # user_modified plan that lost its append_sources -- e.g. a
+        # single-file plan the GUI cached for this row before the append
+        # was ever planned -- must not stay locked in, or the row queues
+        # as a plain rename of part 1 (spec C1). That one case rebuilds
+        # below instead of honoring the stale skip; every other
+        # user_modified plan (including a merge row whose append is
+        # already intact) keeps the skip. Any track edits the user made on
+        # a rebuilt plan are NOT carried over: the old plan's track
+        # decisions came from a single-file probe/settings context, and
+        # re-validating that layout against the append gate's
+        # identical-layout guarantee is out of scope here -- the rebuild
+        # starts clean.
+        stale_append_less_merge_plan = (
+            existing is not None and is_merge_row(item) and not existing.get("append_sources")
+        )
+        if existing and existing.get("user_modified") and not stale_append_less_merge_plan:
+            continue
         if not item.new_name:
             continue
         if not track_edits_active and not item.merge_part_paths:
@@ -374,4 +391,4 @@ def effective_mux_plans(state: ScanState) -> dict[int, dict] | None:
 def _is_merge_row(state: ScanState, index: int) -> bool:
     if not (0 <= index < len(state.preview_items)):
         return False
-    return bool(state.preview_items[index].merge_part_paths)
+    return is_merge_row(state.preview_items[index])

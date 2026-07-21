@@ -222,3 +222,69 @@ def test_mixed_rows_automux_off_plans_only_the_merge_row(tmp_path: Path) -> None
         "Show S01E05 (2).mkv",
         "Show S01E05 (3).mkv",
     ]  # only the merge row's parts were probed -- never the normal row
+
+
+def test_user_modified_merge_plan_without_append_is_rebuilt(tmp_path: Path) -> None:
+    """Final-review I1: a merge row's cached plan can be a single-file plan
+    (no append_sources) that the GUI's per-file probe path cached before
+    the append was ever planned; if a track edit then set user_modified,
+    the append is not user-editable, so the stale user_modified skip must
+    not lock it in -- ensure_state_plans has to rebuild the real append
+    plan regardless."""
+    state = _merge_state(tmp_path)
+    # Simulate exactly that: a single-file plan (built from item.original,
+    # i.e. part 1) with no append_sources, flagged user_modified by a
+    # track edit made before the row was ever grouped/replanned.
+    state.mux_plans[0] = {
+        "output_name": "Show - S01E05 - Five.mkv",
+        "track_decisions": [{"track_id": 0, "keep": False}],
+        "subtitle_merges": [],
+        "append_sources": [],
+        "strip_track_names": False,
+        "no_fear": False,
+        "mkvmerge_path": "",
+        "warnings": [],
+        "container_conversion": False,
+        "user_modified": True,
+    }
+
+    def prober(mkvmerge: Any, path: Path, **kwargs: Any) -> ProbeResult:
+        return _probe_for(path)
+
+    ensure_state_plans(state, _svc(tmp_path, automux_on=False), tmp_path, prober=prober)
+
+    plan: dict[str, Any] = state.mux_plans[0]
+    assert plan["append_sources"] == [
+        "Show S01E05 (2).mkv",
+        "Show S01E05 (3).mkv",
+    ]
+
+
+def test_user_modified_merge_plan_with_append_is_left_alone(tmp_path: Path) -> None:
+    """A merge row's user_modified plan that ALREADY carries append_sources
+    (a legitimate track edit layered on top of a real append plan) must
+    still be honored as user_modified -- the rebuild guard only applies
+    when the append itself is missing."""
+    state = _merge_state(tmp_path)
+    state.mux_plans[0] = {
+        "output_name": "Show - S01E05 - Five.mkv",
+        "track_decisions": [{"track_id": 0, "keep": False}],
+        "subtitle_merges": [],
+        "append_sources": ["Show S01E05 (2).mkv", "Show S01E05 (3).mkv"],
+        "strip_track_names": False,
+        "no_fear": False,
+        "mkvmerge_path": "",
+        "warnings": [],
+        "container_conversion": False,
+        "user_modified": True,
+    }
+    calls: list[Path] = []
+
+    def prober(mkvmerge: Any, path: Path, **kwargs: Any) -> ProbeResult:
+        calls.append(path)
+        return _probe_for(path)
+
+    ensure_state_plans(state, _svc(tmp_path, automux_on=False), tmp_path, prober=prober)
+
+    assert calls == []  # untouched: no re-probe, the cached plan is kept as-is
+    assert state.mux_plans[0]["track_decisions"] == [{"track_id": 0, "keep": False}]

@@ -79,6 +79,8 @@ def _dispose_coordinator(coordinator):
     later test), racing Qt teardown (conftest_qt segfault note)."""
     with contextlib.suppress(RuntimeError):
         coordinator._bridge.plan_ready.disconnect()
+    with contextlib.suppress(RuntimeError):
+        coordinator._bridge.merge_plan_ready.disconnect()
     coordinator._widgets.clear()
 
 
@@ -180,6 +182,74 @@ class WorkspaceAutoMuxTests(QtSmokeBase):
         merge_box.setChecked(False)
         self.assertTrue(state.mux_plans[0]["user_modified"])
         self.assertEqual(state.mux_plans[0]["subtitle_merges"][0]["action"], "rename")
+
+    def test_run_probe_delegates_merge_rows_to_ensure_state_plans(self):
+        """Final-review I1 (GUI half): a merge row must never take the
+        single-file plan_for_item path -- that builds a plan with no
+        append_sources, which a later track edit's user_modified flag
+        would then lock in (C1 regression). _run_probe has to delegate to
+        ensure_state_plans(only_index=...) so the cached plan carries a
+        real append, gated the same way queue submission gates it."""
+        import plex_renamer.app.services.automux_service as svc_mod
+        from plex_renamer._mkv_probe import MediaTrack, ProbeResult
+        from plex_renamer.engine.models import PreviewItem, ScanState
+
+        base = Path(self._main_window_tmp.name)
+        parts = [base / "lib" / "Show" / f"Show S01E05 ({i}).mkv" for i in (1, 2)]
+        item = PreviewItem(
+            original=parts[0],
+            new_name="Show - S01E05 - Five.mkv",
+            target_dir=base / "out" / "Show (2020)" / "Season 01",
+            season=1,
+            episodes=[5],
+            status="OK",
+            media_type="tv",
+            merge_part_paths=list(parts),
+            merge_part_file_ids=[0, 1],
+        )
+        state = ScanState(
+            folder=base / "lib" / "Show",
+            media_info={"id": 7, "name": "Show", "year": "2020"},
+            preview_items=[item],
+            scanned=True,
+        )
+        coordinator, roster = self._coordinator(state, self._settings())
+
+        def fake_prober(mkv, path, **kwargs):
+            return ProbeResult(
+                path=str(path),
+                ok=True,
+                tracks=[
+                    MediaTrack(
+                        track_id=0,
+                        track_type="video",
+                        codec="AVC",
+                        language="und",
+                        name="",
+                        is_default=True,
+                        is_forced=False,
+                    ),
+                ],
+                container_type="Matroska",
+                duration_ms=600_000,
+            )
+
+        original_prober = svc_mod.probe_file
+        svc_mod.probe_file = fake_prober
+        self.addCleanup(setattr, svc_mod, "probe_file", original_prober)
+
+        prepared = coordinator._begin_probe(state, 0)
+        self.assertIsNotNone(prepared)
+        assert prepared is not None
+        mkvmerge, source_root, settings_obj, ffprobe = prepared
+        coordinator._run_probe(state, 0, mkvmerge, source_root, settings_obj, ffprobe)
+
+        plan = state.mux_plans.get(0)
+        self.assertIsNotNone(plan)
+        assert plan is not None
+        self.assertEqual([Path(p).name for p in plan["append_sources"]], ["Show S01E05 (2).mkv"])
+        # The GUI surfaces still get told to refresh (merge_plan_ready tail).
+        self.assertEqual(roster.refreshed, [0])
 
     def test_expansion_card_hosts_tracks_widget(self):
         from plex_renamer.gui_qt.widgets._automux_tracks import (
