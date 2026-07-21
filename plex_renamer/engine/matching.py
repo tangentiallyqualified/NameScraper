@@ -552,8 +552,8 @@ def _collect_movie_evidence(
     )
 
 
-# Movie confidence floors and caps. Tweak here as evidence weighting
-# is iterated. See docs/superpowers/specs/2026-05-16-batch-movie-improvements-design.md.
+# Movie confidence floors and caps. Token similarity is iterated once per
+# candidate.
 MOVIE_FLOOR_EXACT_TITLE = 0.95
 MOVIE_FLOOR_FOLDER_CORROBORATES = 0.88
 MOVIE_FLOOR_YEAR_EXACT = 0.85

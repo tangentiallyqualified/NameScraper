@@ -1,7 +1,7 @@
 """Shared episode resolution policy and confidence calibration.
 
-ALL episode-level confidence constants live here. Tweak values in one
-place; see docs/superpowers/specs/2026-06-11-episode-assignment-redesign-design.md.
+ALL episode-level confidence constants live here. This module owns the
+shared assignment confidence policy.
 """
 
 from __future__ import annotations

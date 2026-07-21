@@ -23690,7 +23690,7 @@
     "statements": 244
    },
    "plex_renamer/gui_qt/widgets": {
-    "covered": 8614,
+    "covered": 8615,
     "percent": 88.8,
     "statements": 9703
    }
@@ -31704,7 +31704,6 @@
   "tests/test_conflict_snapshot_staleness.py": "sha256:375ba75463ac11f743f5380863a83fe886ea4f4765946b8d92aff94b70e6a2c8",
   "tests/test_cross_season_number_claims.py": "sha256:b3de5f16e446e3c0a9e715173c66c38e23dabcf80f40c663086c75989188798a",
   "tests/test_disc_grouped_run_ambiguity.py": "sha256:72c1aa3f23f20e7fe06862bb406c1d569c5b79bf40c7db706e3ed0ba6ba288b5",
-  "tests/test_filename_formatting.py": "sha256:3227f2720c996563d34dcd322bc4771624f976d84a610eeb3d63fe5a0725713c",
   "tests/test_fragment_anchor_guard.py": "sha256:25f5c2d7592313f45593a577fd2e8c165a045b3f87d5654f3737e6fc552e2c2d",
   "tests/test_gui_perf_guards.py": "sha256:6ce046618b71b4f43c8096947d189fa56e1486f237f07bf504a5c8174429482a",
   "tests/test_job_execution_metadata.py": "sha256:6357968fb6d9e926ab3032087cb4488bc9a7e60445aecc8c180f7b59eb530d4a",

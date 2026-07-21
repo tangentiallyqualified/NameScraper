@@ -1,7 +1,6 @@
 """Edge-case parsing tests grounded in real download-directory filenames.
 
-Covers three hardening areas (see
-docs/superpowers/specs/2026-06-29-episode-parsing-edgecase-hardening-design.md):
+Protects three parsing invariants:
 
   Item 1 - bracketed [NN] fansub episode numbers
   Item 2 - numeric-in-title false-positive guards

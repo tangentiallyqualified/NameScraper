@@ -1,6 +1,7 @@
-"""Tests for multi-episode TV filename formatting in build_tv_name.
+"""Tests for multi-episode TV filename formatting in ``build_tv_name``.
 
-See docs/superpowers/specs/2026-06-29-multi-episode-filename-formatting-design.md
+Protects range rendering, shared-title collapsing, distinct-title joining,
+and the filename-length cap while preserving episode markers.
 """
 
 from __future__ import annotations
@@ -18,6 +19,7 @@ AVATAR_TITLES = [
 
 
 # ── Part 1: episode-range collapse ──────────────────────────────────
+
 
 @pytest.mark.parametrize(
     "episodes, expected_marker",
@@ -41,14 +43,17 @@ def test_noncontiguous_run_renders_each_episode_explicitly():
 
 # ── Part 2: title common-base collapse ──────────────────────────────
 
+
 def test_avatar_filename_form_collapses_to_common_base():
     name = build_tv_name(
-        "Avatar - The Last Airbender", "2005", 3, [18, 19, 20, 21],
-        AVATAR_TITLES, ".mkv",
+        "Avatar - The Last Airbender",
+        "2005",
+        3,
+        [18, 19, 20, 21],
+        AVATAR_TITLES,
+        ".mkv",
     )
-    assert name == (
-        "Avatar - The Last Airbender (2005) - S03E18-E21 - Sozin's Comet.mkv"
-    )
+    assert name == ("Avatar - The Last Airbender (2005) - S03E18-E21 - Sozin's Comet.mkv")
 
 
 def test_tmdb_part_form_collapses_to_common_base():
@@ -64,7 +69,12 @@ def test_tmdb_part_form_collapses_to_common_base():
 
 def test_distinct_short_titles_are_left_joined():
     name = build_tv_name(
-        "CatDog", "1998", 1, [1, 2], ["Dog Gone", "All You Can't Eat"], ".mp4",
+        "CatDog",
+        "1998",
+        1,
+        [1, 2],
+        ["Dog Gone", "All You Can't Eat"],
+        ".mp4",
     )
     assert name == "CatDog (1998) - S01E01-E02 - Dog Gone-All You Can't Eat.mp4"
 
@@ -80,6 +90,7 @@ def test_single_episode_title_unchanged():
 
 
 # ── Part 3: 170-char length cap ─────────────────────────────────────
+
 
 def test_long_distinct_titles_capped_with_ellipsis():
     titles = [

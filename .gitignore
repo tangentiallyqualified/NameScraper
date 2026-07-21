@@ -28,5 +28,6 @@ plex_renamer/test_library.zip
 # (docs/ supersedes the former docs/test_library/ and docs/local/ entries.)
 CLAUDE.md
 docs/*
+!docs/deferred-work.md
 !docs/audit/
 scripts/scan_real_library.py

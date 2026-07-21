@@ -7,7 +7,7 @@
 - `plex_renamer/_lang_normalize.py` — fan-in 4, fan-out 0, LOC 56
 - `plex_renamer/_mkv_locate.py` — fan-in 6, fan-out 0, LOC 65
 - `plex_renamer/_mkv_probe.py` — fan-in 4, fan-out 2, LOC 279
-- `plex_renamer/_parsing_parts.py` — fan-in 3, fan-out 0, LOC 106
+- `plex_renamer/_parsing_parts.py` — fan-in 3, fan-out 0, LOC 108
 - `plex_renamer/_parsing_titles.py` — fan-in 6, fan-out 2, LOC 277
 - `plex_renamer/_tmdb_transport.py` — fan-in 3, fan-out 0, LOC 166
 - `plex_renamer/constants.py` — fan-in 49, fan-out 0, LOC 117
@@ -45,5 +45,5 @@
 - `plex_renamer/job_executor.py` — fan-in 2, fan-out 6, LOC 891
 - `plex_renamer/tvdb.py` — fan-in 1, fan-out 5, LOC 465
 
-_Generated from audit input 0a6c53da574f by scripts\audit.cmd._
+_Generated from audit input c69bfb910821 by scripts\audit.cmd._
 <!-- audit:generated:end map-root -->
