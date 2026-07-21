@@ -477,7 +477,7 @@ def carry_over_manual_assignments(
         if new_id is None:
             continue
         try:
-            carried = new.assign(
+            new.assign(
                 new_id,
                 assignment.season,
                 list(assignment.episodes),
@@ -486,7 +486,3 @@ def carry_over_manual_assignments(
             )
         except ValueError:
             continue
-        if assignment.part_order:
-            new._assignments[new_id] = replace(
-                carried, role=assignment.role, part_order=assignment.part_order
-            )
