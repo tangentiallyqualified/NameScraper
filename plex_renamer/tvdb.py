@@ -290,7 +290,7 @@ class TVDBClient:
         if raw is None:
             raise SeasonMapUnavailableError(f"tvdb season map unavailable for {show_id}: not found")
         payload = raw.get("data")
-        if not isinstance(payload, dict):
+        if not isinstance(payload, dict) or not payload:
             raise SeasonMapUnavailableError(
                 f"tvdb season map unavailable for {show_id}: empty details"
             )
@@ -339,10 +339,22 @@ class TVDBClient:
                 raise SeasonMapUnavailableError(
                     f"tvdb season map unavailable for {show_id}: not found"
                 )
-            data: dict[str, Any] = raw.get("data") or {}
-            page_episodes: list[dict[str, Any]] = data.get("episodes") or []
+            data = raw.get("data")
+            if not isinstance(data, dict):
+                raise SeasonMapUnavailableError(
+                    f"tvdb season map unavailable for {show_id}: invalid episode data"
+                )
+            page_episodes = data.get("episodes")
+            if not isinstance(page_episodes, list):
+                raise SeasonMapUnavailableError(
+                    f"tvdb season map unavailable for {show_id}: invalid episode data"
+                )
             episodes.extend(page_episodes)
-            links: dict[str, Any] = raw.get("links") or {}
+            links = raw.get("links") or {}
+            if not isinstance(links, dict):
+                raise SeasonMapUnavailableError(
+                    f"tvdb season map unavailable for {show_id}: invalid pagination"
+                )
             if not links.get("next"):
                 return episodes
             page += 1

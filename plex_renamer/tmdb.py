@@ -140,6 +140,10 @@ class TMDBClient:
             ) from exc
         if data is None:
             raise SeasonMapUnavailableError(f"tmdb season map unavailable for {show_id}: not found")
+        if not isinstance(data.get("seasons"), list):
+            raise SeasonMapUnavailableError(
+                f"tmdb season map unavailable for {show_id}: invalid details"
+            )
         return data
 
     def _get_season_strict(self, show_id: int, season_num: int) -> dict:
@@ -151,6 +155,10 @@ class TMDBClient:
             ) from exc
         if data is None:
             raise SeasonMapUnavailableError(f"tmdb season map unavailable for {show_id}: not found")
+        if not isinstance(data.get("episodes"), list):
+            raise SeasonMapUnavailableError(
+                f"tmdb season map unavailable for {show_id}: invalid season data"
+            )
         return data
 
     # ─── TV Series ────────────────────────────────────────────────────
@@ -237,6 +245,10 @@ class TMDBClient:
         total_episodes = 0
 
         for season_info in show_data.get("seasons", []):
+            if not isinstance(season_info, dict):
+                raise SeasonMapUnavailableError(
+                    f"tmdb season map unavailable for {show_id}: invalid season details"
+                )
             sn = season_info.get("season_number", 0)
             season_data = build_season_payload(self._get_season_strict(show_id, sn))
             titles = season_data["titles"]

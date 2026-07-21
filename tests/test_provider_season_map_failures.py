@@ -85,3 +85,63 @@ def test_tvdb_season_map_caches_a_valid_empty_result() -> None:
     assert client.get_season_map(7) == ({}, 0)
     assert client.get_season_map(7) == ({}, 0)
     assert transport.calls == ["/series/7/extended", "/series/7/episodes/default"]
+
+
+def test_tmdb_season_map_rejects_malformed_details_payload() -> None:
+    client = TMDBClient("key")
+    client._transport = _MapTransport({"/tv/7": {}})  # type: ignore[assignment]
+
+    with pytest.raises(SeasonMapUnavailableError, match="tmdb season map unavailable for 7"):
+        client.get_season_map(7)
+
+    assert client._metadata_cache_store.season_map_cache == {}
+
+
+def test_tmdb_season_map_caches_a_valid_empty_result() -> None:
+    transport = _MapTransport({"/tv/7": {"seasons": []}})
+    client = TMDBClient("key")
+    client._transport = transport  # type: ignore[assignment]
+
+    assert client.get_season_map(7) == ({}, 0)
+    assert client.get_season_map(7) == ({}, 0)
+    assert transport.calls == ["/tv/7"]
+
+
+def test_tmdb_season_map_rejects_malformed_season_payload() -> None:
+    client = TMDBClient("key")
+    client._transport = _MapTransport(  # type: ignore[assignment]
+        {
+            "/tv/7": {"seasons": [{"season_number": 1, "episode_count": 1}]},
+            "/tv/7/season/1": {},
+        }
+    )
+
+    with pytest.raises(SeasonMapUnavailableError, match="tmdb season map unavailable for 7"):
+        client.get_season_map(7)
+
+    assert client._metadata_cache_store.season_map_cache == {}
+
+
+@pytest.mark.parametrize(
+    "episode_payload",
+    [
+        {"links": {}},
+        {"data": None, "links": {}},
+        {"data": {"episodes": {}}, "links": {}},
+    ],
+)
+def test_tvdb_season_map_rejects_malformed_episode_payload(
+    episode_payload: dict[str, Any],
+) -> None:
+    transport = _MapTransport(
+        {
+            "/series/7/extended": {"data": {"id": 7}},
+            "/series/7/episodes/default": episode_payload,
+        }
+    )
+    client = TVDBClient("key", transport=transport)  # type: ignore[arg-type]
+
+    with pytest.raises(SeasonMapUnavailableError, match="tvdb season map unavailable for 7"):
+        client.get_season_map(7)
+
+    assert client._season_map_cache == {}
