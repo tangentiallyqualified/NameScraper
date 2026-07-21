@@ -28,6 +28,10 @@ class SubtitleMergeDecision:
     language: str
     set_default: bool
     forced: bool = False
+    # Timestamp shift applied when merging (--sync 0:<ms>): the sum of the
+    # preceding parts' durations for a later part's external sub. 0 for
+    # part-1 / single-file subs.
+    sync_offset_ms: int = 0
 
 
 @dataclass
@@ -35,6 +39,9 @@ class MuxPlan:
     output_name: str  # library-format name, always .mkv
     track_decisions: list[TrackDecision] = field(default_factory=list)
     subtitle_merges: list[SubtitleMergeDecision] = field(default_factory=list)
+    # Multi-part merge: source-relative paths of parts 2..N in append
+    # order. Part 1 is the op's own source and is not repeated here.
+    append_sources: list[str] = field(default_factory=list)
     strip_track_names: bool = False
     no_fear: bool = False
     mkvmerge_path: str = ""  # baked at queue time; re-resolved if stale
@@ -51,11 +58,16 @@ class MuxPlan:
             any(not d.keep for d in self.track_decisions)
             or any(m.action == "merge" for m in self.subtitle_merges)
             or self.container_conversion
+            or bool(self.append_sources)
         )
 
     @property
     def merged_sub_paths(self) -> list[str]:
         return [m.source_relative for m in self.subtitle_merges if m.action == "merge"]
+
+    @property
+    def append_source_paths(self) -> list[str]:
+        return list(self.append_sources)
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -64,6 +76,10 @@ class MuxPlan:
     def from_dict(cls, d: dict) -> MuxPlan:
         d = dict(d)
         d.setdefault("container_conversion", False)
+        d.setdefault("append_sources", [])
+        for merge in d.get("subtitle_merges", []):
+            if isinstance(merge, dict):
+                merge.setdefault("sync_offset_ms", 0)
         d["track_decisions"] = [TrackDecision(**t) for t in d.get("track_decisions", [])]
         d["subtitle_merges"] = [SubtitleMergeDecision(**m) for m in d.get("subtitle_merges", [])]
         return cls(**d)
