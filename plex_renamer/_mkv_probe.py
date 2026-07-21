@@ -32,6 +32,9 @@ class MediaTrack:
     is_forced: bool
     channels: int = 0  # audio only; 0 = unknown
     bitrate_bps: int = 0  # audio only; 0 = unknown
+    width: int = 0  # video only; 0 = unknown
+    height: int = 0  # video only; 0 = unknown
+    sample_rate: int = 0  # audio only; 0 = unknown
 
 
 @dataclass
@@ -40,6 +43,7 @@ class ProbeResult:
     ok: bool
     tracks: list[MediaTrack] = field(default_factory=list)
     container_type: str = ""
+    duration_ms: int = 0  # container duration; 0 = unknown
     error: str = ""
 
     @property
@@ -63,6 +67,15 @@ def _as_int(value: object) -> int:
         return 0
 
 
+def _parse_dimensions(props: dict) -> tuple[int, int]:
+    """Extract pixel dimensions from the 'pixel_dimensions' property string."""
+    raw = str(props.get("pixel_dimensions", ""))
+    if "x" in raw:
+        left, _, right = raw.partition("x")
+        return _as_int(left), _as_int(right)
+    return 0, 0
+
+
 def parse_identify_json(path: str, payload: dict) -> ProbeResult:
     """Pure parse of a ``mkvmerge -J`` JSON document."""
     container = payload.get("container", {})
@@ -73,6 +86,7 @@ def parse_identify_json(path: str, payload: dict) -> ProbeResult:
     tracks: list[MediaTrack] = []
     for raw in payload.get("tracks", []):
         props = raw.get("properties", {})
+        width, height = _parse_dimensions(props)
         tracks.append(
             MediaTrack(
                 track_id=int(raw.get("id", -1)),
@@ -84,6 +98,9 @@ def parse_identify_json(path: str, payload: dict) -> ProbeResult:
                 is_forced=bool(props.get("forced_track", False)),
                 channels=_as_int(props.get("audio_channels")),
                 bitrate_bps=_as_int(props.get("tag_bps")),
+                width=width,
+                height=height,
+                sample_rate=_as_int(props.get("audio_sampling_frequency")),
             )
         )
     return ProbeResult(
@@ -91,6 +108,7 @@ def parse_identify_json(path: str, payload: dict) -> ProbeResult:
         ok=True,
         tracks=tracks,
         container_type=str(container.get("type", "")),
+        duration_ms=_as_int(container.get("properties", {}).get("duration")) // 1_000_000,
     )
 
 
