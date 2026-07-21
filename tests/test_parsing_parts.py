@@ -7,7 +7,7 @@ from __future__ import annotations
 import pytest
 
 from plex_renamer._parsing_episodes import extract_episode
-from plex_renamer._parsing_parts import split_part_marker
+from plex_renamer._parsing_parts import split_part_marker, split_unambiguous_part_marker
 
 
 @pytest.mark.parametrize(
@@ -63,3 +63,27 @@ def test_letter_marker_requires_episode_token() -> None:
 def test_extract_episode_is_marker_blind(filename: str, episodes: list[int]) -> None:
     parsed, _title, _rel = extract_episode(filename)
     assert parsed == episodes
+
+
+def test_unambiguous_split_leaves_part_n_unstripped() -> None:
+    # "Part n"/"pt n" is ambiguous (often real title text): the parse-time
+    # split must not touch it, while detection's split_part_marker still
+    # strips it as sequence evidence.
+    assert split_unambiguous_part_marker("Show S01E05 Part 2") == (
+        "Show S01E05 Part 2",
+        None,
+    )
+    assert split_part_marker("Show S01E05 Part 2") == ("Show S01E05", 2)
+
+
+def test_extract_episode_preserves_part_n_title_text() -> None:
+    # Regression: a genuine title ending in "Part 2" must survive parsing
+    # intact so the confidence engine sees real title-disagreement evidence.
+    parsed, title, _rel = extract_episode("Show S01E05 - The Big Game Part 2.mkv")
+    assert parsed == [5]
+    assert title == "The Big Game Part 2"
+
+
+def test_extract_episode_still_strips_paren_marker() -> None:
+    parsed, _title, _rel = extract_episode("Show S01E05 (2).mkv")
+    assert parsed == [5]
