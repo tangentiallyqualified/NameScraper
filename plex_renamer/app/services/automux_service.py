@@ -250,13 +250,21 @@ def ensure_state_plans(
 ) -> None:
     """Probe + plan actionable preview items, storing results on *state*.
 
-    Skips user-modified plans (spec §5.1). No-op when the entry has
-    AutoMux disabled or AutoMux is unavailable. Probe failures land in
-    state.mux_probe_errors and leave the file on the plain rename path.
+    Skips user-modified plans (spec §5.1). No-op when AutoMux is
+    unavailable (no mkvmerge) and the entry has no merge rows. Track-edit
+    planning (stripping/renaming tracks, subtitle merges from settings) is
+    additionally suppressed when the entry has AutoMux disabled
+    (``state.automux_disabled``) -- but a merge (part-append) row is
+    planned regardless, since the append itself is the action the user
+    already approved by grouping the parts, not an optional AutoMux edit
+    (spec §5: merge is toggle- and opt-out-independent). Probe failures
+    land in state.mux_probe_errors and leave the file on the plain rename
+    path.
     """
     has_merge_rows = any(item.merge_part_paths for item in state.preview_items)
     active = automux_active(svc)
-    if state.automux_disabled or (not active and not has_merge_rows):
+    track_edits_active = active and not state.automux_disabled
+    if not track_edits_active and not has_merge_rows:
         return
     # Late-bound so tests can monkeypatch probe_file at module level.
     prober = prober or probe_file
@@ -264,7 +272,7 @@ def ensure_state_plans(
     if mkvmerge is None:
         return
     ffprobe = resolve_ffprobe(svc)
-    settings = mux_settings_from_service(svc) if active else MuxSettings()
+    settings = mux_settings_from_service(svc) if track_edits_active else MuxSettings()
     if only_index is not None:
         indices: list[int] = [only_index]
     else:
@@ -280,10 +288,12 @@ def ensure_state_plans(
         item = state.preview_items[index]
         if not item.new_name:
             continue
-        if not active and not item.merge_part_paths:
-            # AutoMux is off: only merge rows survive (toggle-independent
-            # append plans). Normal rows keep the pre-merge behavior of
-            # being skipped entirely -- no probe, no plan (spec §5).
+        if not track_edits_active and not item.merge_part_paths:
+            # Track edits are off (AutoMux toggle off, or this entry has
+            # AutoMux disabled): only merge rows survive (toggle- and
+            # opt-out-independent append plans). Normal rows keep the
+            # pre-merge behavior of being skipped entirely -- no probe, no
+            # plan (spec §5).
             continue
         if item.merge_part_paths:
             _plan_merge_item(
@@ -345,12 +355,23 @@ def state_mux_eligible(state: ScanState) -> bool:
 
 def effective_mux_plans(state: ScanState) -> dict[int, dict] | None:
     """Plans to bake into a queue job — None when AutoMux contributes
-    nothing (disabled entry, or every plan edited down to a no-op)."""
-    if state.automux_disabled:
-        return None
-    plans = {
-        index: plan
-        for index, plan in state.mux_plans.items()
-        if index not in state.mux_opt_outs and plan_has_actions(plan)
-    }
+    nothing (every plan opted out or edited down to a no-op).
+
+    A disabled entry (``state.automux_disabled``) drops its track-edit
+    plans but keeps merge (part-append) plans: the append is not an
+    optional AutoMux edit, it is the action the user already approved by
+    grouping the parts (spec §5)."""
+    plans: dict[int, dict] = {}
+    for index, plan in state.mux_plans.items():
+        if index in state.mux_opt_outs or not plan_has_actions(plan):
+            continue
+        if state.automux_disabled and not _is_merge_row(state, index):
+            continue
+        plans[index] = plan
     return plans or None
+
+
+def _is_merge_row(state: ScanState, index: int) -> bool:
+    if not (0 <= index < len(state.preview_items)):
+        return False
+    return bool(state.preview_items[index].merge_part_paths)

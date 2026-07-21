@@ -30,8 +30,18 @@ _log = logging.getLogger(__name__)
 
 def _mux_plans_for_state(state, settings_service, library_root) -> dict[int, dict] | None:
     """Ensure and collect this entry's mux plans at queue time (spec §5.1:
-    plans are baked into the job's ops when it is queued)."""
-    if settings_service is None or not automux_active(settings_service):
+    plans are baked into the job's ops when it is queued).
+
+    Merge (multi-part append) planning is toggle-independent (spec §5): a
+    group row must still be planned and baked even when the global AutoMux
+    toggle is off, so the gate is AutoMux-active OR the state has at least
+    one merge row. ``ensure_state_plans``/``effective_mux_plans`` already
+    know how to plan/bake ONLY the merge rows in that inactive-toggle case.
+    """
+    if settings_service is None:
+        return None
+    has_merge_rows = any(item.merge_part_paths for item in state.preview_items)
+    if not automux_active(settings_service) and not has_merge_rows:
         return None
     ensure_state_plans(state, settings_service, library_root)
     return effective_mux_plans(state)

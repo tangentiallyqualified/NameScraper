@@ -356,23 +356,35 @@ def plan_has_actions(plan: dict) -> bool:
     reduce a plan to a no-op; such plans must not force a remux).
 
     Moved from automux_service (round6 §1) so engine-level code can use it
-    without an engine -> app import; automux_service re-exports it."""
+    without an engine -> app import; automux_service re-exports it. Must
+    stay in sync with MuxPlan.has_actions (engine/_mux_planner.py), which
+    also counts a non-empty ``append_sources`` — a multi-part merge is a
+    mux action even when nothing else about the plan changed."""
     if plan.get("container_conversion"):
         return True
     if any(not d.get("keep", True) for d in plan.get("track_decisions", [])):
         return True
-    return any(m.get("action") == "merge" for m in plan.get("subtitle_merges", []))
+    if any(m.get("action") == "merge" for m in plan.get("subtitle_merges", [])):
+        return True
+    return bool(plan.get("append_sources"))
 
 
 def file_mux_active(state: ScanState, index: int) -> bool:
     """True when this preview item will actually be muxed: cached plan
-    with actions, not opted out, AutoMux not disabled for the entry.
+    with actions, not opted out, and (AutoMux not disabled for the entry
+    OR the row is a merge row -- an approved part-append survives a
+    per-show AutoMux disable, spec §5).
 
     Moved from automux_service (round6 §1) — see plan_has_actions."""
-    if state.automux_disabled or index in state.mux_opt_outs:
+    if index in state.mux_opt_outs:
         return False
     plan = state.mux_plans.get(index)
-    return plan is not None and plan_has_actions(plan)
+    if plan is None or not plan_has_actions(plan):
+        return False
+    is_merge_row = 0 <= index < len(state.preview_items) and bool(
+        state.preview_items[index].merge_part_paths
+    )
+    return is_merge_row or not state.automux_disabled
 
 
 @dataclass(frozen=True)

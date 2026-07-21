@@ -219,6 +219,110 @@ def test_disabled_state_stays_rename(tmp_path, monkeypatch):
     assert store.jobs[0].job_kind == JobKind.RENAME
 
 
+def _settings_automux_off(tmp_path):
+    """mkvmerge resolves, but every AutoMux action toggle is off — merge
+    planning is toggle-independent (spec §5) and must still fire."""
+    svc = SettingsService(tmp_path / "settings-off.json")
+    exe = tmp_path / "mkvmerge.exe"
+    if not exe.exists():
+        exe.write_bytes(b"")
+    svc.mkvmerge_path = str(exe)
+    return svc
+
+
+def _tv_state_merge_row(tmp_path):
+    """A single group row: three parts merging into one episode."""
+    lib = tmp_path / "lib"
+    parts = [lib / "Show" / f"Show S01E05 ({i}).mkv" for i in (1, 2, 3)]
+    for part in parts:
+        part.parent.mkdir(parents=True, exist_ok=True)
+        part.write_bytes(b"0")
+    item = PreviewItem(
+        original=parts[0],
+        new_name="Show - S01E05 - Five.mkv",
+        target_dir=tmp_path / "out" / "Show (2020)" / "Season 01",
+        season=1,
+        episodes=[5],
+        status="OK",
+        media_type="tv",
+        merge_part_paths=list(parts),
+        merge_part_file_ids=[0, 1, 2],
+    )
+    return ScanState(
+        folder=lib / "Show",
+        media_info={"id": 7, "name": "Show", "year": "2020"},
+        preview_items=[item],
+        scanned=True,
+        checked=True,
+        relative_folder="Show",
+    )
+
+
+def test_tv_batch_merge_row_bakes_remux_job_with_automux_off(tmp_path, monkeypatch):
+    """A merge row's append plan must reach the queued job even when the
+    global AutoMux toggle is off — merge is toggle-independent (spec §5)
+    and must not be gated behind automux_active() at queue-submission
+    time."""
+    monkeypatch.setattr(svc_mod, "probe_file", lambda mkv, path, **kwargs: _probe_ok())
+    state = _tv_state_merge_row(tmp_path)
+    settings = _settings_automux_off(tmp_path)
+    assert svc_mod.automux_active(settings) is False  # sanity: toggle is off
+
+    store = _FakeStore()
+    result = add_tv_batch_jobs(
+        store,
+        states=[state],
+        library_root=tmp_path / "lib",
+        output_root=tmp_path / "out",
+        command_gating=_Gating(),
+        settings_service=settings,
+    )
+
+    assert result.added == 1
+    job = store.jobs[0]
+    assert job.job_kind == JobKind.REMUX
+    video_ops = [op for op in job.rename_ops if op.file_type == "video"]
+    assert len(video_ops) == 1
+    op = video_ops[0]
+    assert op.mux is not None
+    assert op.mux["append_sources"] == [
+        str(Path("Show/Show S01E05 (2).mkv")),
+        str(Path("Show/Show S01E05 (3).mkv")),
+    ]
+
+
+def test_tv_batch_merge_row_survives_automux_disabled(tmp_path, monkeypatch):
+    """A per-show AutoMux opt-out (state.automux_disabled) suppresses
+    track-edit plans but must not drop an approved merge row's append plan
+    -- the merge itself is not an optional AutoMux action once the user
+    approved the merged group row."""
+    monkeypatch.setattr(svc_mod, "probe_file", lambda mkv, path, **kwargs: _probe_ok())
+    state = _tv_state_merge_row(tmp_path)
+    state.automux_disabled = True
+
+    store = _FakeStore()
+    result = add_tv_batch_jobs(
+        store,
+        states=[state],
+        library_root=tmp_path / "lib",
+        output_root=tmp_path / "out",
+        command_gating=_Gating(),
+        settings_service=_settings(tmp_path),
+    )
+
+    assert result.added == 1
+    job = store.jobs[0]
+    assert job.job_kind == JobKind.REMUX
+    video_ops = [op for op in job.rename_ops if op.file_type == "video"]
+    assert len(video_ops) == 1
+    op = video_ops[0]
+    assert op.mux is not None
+    assert op.mux["append_sources"] == [
+        str(Path("Show/Show S01E05 (2).mkv")),
+        str(Path("Show/Show S01E05 (3).mkv")),
+    ]
+
+
 def _tv_state_correctly_named(tmp_path):
     """Single item whose name is already correct (is_actionable False) but
     which still has a subtitle companion eligible for an AutoMux merge."""
