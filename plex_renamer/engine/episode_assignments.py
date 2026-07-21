@@ -20,6 +20,7 @@ ORIGIN_AUTO = "auto"
 ORIGIN_MANUAL = "manual"
 ROLE_PRIMARY = "primary"
 ROLE_VERSION = "version"  # reserved for future duplicate support
+ROLE_PART = "part"  # member 2+ of a multi-file (split) episode group
 
 REASON_NO_PARSE = "could not parse episode number"
 REASON_NO_TITLE_MATCH = "no TMDB title match"
@@ -77,6 +78,7 @@ class FileEntry:
     folder_season: int | None = None
     from_extras_folder: bool = False
     source_relative_folder: str = ""
+    part_marker: int | None = None  # 1-based part number parsed from the stem
 
 
 @dataclass(slots=True)
@@ -89,6 +91,8 @@ class Assignment:
     origin: str
     confidence: float
     role: str = ROLE_PRIMARY
+    # 1-based position within a part group (primary=1); 0 = not grouped.
+    part_order: int = 0
     evidence: frozenset[str] = field(default_factory=frozenset)
     approved: bool = False
 
@@ -184,11 +188,66 @@ class EpisodeAssignmentTable:
                     lost_conflict_reason(season, episode),
                 )
 
+    def group_parts(
+        self,
+        ordered_file_ids: list[int],
+        season: int,
+        episodes: list[int] | tuple[int, ...],
+        *,
+        origin: str,
+        confidence: float = 1.0,
+    ) -> None:
+        """Assign *ordered_file_ids* to the same slot(s) as one part group.
+
+        The first id becomes the primary carrier; the rest become
+        role="part" claims. Policy (conflicts/claimant/projection) treats
+        the set as one logical claim.
+        """
+        if len(ordered_file_ids) < 2:
+            raise ValueError("A part group needs at least two files")
+        missing = [i for i in ordered_file_ids if i not in self.files]
+        if missing:
+            raise ValueError(f"Unknown file id(s) {missing}")
+        for order, file_id in enumerate(ordered_file_ids, start=1):
+            assignment = self.assign(
+                file_id,
+                season,
+                list(episodes),
+                origin=origin,
+                confidence=confidence,
+            )
+            self._assignments[file_id] = replace(
+                assignment,
+                role=ROLE_PRIMARY if order == 1 else ROLE_PART,
+                part_order=order,
+            )
+
+    def ungroup_parts(self, file_id: int) -> None:
+        """Dissolve the group containing *file_id*: every member reverts to
+        an independent primary claim (the normal conflict flow applies)."""
+        for member in self.part_group_members(file_id):
+            self._assignments[member.file_id] = replace(member, role=ROLE_PRIMARY, part_order=0)
+
+    def part_group_members(self, file_id: int) -> list[Assignment]:
+        """All assignments in *file_id*'s part group, ordered by part_order;
+        empty when the file is not part of a group."""
+        own = self._assignments.get(file_id)
+        if own is None or own.part_order == 0:
+            return []
+        members = [
+            a
+            for a in self._assignments.values()
+            if a.season == own.season and a.episodes == own.episodes and a.part_order > 0
+        ]
+        return sorted(members, key=lambda a: a.part_order)
+
     def set_approved(self, file_id: int, approved: bool = True) -> None:
         assignment = self._assignments.get(file_id)
         if assignment is None:
             raise ValueError(f"File {file_id} has no assignment to approve")
-        self._assignments[file_id] = replace(assignment, approved=approved)
+        targets = self.part_group_members(file_id) or [assignment]
+        for member in targets:
+            self._assignments[member.file_id] = replace(member, approved=approved)
 
     def set_confidence(self, file_id: int, confidence: float) -> None:
         assignment = self._assignments.get(file_id)
@@ -212,6 +271,22 @@ class EpisodeAssignmentTable:
             if assignment.season == season and episode in assignment.episodes
         ]
 
+    def logical_claims(self, season: int, episode: int) -> list[list[Assignment]]:
+        """Claims on a slot, grouped: a primary and its part-role claims
+        form ONE logical claim (list ordered by part_order); ungrouped
+        claims are singleton groups."""
+        raw = self.claims(season, episode)
+        grouped: dict[tuple[int, tuple[int, ...]], list[Assignment]] = {}
+        singles: list[list[Assignment]] = []
+        for claim in raw:
+            if claim.part_order > 0:
+                grouped.setdefault((claim.season, claim.episodes), []).append(claim)
+            else:
+                singles.append([claim])
+        for group in grouped.values():
+            group.sort(key=lambda a: a.part_order)
+        return list(grouped.values()) + singles
+
     def claimed_slots(self) -> set[tuple[int, int]]:
         """Every (season, episode) slot currently claimed by an assignment."""
         return {
@@ -225,16 +300,18 @@ class EpisodeAssignmentTable:
         for assignment in self._assignments.values():
             for episode in assignment.episodes:
                 by_slot.setdefault((assignment.season, episode), []).append(assignment)
-        return {key: claims for key, claims in by_slot.items() if len(claims) > 1}
+        return {
+            key: claims for key, claims in by_slot.items() if len(self.logical_claims(*key)) > 1
+        }
 
     def conflicted_file_ids(self) -> set[int]:
         return {claim.file_id for claims in self.conflicts().values() for claim in claims}
 
     def claimant(self, season: int, episode: int) -> FileEntry | None:
-        claims = self.claims(season, episode)
-        if len(claims) != 1:
+        logical = self.logical_claims(season, episode)
+        if len(logical) != 1:
             return None
-        return self.files[claims[0].file_id]
+        return self.files[logical[0][0].file_id]
 
     def unassigned_files(self) -> list[tuple[FileEntry, str]]:
         return [
@@ -270,6 +347,7 @@ def merge_tables(
             folder_season=entry.folder_season,
             from_extras_folder=entry.from_extras_folder,
             source_relative_folder=entry.source_relative_folder,
+            part_marker=entry.part_marker,
         )
         id_map[old_id] = new_entry.file_id
         assignment = other.assignment_for(old_id)
@@ -282,10 +360,11 @@ def merge_tables(
                 confidence=assignment.confidence,
                 evidence=assignment.evidence,
             )
-            if assignment.role != new_assignment.role:
+            if assignment.role != new_assignment.role or assignment.part_order:
                 primary._assignments[new_entry.file_id] = replace(
                     new_assignment,
                     role=assignment.role,
+                    part_order=assignment.part_order,
                 )
             if assignment.approved:
                 primary.set_approved(new_entry.file_id)
@@ -317,7 +396,7 @@ def carry_over_manual_assignments(
         if new_id is None:
             continue
         try:
-            new.assign(
+            carried = new.assign(
                 new_id,
                 assignment.season,
                 list(assignment.episodes),
@@ -326,3 +405,7 @@ def carry_over_manual_assignments(
             )
         except ValueError:
             continue
+        if assignment.part_order:
+            new._assignments[new_id] = replace(
+                carried, role=assignment.role, part_order=assignment.part_order
+            )
