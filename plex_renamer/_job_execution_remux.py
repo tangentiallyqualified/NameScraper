@@ -32,8 +32,13 @@ def run_mkvmerge(
 ) -> tuple[int, str]:
     """Run mkvmerge, streaming progress.  Returns (returncode, output tail)."""
     proc = subprocess.Popen(
-        args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-        text=True, encoding="utf-8", errors="replace", bufsize=0,
+        args,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        bufsize=0,
         creationflags=_CREATION_FLAGS,
     )
     tail: list[str] = []
@@ -88,8 +93,7 @@ def execute_remux_op(
         src.resolve().relative_to(source_boundary)
         final.resolve(strict=False).relative_to(output_boundary)
     except (OSError, ValueError):
-        result.errors.append(
-            f"Remux paths escape their roots: {op.original_relative}")
+        result.errors.append(f"Remux paths escape their roots: {op.original_relative}")
         return False
 
     if not src.exists():
@@ -107,18 +111,26 @@ def execute_remux_op(
             return False
         mkvmerge = str(located)
 
-    merged_sources = [
-        source_root / rel for rel in plan.merged_sub_paths
-    ]
+    merged_sources = [source_root / rel for rel in plan.merged_sub_paths]
     for sub in merged_sources:
         if not sub.exists():
             result.errors.append(f"Subtitle source not found: {sub.name}")
             return False
 
+    append_sources = [source_root / rel for rel in plan.append_source_paths]
+    for part in append_sources:
+        if not part.exists():
+            result.errors.append(f"Merge part not found: {part.name}")
+            return False
+
     temp = target_dir / f"{op.new_name}.tmp-{uuid.uuid4().hex[:8]}.mkv"
     args = build_mkvmerge_args(
-        mkvmerge_path=mkvmerge, source=src, output=temp, plan=plan,
+        mkvmerge_path=mkvmerge,
+        source=src,
+        output=temp,
+        plan=plan,
         resolve_sub=lambda rel: source_root / rel,
+        resolve_part=lambda rel: source_root / rel,
         title=title,
         global_tags_path=tags_path,
         cover_path=cover_path,
@@ -137,10 +149,9 @@ def execute_remux_op(
         if set_active_temp is not None:
             set_active_temp(None)
 
-    if returncode not in (0, 1):      # 1 = completed with warnings
+    if returncode not in (0, 1):  # 1 = completed with warnings
         temp.unlink(missing_ok=True)
-        result.errors.append(
-            f"mkvmerge exited {returncode} for {src.name}: {output_tail}")
+        result.errors.append(f"mkvmerge exited {returncode} for {src.name}: {output_tail}")
         return False
 
     os.replace(temp, final)
@@ -149,7 +160,7 @@ def execute_remux_op(
 
     if plan.no_fear:
         # Source deletion only after the final output exists (spec §7.1).
-        for path in [src, *merged_sources]:
+        for path in [src, *append_sources, *merged_sources]:
             try:
                 path.unlink(missing_ok=True)
             except OSError as e:
