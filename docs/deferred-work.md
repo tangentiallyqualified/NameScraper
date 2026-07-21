@@ -22,7 +22,7 @@ Last reviewed: 2026-07-21 at `eb7f6df`
 
 | Priority | Meaning | Active IDs |
 | --- | --- | --- |
-| P1 | Correctness, recovery, or safety-gate gaps | `MATCH-001`, `MATCH-002`, `GUI-001`, `QUAL-001` |
+| P1 | Correctness, recovery, or safety-gate gaps | `MATCH-001`, `GUI-001`, `QUAL-001` |
 | P2 | Bounded feature and maintainability work | `PARSE-001`–`PARSE-005`, `MATCH-003`–`MATCH-004`, `META-001`–`META-006`, `MUX-001`–`MUX-003`, `MUX-005`, `GUI-002`, `ARCH-001`–`ARCH-003`, `QUAL-002` |
 | P3 | Opportunistic polish and decision-covered debt | `MUX-004`, `MUX-006`, `GUI-003`, `QUAL-003`, `AUDIT-004`–`AUDIT-005` |
 
@@ -97,20 +97,6 @@ Last reviewed: 2026-07-21 at `eb7f6df`
   confidence constants and `apply_confidence_adjustments`; a deterministic search of
   `tests/` for `calibrat|false approval|needless review|outcome fixture` finds no
   outcome-calibration fixture set.
-
-### MATCH-002 — Surface failed or empty episode maps as errors
-
-- **Status:** Active deferred
-- **Priority:** P1
-- **Scope:** Provider episode-map fetches used by TV scanning and assignment.
-- **Outcome:** Distinguish a valid empty season from provider failure or unusable map
-  data and present an actionable scan/review error instead of silently continuing.
-- **Acceptance:** Failure, malformed-map, and valid-empty fixtures produce distinct
-  states; failed maps cannot auto-approve or queue a show.
-- **Evidence:** `TVScanner._get_tmdb_seasons` consumes `get_season_map` but discards
-  its total/count result; `TMDBClient.get_season_map` and
-  `TVDBClient.get_season_map` both use `({}, 0)` for unavailable show details, so
-  provider failure and a valid empty result reach the scanner in the same shape.
 
 ### MATCH-003 — Match date-named files to aired episodes
 
