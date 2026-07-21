@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from plex_renamer import _job_execution_remux as remux_execution
 from plex_renamer._job_execution_remux import execute_remux_op
 from plex_renamer.engine._mux_planner import MuxPlan, SubtitleMergeDecision
 from plex_renamer.engine.models import RenameResult
@@ -23,12 +24,14 @@ def _op(plan: MuxPlan) -> RenameOp:
     )
 
 
-def _plan(*, no_fear: bool = False) -> MuxPlan:
+def _plan(tmp_path: Path, *, no_fear: bool = False) -> MuxPlan:
+    fake_mkvmerge = tmp_path / "mkvmerge"
+    fake_mkvmerge.write_bytes(b"")
     return MuxPlan(
         output_name="Show - S01E05.mkv",
         append_sources=["p2.mkv", "p3.mkv"],
         no_fear=no_fear,
-        mkvmerge_path="mkvmerge",
+        mkvmerge_path=str(fake_mkvmerge),
     )
 
 
@@ -56,7 +59,7 @@ def test_missing_append_source_fails_before_running(tmp_path: Path) -> None:
     result = RenameResult()
     ran: list[list[str]] = []
     ok = execute_remux_op(
-        _op(_plan()),
+        _op(_plan(tmp_path)),
         source_root=source_root,
         output_root=output_root,
         result=result,
@@ -67,7 +70,8 @@ def test_missing_append_source_fails_before_running(tmp_path: Path) -> None:
     assert any("p3.mkv" in e for e in result.errors)
 
 
-def test_append_paths_reach_the_argv(tmp_path: Path) -> None:
+def test_append_paths_reach_the_argv(tmp_path: Path, monkeypatch: Any) -> None:
+    monkeypatch.setattr(remux_execution, "find_mkvmerge", lambda _setting: None)
     source_root, output_root = _setup(tmp_path)
     result = RenameResult()
     seen: list[list[str]] = []
@@ -80,7 +84,7 @@ def test_append_paths_reach_the_argv(tmp_path: Path) -> None:
         return 0, ""
 
     ok = execute_remux_op(
-        _op(_plan()),
+        _op(_plan(tmp_path)),
         source_root=source_root,
         output_root=output_root,
         result=result,
@@ -97,7 +101,7 @@ def test_no_fear_deletes_all_parts_after_success(tmp_path: Path) -> None:
     result = RenameResult()
     final = output_root / "Show/Season 01/Show - S01E05.mkv"
     ok = execute_remux_op(
-        _op(_plan(no_fear=True)),
+        _op(_plan(tmp_path, no_fear=True)),
         source_root=source_root,
         output_root=output_root,
         result=result,
@@ -113,7 +117,7 @@ def test_without_no_fear_sources_survive(tmp_path: Path) -> None:
     result = RenameResult()
     final = output_root / "Show/Season 01/Show - S01E05.mkv"
     ok = execute_remux_op(
-        _op(_plan(no_fear=False)),
+        _op(_plan(tmp_path, no_fear=False)),
         source_root=source_root,
         output_root=output_root,
         result=result,
