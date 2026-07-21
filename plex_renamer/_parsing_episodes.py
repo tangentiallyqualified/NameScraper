@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from ._parsing_parts import split_part_marker
 from ._parsing_titles import clean_name, clean_title_evidence, strip_release_junk_title
 from .constants import RESOLUTION_NUMBERS, YEAR_MAX, YEAR_MIN
 
@@ -318,6 +319,10 @@ def extract_episode(filename: str) -> tuple[list[int], str | None, bool]:
             for anime).
     """
     raw_stem = Path(filename).stem
+    # Part markers ("(2)", "Part 2", "S01E05b") are sequence evidence, not
+    # episode evidence: strip them before parsing so "(2)" is never read
+    # as an episode number (spec: multi-file-episode-merge).
+    raw_stem, _part = split_part_marker(raw_stem)
     name = clean_title_evidence(raw_stem)
 
     # Branch priority is behavior: each parser either claims the name
