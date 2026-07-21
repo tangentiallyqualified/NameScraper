@@ -39,7 +39,7 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startLine": 42
+                  "startLine": 46
                 }
               }
             }
@@ -65,7 +65,7 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startLine": 122
+                  "startLine": 141
                 }
               }
             }
@@ -1310,7 +1310,7 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startLine": 135
+                  "startLine": 158
                 }
               }
             }
@@ -2706,7 +2706,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 891
+                  "startLine": 893
                 }
               }
             }
@@ -2926,7 +2926,7 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startLine": 35
+                  "startLine": 40
                 }
               }
             }
@@ -2952,7 +2952,7 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startLine": 46
+                  "startLine": 54
                 }
               }
             }
@@ -2979,7 +2979,7 @@
                 },
                 "region": {
                   "startColumn": 26,
-                  "startLine": 90
+                  "startLine": 98
                 }
               }
             }
@@ -3091,7 +3091,7 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startLine": 246
+                  "startLine": 357
                 }
               }
             }
@@ -4178,7 +4178,7 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startLine": 138
+                  "startLine": 142
                 }
               }
             }
@@ -4211,7 +4211,7 @@
                 },
                 "region": {
                   "startColumn": 30,
-                  "startLine": 182
+                  "startLine": 186
                 }
               }
             }
@@ -4237,7 +4237,7 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startLine": 213
+                  "startLine": 217
                 }
               }
             }
@@ -4263,7 +4263,7 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startLine": 317
+                  "startLine": 328
                 }
               }
             }
@@ -4289,7 +4289,7 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startLine": 322
+                  "startLine": 333
                 }
               }
             }
@@ -4315,7 +4315,7 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startLine": 326
+                  "startLine": 337
                 }
               }
             }
@@ -4341,7 +4341,7 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startLine": 329
+                  "startLine": 340
                 }
               }
             }
@@ -4368,7 +4368,7 @@
                 },
                 "region": {
                   "startColumn": 27,
-                  "startLine": 343
+                  "startLine": 354
                 }
               }
             }
@@ -4395,7 +4395,7 @@
                 },
                 "region": {
                   "startColumn": 27,
-                  "startLine": 348
+                  "startLine": 359
                 }
               }
             }
@@ -4422,7 +4422,7 @@
                 },
                 "region": {
                   "startColumn": 27,
-                  "startLine": 349
+                  "startLine": 360
                 }
               }
             }
@@ -4449,7 +4449,7 @@
                 },
                 "region": {
                   "startColumn": 35,
-                  "startLine": 350
+                  "startLine": 361
                 }
               }
             }
@@ -4476,7 +4476,7 @@
                 },
                 "region": {
                   "startColumn": 13,
-                  "startLine": 352
+                  "startLine": 363
                 }
               }
             }
@@ -4503,7 +4503,7 @@
                 },
                 "region": {
                   "startColumn": 28,
-                  "startLine": 352
+                  "startLine": 363
                 }
               }
             }
@@ -4530,7 +4530,7 @@
                 },
                 "region": {
                   "startColumn": 13,
-                  "startLine": 353
+                  "startLine": 364
                 }
               }
             }
@@ -4557,7 +4557,7 @@
                 },
                 "region": {
                   "startColumn": 26,
-                  "startLine": 353
+                  "startLine": 364
                 }
               }
             }
@@ -4583,7 +4583,7 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startLine": 386
+                  "startLine": 397
                 }
               }
             }
@@ -6629,7 +6629,7 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startLine": 462
+                  "startLine": 463
                 }
               }
             }
@@ -9896,7 +9896,7 @@
                 },
                 "region": {
                   "startColumn": 75,
-                  "startLine": 646
+                  "startLine": 680
                 }
               }
             }
@@ -9923,7 +9923,7 @@
                 },
                 "region": {
                   "startColumn": 21,
-                  "startLine": 647
+                  "startLine": 681
                 }
               }
             }
@@ -9950,7 +9950,7 @@
                 },
                 "region": {
                   "startColumn": 30,
-                  "startLine": 647
+                  "startLine": 681
                 }
               }
             }
@@ -9977,7 +9977,7 @@
                 },
                 "region": {
                   "startColumn": 40,
-                  "startLine": 647
+                  "startLine": 681
                 }
               }
             }
@@ -10004,7 +10004,7 @@
                 },
                 "region": {
                   "startColumn": 55,
-                  "startLine": 648
+                  "startLine": 682
                 }
               }
             }
@@ -10031,7 +10031,7 @@
                 },
                 "region": {
                   "startColumn": 55,
-                  "startLine": 648
+                  "startLine": 682
                 }
               }
             }
@@ -10058,7 +10058,7 @@
                 },
                 "region": {
                   "startColumn": 42,
-                  "startLine": 649
+                  "startLine": 683
                 }
               }
             }
@@ -10085,7 +10085,7 @@
                 },
                 "region": {
                   "startColumn": 42,
-                  "startLine": 649
+                  "startLine": 683
                 }
               }
             }
@@ -24002,7 +24002,7 @@
                 },
                 "region": {
                   "startColumn": 39,
-                  "startLine": 3472
+                  "startLine": 3537
                 }
               }
             }
@@ -24029,7 +24029,7 @@
                 },
                 "region": {
                   "startColumn": 35,
-                  "startLine": 3473
+                  "startLine": 3538
                 }
               }
             }
@@ -24056,7 +24056,7 @@
                 },
                 "region": {
                   "startColumn": 40,
-                  "startLine": 3474
+                  "startLine": 3539
                 }
               }
             }
@@ -24083,7 +24083,7 @@
                 },
                 "region": {
                   "startColumn": 31,
-                  "startLine": 3553
+                  "startLine": 3618
                 }
               }
             }
@@ -24110,7 +24110,7 @@
                 },
                 "region": {
                   "startColumn": 42,
-                  "startLine": 3858
+                  "startLine": 3923
                 }
               }
             }
@@ -24137,7 +24137,7 @@
                 },
                 "region": {
                   "startColumn": 42,
-                  "startLine": 3863
+                  "startLine": 3928
                 }
               }
             }
@@ -24164,7 +24164,7 @@
                 },
                 "region": {
                   "startColumn": 45,
-                  "startLine": 3867
+                  "startLine": 3932
                 }
               }
             }
@@ -24191,7 +24191,7 @@
                 },
                 "region": {
                   "startColumn": 46,
-                  "startLine": 3871
+                  "startLine": 3936
                 }
               }
             }
@@ -24218,7 +24218,7 @@
                 },
                 "region": {
                   "startColumn": 38,
-                  "startLine": 3952
+                  "startLine": 4017
                 }
               }
             }
@@ -24245,7 +24245,7 @@
                 },
                 "region": {
                   "startColumn": 38,
-                  "startLine": 3953
+                  "startLine": 4018
                 }
               }
             }
@@ -24272,7 +24272,7 @@
                 },
                 "region": {
                   "startColumn": 35,
-                  "startLine": 4119
+                  "startLine": 4184
                 }
               }
             }
@@ -24299,7 +24299,7 @@
                 },
                 "region": {
                   "startColumn": 31,
-                  "startLine": 4169
+                  "startLine": 4234
                 }
               }
             }
@@ -24326,7 +24326,7 @@
                 },
                 "region": {
                   "startColumn": 34,
-                  "startLine": 4249
+                  "startLine": 4314
                 }
               }
             }
@@ -24353,7 +24353,7 @@
                 },
                 "region": {
                   "startColumn": 35,
-                  "startLine": 4321
+                  "startLine": 4386
                 }
               }
             }
@@ -24380,7 +24380,7 @@
                 },
                 "region": {
                   "startColumn": 40,
-                  "startLine": 4322
+                  "startLine": 4387
                 }
               }
             }
@@ -24407,7 +24407,7 @@
                 },
                 "region": {
                   "startColumn": 35,
-                  "startLine": 4577
+                  "startLine": 4642
                 }
               }
             }
@@ -24434,7 +24434,7 @@
                 },
                 "region": {
                   "startColumn": 23,
-                  "startLine": 4791
+                  "startLine": 4856
                 }
               }
             }
@@ -24461,7 +24461,7 @@
                 },
                 "region": {
                   "startColumn": 42,
-                  "startLine": 4875
+                  "startLine": 4940
                 }
               }
             }
@@ -24488,7 +24488,7 @@
                 },
                 "region": {
                   "startColumn": 40,
-                  "startLine": 4883
+                  "startLine": 4948
                 }
               }
             }
@@ -24515,7 +24515,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 5312
+                  "startLine": 5377
                 }
               }
             }
@@ -24542,7 +24542,7 @@
                 },
                 "region": {
                   "startColumn": 27,
-                  "startLine": 5319
+                  "startLine": 5384
                 }
               }
             }
@@ -24569,7 +24569,7 @@
                 },
                 "region": {
                   "startColumn": 35,
-                  "startLine": 5458
+                  "startLine": 5523
                 }
               }
             }
@@ -24596,7 +24596,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 5460
+                  "startLine": 5525
                 }
               }
             }
@@ -24623,7 +24623,7 @@
                 },
                 "region": {
                   "startColumn": 27,
-                  "startLine": 5466
+                  "startLine": 5531
                 }
               }
             }
@@ -24650,7 +24650,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 5471
+                  "startLine": 5536
                 }
               }
             }
@@ -24677,7 +24677,7 @@
                 },
                 "region": {
                   "startColumn": 23,
-                  "startLine": 5475
+                  "startLine": 5540
                 }
               }
             }
@@ -24704,7 +24704,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 5476
+                  "startLine": 5541
                 }
               }
             }
@@ -24731,7 +24731,7 @@
                 },
                 "region": {
                   "startColumn": 27,
-                  "startLine": 5486
+                  "startLine": 5551
                 }
               }
             }
@@ -24758,7 +24758,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 5493
+                  "startLine": 5558
                 }
               }
             }
@@ -24785,7 +24785,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 5497
+                  "startLine": 5562
                 }
               }
             }
@@ -24812,7 +24812,7 @@
                 },
                 "region": {
                   "startColumn": 48,
-                  "startLine": 5497
+                  "startLine": 5562
                 }
               }
             }
@@ -24839,7 +24839,7 @@
                 },
                 "region": {
                   "startColumn": 19,
-                  "startLine": 5503
+                  "startLine": 5568
                 }
               }
             }
@@ -24866,7 +24866,7 @@
                 },
                 "region": {
                   "startColumn": 19,
-                  "startLine": 5504
+                  "startLine": 5569
                 }
               }
             }
@@ -24893,7 +24893,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 5505
+                  "startLine": 5570
                 }
               }
             }
@@ -24920,7 +24920,7 @@
                 },
                 "region": {
                   "startColumn": 32,
-                  "startLine": 5506
+                  "startLine": 5571
                 }
               }
             }
@@ -24947,7 +24947,7 @@
                 },
                 "region": {
                   "startColumn": 44,
-                  "startLine": 5506
+                  "startLine": 5571
                 }
               }
             }
@@ -24974,7 +24974,7 @@
                 },
                 "region": {
                   "startColumn": 32,
-                  "startLine": 5525
+                  "startLine": 5590
                 }
               }
             }
@@ -25001,7 +25001,7 @@
                 },
                 "region": {
                   "startColumn": 44,
-                  "startLine": 5525
+                  "startLine": 5590
                 }
               }
             }
@@ -25028,7 +25028,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 5526
+                  "startLine": 5591
                 }
               }
             }
@@ -25055,7 +25055,7 @@
                 },
                 "region": {
                   "startColumn": 35,
-                  "startLine": 5541
+                  "startLine": 5606
                 }
               }
             }
@@ -25082,7 +25082,7 @@
                 },
                 "region": {
                   "startColumn": 27,
-                  "startLine": 5550
+                  "startLine": 5615
                 }
               }
             }
@@ -25109,7 +25109,7 @@
                 },
                 "region": {
                   "startColumn": 15,
-                  "startLine": 5554
+                  "startLine": 5619
                 }
               }
             }
@@ -25136,7 +25136,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 5556
+                  "startLine": 5621
                 }
               }
             }
@@ -25163,7 +25163,7 @@
                 },
                 "region": {
                   "startColumn": 40,
-                  "startLine": 5565
+                  "startLine": 5630
                 }
               }
             }
@@ -25190,7 +25190,7 @@
                 },
                 "region": {
                   "startColumn": 27,
-                  "startLine": 5567
+                  "startLine": 5632
                 }
               }
             }
@@ -25217,7 +25217,7 @@
                 },
                 "region": {
                   "startColumn": 37,
-                  "startLine": 5570
+                  "startLine": 5635
                 }
               }
             }
@@ -25244,7 +25244,7 @@
                 },
                 "region": {
                   "startColumn": 28,
-                  "startLine": 5576
+                  "startLine": 5641
                 }
               }
             }
@@ -25271,7 +25271,7 @@
                 },
                 "region": {
                   "startColumn": 33,
-                  "startLine": 5583
+                  "startLine": 5648
                 }
               }
             }
@@ -25298,7 +25298,7 @@
                 },
                 "region": {
                   "startColumn": 45,
-                  "startLine": 5583
+                  "startLine": 5648
                 }
               }
             }
@@ -25325,7 +25325,7 @@
                 },
                 "region": {
                   "startColumn": 19,
-                  "startLine": 5587
+                  "startLine": 5652
                 }
               }
             }
@@ -25352,7 +25352,7 @@
                 },
                 "region": {
                   "startColumn": 19,
-                  "startLine": 5590
+                  "startLine": 5655
                 }
               }
             }
@@ -25379,7 +25379,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 5591
+                  "startLine": 5656
                 }
               }
             }
@@ -25406,7 +25406,7 @@
                 },
                 "region": {
                   "startColumn": 33,
-                  "startLine": 5594
+                  "startLine": 5659
                 }
               }
             }
@@ -25433,7 +25433,7 @@
                 },
                 "region": {
                   "startColumn": 45,
-                  "startLine": 5594
+                  "startLine": 5659
                 }
               }
             }
@@ -25460,7 +25460,7 @@
                 },
                 "region": {
                   "startColumn": 27,
-                  "startLine": 5603
+                  "startLine": 5668
                 }
               }
             }
@@ -25487,7 +25487,7 @@
                 },
                 "region": {
                   "startColumn": 33,
-                  "startLine": 5608
+                  "startLine": 5673
                 }
               }
             }
@@ -25514,7 +25514,7 @@
                 },
                 "region": {
                   "startColumn": 37,
-                  "startLine": 5618
+                  "startLine": 5683
                 }
               }
             }
@@ -25541,7 +25541,7 @@
                 },
                 "region": {
                   "startColumn": 23,
-                  "startLine": 5627
+                  "startLine": 5692
                 }
               }
             }
@@ -25568,7 +25568,7 @@
                 },
                 "region": {
                   "startColumn": 34,
-                  "startLine": 5628
+                  "startLine": 5693
                 }
               }
             }
@@ -25595,7 +25595,7 @@
                 },
                 "region": {
                   "startColumn": 32,
-                  "startLine": 5631
+                  "startLine": 5696
                 }
               }
             }
@@ -25622,7 +25622,7 @@
                 },
                 "region": {
                   "startColumn": 27,
-                  "startLine": 5635
+                  "startLine": 5700
                 }
               }
             }
@@ -25649,7 +25649,7 @@
                 },
                 "region": {
                   "startColumn": 36,
-                  "startLine": 5646
+                  "startLine": 5711
                 }
               }
             }
@@ -25676,7 +25676,7 @@
                 },
                 "region": {
                   "startColumn": 33,
-                  "startLine": 5652
+                  "startLine": 5717
                 }
               }
             }
@@ -25703,7 +25703,7 @@
                 },
                 "region": {
                   "startColumn": 32,
-                  "startLine": 5654
+                  "startLine": 5719
                 }
               }
             }
@@ -25730,7 +25730,7 @@
                 },
                 "region": {
                   "startColumn": 41,
-                  "startLine": 5656
+                  "startLine": 5721
                 }
               }
             }
@@ -25757,7 +25757,7 @@
                 },
                 "region": {
                   "startColumn": 47,
-                  "startLine": 5657
+                  "startLine": 5722
                 }
               }
             }
@@ -25784,7 +25784,7 @@
                 },
                 "region": {
                   "startColumn": 32,
-                  "startLine": 5759
+                  "startLine": 5824
                 }
               }
             }
@@ -25811,7 +25811,7 @@
                 },
                 "region": {
                   "startColumn": 31,
-                  "startLine": 5760
+                  "startLine": 5825
                 }
               }
             }
@@ -32124,249 +32124,6 @@
             {
               "physicalLocation": {
                 "artifactLocation": {
-                  "uri": "tests/test_queue_submission_automux.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 24,
-                  "startLine": 154
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Argument of type \"_Gating\" cannot be assigned to parameter \"command_gating\" of type \"CommandGatingService\" in function \"add_tv_batch_jobs\" \"_Gating\" is not assignable to \"CommandGatingService\""
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "tests.test_queue_submission_automux.test_per_episode_optout_excludes_only_that_file::reportArgumentType::Argument of type \"_Gating\" cannot be assigned to parameter \"command_gating\" of type \"CommandGatingService\" in function \"add_tv_batch_jobs\" \"_Gating\" is not assignable to \"CommandGatingService\"#1"
-          },
-          "ruleId": "pyright/reportArgumentType",
-          "ruleIndex": 0
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_queue_submission_automux.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 24,
-                  "startLine": 181
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Argument of type \"_Gating\" cannot be assigned to parameter \"command_gating\" of type \"CommandGatingService\" in function \"add_tv_batch_jobs\" \"_Gating\" is not assignable to \"CommandGatingService\""
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "tests.test_queue_submission_automux.test_tv_batch_bakes_remux_job::reportArgumentType::Argument of type \"_Gating\" cannot be assigned to parameter \"command_gating\" of type \"CommandGatingService\" in function \"add_tv_batch_jobs\" \"_Gating\" is not assignable to \"CommandGatingService\"#1"
-          },
-          "ruleId": "pyright/reportArgumentType",
-          "ruleIndex": 0
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_queue_submission_automux.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 24,
-                  "startLine": 200
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Argument of type \"_Gating\" cannot be assigned to parameter \"command_gating\" of type \"CommandGatingService\" in function \"add_tv_batch_jobs\" \"_Gating\" is not assignable to \"CommandGatingService\""
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "tests.test_queue_submission_automux.test_tv_batch_without_settings_stays_rename::reportArgumentType::Argument of type \"_Gating\" cannot be assigned to parameter \"command_gating\" of type \"CommandGatingService\" in function \"add_tv_batch_jobs\" \"_Gating\" is not assignable to \"CommandGatingService\"#1"
-          },
-          "ruleId": "pyright/reportArgumentType",
-          "ruleIndex": 0
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_queue_submission_automux.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 24,
-                  "startLine": 216
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Argument of type \"_Gating\" cannot be assigned to parameter \"command_gating\" of type \"CommandGatingService\" in function \"add_tv_batch_jobs\" \"_Gating\" is not assignable to \"CommandGatingService\""
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "tests.test_queue_submission_automux.test_disabled_state_stays_rename::reportArgumentType::Argument of type \"_Gating\" cannot be assigned to parameter \"command_gating\" of type \"CommandGatingService\" in function \"add_tv_batch_jobs\" \"_Gating\" is not assignable to \"CommandGatingService\"#1"
-          },
-          "ruleId": "pyright/reportArgumentType",
-          "ruleIndex": 0
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_queue_submission_automux.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 24,
-                  "startLine": 266
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Argument of type \"_Gating\" cannot be assigned to parameter \"command_gating\" of type \"CommandGatingService\" in function \"add_tv_batch_jobs\" \"_Gating\" is not assignable to \"CommandGatingService\""
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "tests.test_queue_submission_automux.test_mux_only_op_for_correctly_named_file::reportArgumentType::Argument of type \"_Gating\" cannot be assigned to parameter \"command_gating\" of type \"CommandGatingService\" in function \"add_tv_batch_jobs\" \"_Gating\" is not assignable to \"CommandGatingService\"#1"
-          },
-          "ruleId": "pyright/reportArgumentType",
-          "ruleIndex": 0
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_queue_submission_automux.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 24,
-                  "startLine": 293
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Argument of type \"_Gating\" cannot be assigned to parameter \"command_gating\" of type \"CommandGatingService\" in function \"add_tv_batch_jobs\" \"_Gating\" is not assignable to \"CommandGatingService\""
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "tests.test_queue_submission_automux.test_mux_only_file_optout_produces_no_op::reportArgumentType::Argument of type \"_Gating\" cannot be assigned to parameter \"command_gating\" of type \"CommandGatingService\" in function \"add_tv_batch_jobs\" \"_Gating\" is not assignable to \"CommandGatingService\"#1"
-          },
-          "ruleId": "pyright/reportArgumentType",
-          "ruleIndex": 0
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_queue_submission_automux.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 24,
-                  "startLine": 420
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Argument of type \"_Gating\" cannot be assigned to parameter \"command_gating\" of type \"CommandGatingService\" in function \"add_tv_batch_jobs\" \"_Gating\" is not assignable to \"CommandGatingService\""
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "tests.test_queue_submission_automux.test_data_source_reflects_state_provider_name_not_shared_client::reportArgumentType::Argument of type \"_Gating\" cannot be assigned to parameter \"command_gating\" of type \"CommandGatingService\" in function \"add_tv_batch_jobs\" \"_Gating\" is not assignable to \"CommandGatingService\"#1"
-          },
-          "ruleId": "pyright/reportArgumentType",
-          "ruleIndex": 0
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_queue_submission_automux.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 24,
-                  "startLine": 463
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Argument of type \"_Gating\" cannot be assigned to parameter \"command_gating\" of type \"CommandGatingService\" in function \"add_tv_batch_jobs\" \"_Gating\" is not assignable to \"CommandGatingService\""
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "tests.test_queue_submission_automux.test_provider_for_state_resolves_bake_client_per_show::reportArgumentType::Argument of type \"_Gating\" cannot be assigned to parameter \"command_gating\" of type \"CommandGatingService\" in function \"add_tv_batch_jobs\" \"_Gating\" is not assignable to \"CommandGatingService\"#1"
-          },
-          "ruleId": "pyright/reportArgumentType",
-          "ruleIndex": 0
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_queue_submission_automux.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 24,
-                  "startLine": 503
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Argument of type \"_Gating\" cannot be assigned to parameter \"command_gating\" of type \"CommandGatingService\" in function \"add_movie_batch_jobs\" \"_Gating\" is not assignable to \"CommandGatingService\""
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "tests.test_queue_submission_automux.test_movie_batch_bakes_remux_job::reportArgumentType::Argument of type \"_Gating\" cannot be assigned to parameter \"command_gating\" of type \"CommandGatingService\" in function \"add_movie_batch_jobs\" \"_Gating\" is not assignable to \"CommandGatingService\"#1"
-          },
-          "ruleId": "pyright/reportArgumentType",
-          "ruleIndex": 0
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
                   "uri": "tests/test_recent_menus.py",
                   "uriBaseId": "%SRCROOT%"
                 },
@@ -36128,7 +35885,7 @@
                 },
                 "region": {
                   "startColumn": 37,
-                  "startLine": 154
+                  "startLine": 156
                 }
               }
             }
@@ -36155,7 +35912,7 @@
                 },
                 "region": {
                   "startColumn": 28,
-                  "startLine": 179
+                  "startLine": 181
                 }
               }
             }
@@ -36182,7 +35939,7 @@
                 },
                 "region": {
                   "startColumn": 45,
-                  "startLine": 223
+                  "startLine": 293
                 }
               }
             }
@@ -36209,7 +35966,7 @@
                 },
                 "region": {
                   "startColumn": 48,
-                  "startLine": 233
+                  "startLine": 303
                 }
               }
             }

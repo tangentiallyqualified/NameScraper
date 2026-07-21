@@ -35,19 +35,19 @@ graph LR
 
 | Metric | Value |
 |---|---|
-| Modules | 185 |
-| Total LOC | 41881 |
-| Statement coverage | 89.0% |
-| Module-average coverage | 89.7% |
+| Modules | 187 |
+| Total LOC | 42744 |
+| Statement coverage | 89.1% |
+| Module-average coverage | 89.9% |
 | Import cycles | 0 |
-| Modules over complexity threshold | 66 |
+| Modules over complexity threshold | 67 |
 | Dead symbols (high confidence) | 0 |
 
 ## Coverage provenance
 
 | Status | Source | Input digest | Detail |
 |---|---|---|---|
-| matched | coverage.py | cc8c385e6d35 | - |
+| matched | coverage.py | 97f0f3283c15 | - |
 
 ## Least-covered modules
 
@@ -68,7 +68,7 @@ graph LR
 
 | Module | LOC |
 |---|---|
-| `plex_renamer/engine/_episode_resolution.py` | 1992 |
+| `plex_renamer/engine/_episode_resolution.py` | 2037 |
 | `plex_renamer/engine/_batch_orchestrators.py` | 1394 |
 | `plex_renamer/gui_qt/widgets/_work_panel.py` | 923 |
 | `plex_renamer/gui_qt/widgets/_episode_table_model.py` | 922 |
@@ -76,20 +76,20 @@ graph LR
 | `plex_renamer/gui_qt/widgets/_bulk_assign_panel.py` | 758 |
 | `plex_renamer/gui_qt/widgets/_episode_table_delegate.py` | 730 |
 | `plex_renamer/engine/_tv_scanner_consolidated.py` | 720 |
-| `plex_renamer/job_store.py` | 651 |
+| `plex_renamer/job_store.py` | 652 |
 | `plex_renamer/engine/matching.py` | 641 |
 
 ## Most complex
 
 | Module | Max CC |
 |---|---|
+| `plex_renamer/gui_qt/widgets/_media_workspace_actions.py` | 51 |
 | `plex_renamer/engine/_episode_resolution.py` | 49 |
 | `plex_renamer/tvdb.py` | 45 |
 | `plex_renamer/engine/_tv_scanner_normal.py` | 44 |
 | `plex_renamer/job_executor.py` | 43 |
 | `plex_renamer/app/services/_tv_library_classification.py` | 42 |
 | `plex_renamer/engine/_mux_audio_dedup.py` | 42 |
-| `plex_renamer/gui_qt/widgets/_media_workspace_actions.py` | 42 |
 | `plex_renamer/engine/_mux_planner.py` | 41 |
 | `plex_renamer/engine/_tv_scanner_consolidated.py` | 40 |
 | `plex_renamer/app/services/metadata_service.py` | 35 |
@@ -100,11 +100,11 @@ graph LR
 |---|---|
 | `plex_renamer/constants.py` | 49 |
 | `plex_renamer/engine/__init__.py` | 42 |
-| `plex_renamer/engine/models.py` | 25 |
+| `plex_renamer/engine/models.py` | 27 |
 | `plex_renamer/gui_qt/_scale.py` | 25 |
 | `plex_renamer/app/models/__init__.py` | 23 |
 | `plex_renamer/parsing.py` | 23 |
-| `plex_renamer/job_store.py` | 16 |
+| `plex_renamer/job_store.py` | 17 |
 | `plex_renamer/gui_qt/theme.py` | 14 |
 | `plex_renamer/thread_pool.py` | 13 |
 | `plex_renamer/gui_qt/widgets/_media_helpers.py` | 12 |
@@ -150,7 +150,7 @@ _None._
 ### Protected or ambiguous
 
 - [ ] `plex_renamer/_job_store_db.py:58` plex_renamer._job_store_db.connect_job_store.row_factory#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
-- [ ] `plex_renamer/_mkv_probe.py:42` plex_renamer._mkv_probe.ProbeResult.container_type#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
+- [ ] `plex_renamer/_mkv_probe.py:46` plex_renamer._mkv_probe.ProbeResult.container_type#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
 - [ ] `plex_renamer/app/controllers/media_controller.py:368` plex_renamer.app.controllers.media_controller.MediaController.accept_tv_show#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
 - [ ] `plex_renamer/app/controllers/queue_controller.py:88` plex_renamer.app.controllers.queue_controller.QueueController.pending_count#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
 - [ ] `plex_renamer/app/controllers/queue_controller.py:95` plex_renamer.app.controllers.queue_controller.QueueController.add_single_job#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
@@ -167,7 +167,7 @@ _None._
 - [ ] `plex_renamer/app/services/cache_service.py:186` plex_renamer.app.services.cache_service.PersistentCacheService.mark_refreshing#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
 - [ ] `plex_renamer/app/services/cache_service.py:203` plex_renamer.app.services.cache_service.PersistentCacheService.invalidate_namespace#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
 - [ ] `plex_renamer/app/services/cache_service.py:222` plex_renamer.app.services.cache_service.PersistentCacheService.invalidate_by_prefix#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
-- [ ] `plex_renamer/app/services/episode_mapping_service.py:135` plex_renamer.app.services.episode_mapping_service.EpisodeMappingService.apply_assignments#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
+- [ ] `plex_renamer/app/services/episode_mapping_service.py:158` plex_renamer.app.services.episode_mapping_service.EpisodeMappingService.apply_assignments#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
 - [ ] `plex_renamer/app/services/episode_projection_cache.py:77` plex_renamer.app.services.episode_projection_cache.EpisodeProjectionCacheService.cache_size#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
 - [ ] `plex_renamer/app/services/refresh_policy_service.py:27` plex_renamer.app.services.refresh_policy_service.ManualRefreshDecision.retry_after_seconds#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
 - [ ] `plex_renamer/app/services/refresh_policy_service.py:99` plex_renamer.app.services.refresh_policy_service.RefreshPolicyService.should_background_refresh#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
@@ -176,9 +176,9 @@ _None._
 - [ ] `plex_renamer/app/services/settings_service.py:118` plex_renamer.app.services.settings_service.SettingsService.match_country#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
 - [ ] `plex_renamer/constants.py:67` plex_renamer.constants.JobKind.SUBTITLE_DOWNLOAD#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
 - [ ] `plex_renamer/engine/_batch_orchestrators.py:1157` plex_renamer.engine._batch_orchestrators.BatchMovieOrchestrator.discover_movies#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
-- [ ] `plex_renamer/engine/_mux_planner.py:35` plex_renamer.engine._mux_planner.MuxPlan.output_name#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
-- [ ] `plex_renamer/engine/_mux_planner.py:46` plex_renamer.engine._mux_planner.MuxPlan.user_modified#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
-- [ ] `plex_renamer/engine/episode_assignments.py:246` plex_renamer.engine.episode_assignments.EpisodeAssignmentTable.unclaimed_slots#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
+- [ ] `plex_renamer/engine/_mux_planner.py:40` plex_renamer.engine._mux_planner.MuxPlan.output_name#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
+- [ ] `plex_renamer/engine/_mux_planner.py:54` plex_renamer.engine._mux_planner.MuxPlan.user_modified#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
+- [ ] `plex_renamer/engine/episode_assignments.py:357` plex_renamer.engine.episode_assignments.EpisodeAssignmentTable.unclaimed_slots#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
 - [ ] `plex_renamer/engine/show_details.py:26` plex_renamer.engine.show_details.ShowDetails.first_air_date#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
 - [ ] `plex_renamer/gui_qt/models/job_status_filter_proxy_model.py:26` plex_renamer.gui_qt.models.job_status_filter_proxy_model.JobStatusFilterProxyModel.filterAcceptsRow#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
 - [ ] `plex_renamer/gui_qt/models/job_status_filter_proxy_model.py:26` plex_renamer.gui_qt.models.job_status_filter_proxy_model.JobStatusFilterProxyModel.filterAcceptsRow.source_parent#1 (Vulture 100%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
@@ -197,12 +197,12 @@ _None._
 - [ ] `plex_renamer/gui_qt/widgets/_bulk_assign_panel.py:402` plex_renamer.gui_qt.widgets._bulk_assign_panel.BulkSlotsView.dropEvent#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
 - [ ] `plex_renamer/gui_qt/widgets/_bulk_assign_panel.py:547` plex_renamer.gui_qt.widgets._bulk_assign_panel.BulkAssignPanel.show_state._claimed_file_by_key#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
 - [ ] `plex_renamer/gui_qt/widgets/_bulk_assign_panel.py:676` plex_renamer.gui_qt.widgets._bulk_assign_panel.BulkAssignPanel._select_file#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
-- [ ] `plex_renamer/gui_qt/widgets/_episode_expansion.py:213` plex_renamer.gui_qt.widgets._episode_expansion.EpisodeExpansionCard._build_ui._header_row#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
-- [ ] `plex_renamer/gui_qt/widgets/_episode_expansion.py:317` plex_renamer.gui_qt.widgets._episode_expansion.EpisodeExpansionCard.header_action_buttons#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
-- [ ] `plex_renamer/gui_qt/widgets/_episode_expansion.py:322` plex_renamer.gui_qt.widgets._episode_expansion.EpisodeExpansionCard.action_buttons#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
-- [ ] `plex_renamer/gui_qt/widgets/_episode_expansion.py:326` plex_renamer.gui_qt.widgets._episode_expansion.EpisodeExpansionCard.status_pill_text#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
-- [ ] `plex_renamer/gui_qt/widgets/_episode_expansion.py:329` plex_renamer.gui_qt.widgets._episode_expansion.EpisodeExpansionCard.mux_optout_button#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
-- [ ] `plex_renamer/gui_qt/widgets/_episode_expansion.py:386` plex_renamer.gui_qt.widgets._episode_expansion.EpisodeExpansionCard._reset_content._copy_buttons#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
+- [ ] `plex_renamer/gui_qt/widgets/_episode_expansion.py:217` plex_renamer.gui_qt.widgets._episode_expansion.EpisodeExpansionCard._build_ui._header_row#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
+- [ ] `plex_renamer/gui_qt/widgets/_episode_expansion.py:328` plex_renamer.gui_qt.widgets._episode_expansion.EpisodeExpansionCard.header_action_buttons#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
+- [ ] `plex_renamer/gui_qt/widgets/_episode_expansion.py:333` plex_renamer.gui_qt.widgets._episode_expansion.EpisodeExpansionCard.action_buttons#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
+- [ ] `plex_renamer/gui_qt/widgets/_episode_expansion.py:337` plex_renamer.gui_qt.widgets._episode_expansion.EpisodeExpansionCard.status_pill_text#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
+- [ ] `plex_renamer/gui_qt/widgets/_episode_expansion.py:340` plex_renamer.gui_qt.widgets._episode_expansion.EpisodeExpansionCard.mux_optout_button#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
+- [ ] `plex_renamer/gui_qt/widgets/_episode_expansion.py:397` plex_renamer.gui_qt.widgets._episode_expansion.EpisodeExpansionCard._reset_content._copy_buttons#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
 - [ ] `plex_renamer/gui_qt/widgets/_episode_table_delegate.py:351` plex_renamer.gui_qt.widgets._episode_table_delegate.EpisodeTableDelegate.createEditor#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
 - [ ] `plex_renamer/gui_qt/widgets/_episode_table_delegate.py:363` plex_renamer.gui_qt.widgets._episode_table_delegate.EpisodeTableDelegate.updateEditorGeometry#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
 - [ ] `plex_renamer/gui_qt/widgets/_episode_table_model.py:246` plex_renamer.gui_qt.widgets._episode_table_model.EpisodeTableModel.filter_mode#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
@@ -240,11 +240,11 @@ _None._
 - [ ] `plex_renamer/gui_qt/widgets/episode_assign_dialog.py:210` plex_renamer.gui_qt.widgets.episode_assign_dialog.EpisodeAssignDialog.slot_row_text#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
 - [ ] `plex_renamer/gui_qt/widgets/tab_badge.py:52` plex_renamer.gui_qt.widgets.tab_badge.TabBadge.count_text#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
 - [ ] `plex_renamer/gui_qt/widgets/tab_badge.py:64` plex_renamer.gui_qt.widgets.tab_badge.TabBadge.failure_visible#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
-- [ ] `plex_renamer/job_store.py:462` plex_renamer.job_store.JobStore.reorder_job#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
+- [ ] `plex_renamer/job_store.py:463` plex_renamer.job_store.JobStore.reorder_job#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved)
 
 ### Test referenced
 
-- [ ] `plex_renamer/_mkv_probe.py:122` plex_renamer._mkv_probe.clear_probe_cache#1 (Vulture 60%; production refs: none; test refs: tests/test_ffprobe_fallback.py, tests/test_mkv_probe.py, tests/test_mkvmerge_integration.py; assessment: test-referenced)
+- [ ] `plex_renamer/_mkv_probe.py:141` plex_renamer._mkv_probe.clear_probe_cache#1 (Vulture 60%; production refs: none; test refs: tests/test_ffprobe_fallback.py, tests/test_mkv_probe.py, tests/test_mkvmerge_integration.py; assessment: test-referenced)
 - [ ] `plex_renamer/engine/episode_assignments.py:22` plex_renamer.engine.episode_assignments.ROLE_VERSION#1 (Vulture 60%; production refs: none; test refs: tests/test_episode_assignments.py; assessment: test-referenced)
 - [ ] `plex_renamer/gui_qt/_scale.py:53` plex_renamer.gui_qt._scale.row_height#1 (Vulture 60%; production refs: none; test refs: tests/test_qt_scale.py; assessment: test-referenced)
 
@@ -252,11 +252,11 @@ _None._
 
 - [x] `plex_renamer/app/models/state_models.py:27` plex_renamer.app.models.state_models.ScanLifecycle.REFRESHING_CACHE#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved; allowlist: Exported ScanLifecycle compatibility value reserved for cache-refresh progress.)
 - [x] `plex_renamer/engine/_movie_scanner.py:109` plex_renamer.engine._movie_scanner.MovieScanner.explicit_files#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved; allowlist: MovieScanner exposes retained constructor source files for public inspection, exercised by the multi-file discovery regression.)
-- [x] `plex_renamer/gui_qt/widgets/_episode_expansion.py:138` plex_renamer.gui_qt.widgets._episode_expansion._ChipStrip.paintEvent#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved; allowlist: Qt invokes this QWidget paintEvent override to render the chip strip.)
+- [x] `plex_renamer/gui_qt/widgets/_episode_expansion.py:142` plex_renamer.gui_qt.widgets._episode_expansion._ChipStrip.paintEvent#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved; allowlist: Qt invokes this QWidget paintEvent override to render the chip strip.)
 - [x] `plex_renamer/gui_qt/widgets/_workspace_widget_primitives.py:113` plex_renamer.gui_qt.widgets._workspace_widget_primitives.MasterCheckBox.paintEvent#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved; allowlist: Qt invokes this QCheckBox paintEvent override to render the master checkbox.)
 - [x] `plex_renamer/gui_qt/widgets/busy_overlay.py:53` plex_renamer.gui_qt.widgets.busy_overlay.Spinner.paintEvent#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved; allowlist: Qt invokes this QWidget paintEvent override to render the spinner.)
 - [x] `plex_renamer/gui_qt/widgets/busy_overlay.py:90` plex_renamer.gui_qt.widgets.busy_overlay.BusyOverlay.paintEvent#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved; allowlist: Qt invokes this QWidget paintEvent override to render the busy overlay.)
 - [x] `plex_renamer/gui_qt/widgets/scan_progress.py:164` plex_renamer.gui_qt.widgets.scan_progress._ConveyorAnimation.paintEvent#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved; allowlist: Qt invokes this QWidget paintEvent override to render the conveyor animation.)
 
-_Generated from audit input cc8c385e6d35 by scripts\audit.cmd._
+_Generated from audit input 97f0f3283c15 by scripts\audit.cmd._
 <!-- audit:generated:end overview -->

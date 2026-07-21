@@ -1,4 +1,4 @@
-<!-- Generated from audit input cc8c385e6d35; do not edit. regenerate: scripts\audit.cmd --fast -->
+<!-- Generated from audit input 97f0f3283c15; do not edit. regenerate: scripts\audit.cmd --fast -->
 
 
 # Package detail: app
@@ -169,7 +169,7 @@
 - `state_has_mux_actions(state) -> bool` — (no docstring) (used by: plex_renamer.gui_qt.widgets._roster_model)
 - `state_mux_eligible(state) -> bool` — True when any cached plan carries actions, regardless of the
 - `effective_mux_plans(state) -> dict[int, dict] | None` — Plans to bake into a queue job — None when AutoMux contributes (used by: plex_renamer.app.controllers._queue_submission_helpers)
-- Tests: tests/test_automux_service.py, tests/test_automux_settings.py, tests/test_ffprobe_fallback.py
+- Tests: tests/test_automux_merge_planning.py, tests/test_automux_service.py, tests/test_automux_settings.py, tests/test_ffprobe_fallback.py, tests/test_workspace_automux.py
 
 ### `plex_renamer/app/services/cache_service.py` — Persistent metadata cache with freshness tracking and bounded eviction.
 - `PersistentCacheService` — SQLite-backed cache for persisted metadata and scan-related state. (used by: plex_renamer.app, plex_renamer.app.controllers.media_controller, plex_renamer.app.services, plex_renamer.gui_qt.main_window)
@@ -181,7 +181,7 @@
 
 ### `plex_renamer/app/services/episode_mapping_service.py` — Build TV episode-guide projections.
 - `EpisodeMappingService` — Project raw scan preview state into episode-guide workflow state. (used by: plex_renamer.app.controllers._controller_event_helpers, plex_renamer.app.services, plex_renamer.app.services.episode_projection_cache, plex_renamer.gui_qt.widgets._episode_table_model, plex_renamer.gui_qt.widgets._media_workspace_actions)
-- Tests: tests/test_bulk_assign_panel.py, tests/test_conflict_queue_protection.py, tests/test_episode_mapping_projection.py, tests/test_episode_metadata_ownership.py, tests/test_episode_projection_cache.py, tests/test_manual_assign_queueable.py, tests/test_qt_async_guide.py, tests/test_qt_media_workspace.py, tests/test_qt_perf_guards.py, tests/test_scan_state_scanner.py
+- Tests: tests/test_bulk_assign_panel.py, tests/test_conflict_queue_protection.py, tests/test_episode_mapping_projection.py, tests/test_episode_metadata_ownership.py, tests/test_episode_projection_cache.py, tests/test_manual_assign_queueable.py, tests/test_merge_service_actions.py, tests/test_qt_async_guide.py, tests/test_qt_media_workspace.py, tests/test_qt_perf_guards.py, tests/test_scan_state_scanner.py
 
 ### `plex_renamer/app/services/episode_projection_cache.py` — Cache scan-time TV episode-guide projections for batch UI rendering.
 - `EpisodeProjectionCacheService` — (no docstring) (used by: plex_renamer.app.controllers.media_controller)
@@ -215,7 +215,7 @@
 
 ### `plex_renamer/app/services/settings_service.py` — Lightweight JSON-backed user preferences.
 - `SettingsService` — Read/write user preferences backed by a JSON file. (used by: plex_renamer.app.controllers.media_controller, plex_renamer.app.services, plex_renamer.app.services.automux_service, plex_renamer.gui_qt.main_window, plex_renamer.gui_qt.widgets._media_workspace_roster, plex_renamer.gui_qt.widgets.empty_state, plex_renamer.gui_qt.widgets.media_workspace, plex_renamer.gui_qt.widgets.settings_tab)
-- Tests: tests/conftest_qt.py, tests/test_alt_title_matching.py, tests/test_automux_service.py, tests/test_automux_settings.py, tests/test_ffprobe_fallback.py, tests/test_media_controller.py, tests/test_qt_main_window.py, tests/test_qt_media_workspace.py, tests/test_qt_media_workspace_review_actions.py, tests/test_qt_queue_submission_async.py, tests/test_queue_submission_automux.py, tests/test_recent_menus.py, tests/test_settings_longpath.py, tests/test_settings_page_composition.py, tests/test_settings_service.py, tests/test_settings_tab_automux.py, tests/test_settings_tab_cache.py, tests/test_tv_provider_selection.py, tests/test_workspace_automux.py, tests/test_workspace_expansion.py
+- Tests: tests/conftest_qt.py, tests/test_alt_title_matching.py, tests/test_automux_merge_planning.py, tests/test_automux_service.py, tests/test_automux_settings.py, tests/test_ffprobe_fallback.py, tests/test_media_controller.py, tests/test_qt_main_window.py, tests/test_qt_media_workspace.py, tests/test_qt_media_workspace_review_actions.py, tests/test_qt_queue_submission_async.py, tests/test_queue_submission_automux.py, tests/test_recent_menus.py, tests/test_settings_longpath.py, tests/test_settings_page_composition.py, tests/test_settings_service.py, tests/test_settings_tab_automux.py, tests/test_settings_tab_cache.py, tests/test_tv_provider_selection.py, tests/test_workspace_automux.py, tests/test_workspace_expansion.py
 
 ### `plex_renamer/app/services/tv_library_discovery_service.py` — Recursive TV-library discovery for nested batch scan workflows.
 - `TVLibraryDiscoveryService` — Discover nested TV show roots without misclassifying container folders. (used by: plex_renamer.app.controllers._tv_batch_helpers, plex_renamer.app.controllers.media_controller, plex_renamer.app.services)
