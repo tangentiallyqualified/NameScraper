@@ -11,7 +11,9 @@ import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
+from pathlib import Path
 
+from .._parsing_parts import split_part_marker
 from ..parsing import (
     build_tv_name,
     extract_source_title_prefix,
@@ -1271,6 +1273,48 @@ def _shift_run_off_segmented_conflict(table: EpisodeAssignmentTable) -> None:
         )
 
 
+def detect_part_groups(table: EpisodeAssignmentTable) -> None:
+    """Convert same-slot sibling claims with sequential part markers into
+    part groups (spec: multi-file-episode-merge section 1).
+
+    Grouping requires: same directory, identical marker-free base stem, a
+    complete 1..N marker run (N >= 2), no unmarked sibling sharing the
+    base stem, and every member auto-assigned to the identical
+    (season, episodes) target. Runs BEFORE conflict resolution so groups
+    are never consumed by the pile-up or duplicate-copy rules.
+    """
+    by_base: dict[tuple[Path, str], list[tuple[int, int | None]]] = {}
+    for file_id, entry in table.files.items():
+        base, marker = split_part_marker(entry.path.stem)
+        by_base.setdefault((entry.path.parent, base), []).append((file_id, marker))
+
+    for (_parent, _base), members in by_base.items():
+        marked = [(fid, m) for fid, m in members if m is not None]
+        if len(marked) < 2 or len(marked) != len(members):
+            continue  # unmarked sibling present, or not enough parts
+        markers = sorted(m for _fid, m in marked)
+        if markers != list(range(1, len(markers) + 1)):
+            continue  # incomplete or duplicated run
+        assignments = [table.assignment_for(fid) for fid, _m in marked]
+        if any(a is None or a.origin != ORIGIN_AUTO or a.part_order > 0 for a in assignments):
+            continue
+        targets = {(a.season, a.episodes) for a in assignments if a is not None}
+        if len(targets) != 1:
+            continue  # members resolved to different slots
+        season, episodes = next(iter(targets))
+        ordered = sorted(marked, key=lambda pair: pair[1] or 0)
+        confidence = min(a.confidence for a in assignments if a is not None)
+        for fid, marker in ordered:
+            table.files[fid].part_marker = marker
+        table.group_parts(
+            [fid for fid, _m in ordered],
+            season,
+            list(episodes),
+            origin=ORIGIN_AUTO,
+            confidence=confidence,
+        )
+
+
 def _auto_resolve_strong_title_conflicts(table: EpisodeAssignmentTable) -> None:
     """Resolve slot conflicts so no episode is listed twice unresolved.
 
@@ -1281,6 +1325,7 @@ def _auto_resolve_strong_title_conflicts(table: EpisodeAssignmentTable) -> None:
     folders) resolve to the first-registered file; other single-episode ties
     are unassigned as ambiguous. Slots with manual claimants are untouched.
     """
+    detect_part_groups(table)
     _trim_run_edge_conflicts(table)
     _shift_run_off_segmented_conflict(table)
     for season, episode in list(table.conflicts().keys()):
@@ -1288,8 +1333,8 @@ def _auto_resolve_strong_title_conflicts(table: EpisodeAssignmentTable) -> None:
         # that claimed this one too, and a stale winner crashes
         # resolve_conflict ("File N does not claim S##E##" — RC32).
         claims = table.claims(season, episode)
-        if len(claims) < 2:
-            continue
+        if len(table.logical_claims(season, episode)) < 2:
+            continue  # a part group is one logical claim, not a conflict
         if any(claim.origin == ORIGIN_MANUAL for claim in claims):
             continue
         strengths = {claim.file_id: _claim_strength(claim) for claim in claims}
