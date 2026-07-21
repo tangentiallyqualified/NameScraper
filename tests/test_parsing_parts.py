@@ -21,6 +21,7 @@ from plex_renamer._parsing_parts import split_part_marker
         ("Show S01E05 - Pt 2", "Show S01E05", 2),
         ("Show S01E05 CD1", "Show S01E05", 1),
         ("Show S01E05.disc.2", "Show S01E05", 2),
+        ("Show S01E05 disk 2", "Show S01E05", 2),
         ("Show S01E05a", "Show S01E05", 1),
         ("Show S01E05b", "Show S01E05", 2),
     ],
@@ -38,6 +39,7 @@ def test_marker_forms(stem: str, base: str, part: int) -> None:
         "Show S01E05 Part 0",  # parts are 1-based
         "Se7en",  # embedded digit, no marker shape
         "Show S01E05v2",  # version tag, not a letter marker
+        "Show S01E05a Extended Cut",  # letter mid-stem is title text, not marker
     ],
 )
 def test_non_markers_pass_through(stem: str) -> None:

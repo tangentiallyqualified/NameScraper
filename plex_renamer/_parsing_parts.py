@@ -27,9 +27,10 @@ _TRAILING_MARKER_RE = re.compile(
 
 # Letter suffix directly on an S##E## token: "S01E05a" -> part 1.
 # Range guard a-d: beyond four parts, letter naming is unheard of, and a
-# wider class would eat codec/quality letters.
+# wider class would eat codec/quality letters. Must be at end of stem (only
+# trailing whitespace allowed) to distinguish from title text.
 _EPISODE_LETTER_RE = re.compile(
-    r"(?P<token>\bS\d{1,2}[\s._-]*E\d{1,3})(?P<letter>[a-d])(?![A-Za-z0-9])",
+    r"(?P<token>\bS\d{1,2}[\s._-]*E\d{1,3})(?P<letter>[a-d])(?:\s*$)",
     re.IGNORECASE,
 )
 
