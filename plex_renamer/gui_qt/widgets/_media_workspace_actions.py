@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
 )
 
+from ..._parsing_parts import split_part_marker
 from ...app.services.command_gating_service import CommandGatingService
 from ...app.services.episode_mapping_service import EpisodeMappingService
 from ...engine import ScanState
@@ -482,10 +483,16 @@ class MediaWorkspaceActionCoordinator:
                     )
                     return
                 claims = table.claims(row.season, row.episode)
+                # M1: part_marker is only backfilled when auto-detection
+                # GROUPED the files -- merge_parts is exactly the manual
+                # path taken when detection declined, so it is unset here
+                # more often than not. Parse the marker live from the
+                # filename instead of trusting it, or "Part 10" sorts
+                # before "Part 2" (lexicographic name fallback).
                 ordered = sorted(
                     (claim.file_id for claim in claims),
                     key=lambda fid: (
-                        table.files[fid].part_marker or 99,
+                        split_part_marker(table.files[fid].path.stem)[1] or 99,
                         table.files[fid].path.name.casefold(),
                     ),
                 )

@@ -3241,6 +3241,71 @@ class QtMediaWorkspaceTests(QtSmokeBase):
         self.assertEqual(len(warnings), 1, "Expected exactly one warning dialog call")
         workspace.close()
 
+    def test_episode_row_action_merge_parts_orders_by_live_parsed_marker(self):
+        """M1: merge_parts must order by a LIVE-parsed part marker, not the
+        backfilled FileEntry.part_marker field -- which is only set when
+        auto-detection grouped the files, and merge_parts is exactly the
+        manual path taken when detection declined. With no part_marker
+        backfilled, the old name-casefold fallback sorted "Part 10" before
+        "Part 2" (lexicographic); the fix must sort numerically."""
+        from plex_renamer.app.models.state_models import EpisodeGuideRow
+        from plex_renamer.engine._episode_projection import project_preview_items
+        from plex_renamer.engine.episode_assignments import (
+            ORIGIN_AUTO,
+            EpisodeAssignmentTable,
+            EpisodeSlot,
+        )
+        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+
+        folder = Path("C:/library/tv/Example")
+        show_info = {"id": 101, "name": "Example Show", "year": "2024"}
+        table = EpisodeAssignmentTable()
+        table.add_slot(EpisodeSlot(season=1, episode=5, title="Five"))
+        # Registered out of numeric order, part_marker left unset (None) on
+        # every entry -- exactly the state merge_parts sees when detection
+        # declined to group these files itself.
+        part10 = table.add_file(folder / "Season 01" / "Show S01E05 Part 10.mkv")
+        part1 = table.add_file(folder / "Season 01" / "Show S01E05 Part 1.mkv")
+        part2 = table.add_file(folder / "Season 01" / "Show S01E05 Part 2.mkv")
+        for entry in (part10, part1, part2):
+            table.assign(entry.file_id, 1, [5], origin=ORIGIN_AUTO, confidence=0.5)
+
+        state = ScanState(folder=folder, media_info=show_info, scanned=True, confidence=1.0)
+        state.assignments = table
+        state.preview_items = project_preview_items(
+            table,
+            show_info=show_info,
+            root=folder,
+            media_fields={"media_id": 101, "media_name": "Example Show"},
+        )
+
+        workspace = MediaWorkspace(
+            media_type="tv",
+            media_controller=self._make_fake_media_ctrl(state),
+        )
+        workspace.show_ready()
+
+        any_preview = next(
+            p
+            for p in state.preview_items
+            if p.file_id in (part1.file_id, part2.file_id, part10.file_id)
+        )
+        row = EpisodeGuideRow(season=1, episode=5, title="Five", primary_file=any_preview)
+
+        workspace._action_coordinator.handle_episode_row_action(state, row, "merge_parts")
+        self._app.processEvents()
+
+        merged = next(p for p in state.preview_items if p.merge_part_paths)
+        self.assertEqual(
+            [p.name for p in merged.merge_part_paths],
+            [
+                "Show S01E05 Part 1.mkv",
+                "Show S01E05 Part 2.mkv",
+                "Show S01E05 Part 10.mkv",
+            ],
+        )
+        workspace.close()
+
     def test_media_workspace_show_rematch_invalidates_projection_before_rescan(self):
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
 
