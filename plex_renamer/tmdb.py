@@ -48,6 +48,7 @@ from ._tmdb_transport import (
     TMDBRateLimitError as TMDBRateLimitError,
     TMDBTransport,
 )
+from .providers import SeasonMapUnavailableError
 
 IMAGE_BASE_URL = "https://image.tmdb.org/t/p/w500"
 API_BASE = "https://api.themoviedb.org/3"
@@ -130,6 +131,28 @@ class TMDBClient:
             "include_image_language": f"{lang2},null",
         }
 
+    def _get_tv_details_strict(self, show_id: int) -> dict:
+        try:
+            data = self._transport.get_json(f"/tv/{show_id}", self._details_params())
+        except TMDBError as exc:
+            raise SeasonMapUnavailableError(
+                f"tmdb season map unavailable for {show_id}: {exc}"
+            ) from exc
+        if data is None:
+            raise SeasonMapUnavailableError(f"tmdb season map unavailable for {show_id}: not found")
+        return data
+
+    def _get_season_strict(self, show_id: int, season_num: int) -> dict:
+        try:
+            data = self._transport.get_json(f"/tv/{show_id}/season/{season_num}")
+        except TMDBError as exc:
+            raise SeasonMapUnavailableError(
+                f"tmdb season map unavailable for {show_id}: {exc}"
+            ) from exc
+        if data is None:
+            raise SeasonMapUnavailableError(f"tmdb season map unavailable for {show_id}: not found")
+        return data
+
     # ─── TV Series ────────────────────────────────────────────────────
 
     def search_tv(self, query: str, year: str | None = None) -> list[dict]:
@@ -208,16 +231,14 @@ class TMDBClient:
         if cached is not None:
             return cached
 
-        show_data = self.get_tv_details(show_id)
-        if not show_data:
-            return {}, 0
+        show_data = self._get_tv_details_strict(show_id)
 
         tmdb_seasons = {}
         total_episodes = 0
 
         for season_info in show_data.get("seasons", []):
             sn = season_info.get("season_number", 0)
-            season_data = self.get_season(show_id, sn)
+            season_data = build_season_payload(self._get_season_strict(show_id, sn))
             titles = season_data["titles"]
             count = max(titles.keys()) if titles else season_info.get("episode_count", 0)
             tmdb_seasons[sn] = {

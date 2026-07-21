@@ -24,6 +24,7 @@ from ._tmdb_image_cache import _TMDBImageCacheStore  # pyright: ignore[reportPri
 from ._tmdb_search_helpers import search_with_fallback as _run_search_with_fallback  # type: ignore
 from ._tmdb_transport import TMDBError
 from ._tvdb_transport import TVDBTransport
+from .providers import SeasonMapUnavailableError
 
 log = logging.getLogger(__name__)
 
@@ -279,6 +280,22 @@ class TVDBClient:
         self._cache_put(_DETAILS_NAMESPACE, str(show_id), details)
         return details
 
+    def _get_tv_details_strict(self, show_id: int) -> dict[str, Any]:
+        try:
+            raw = self._transport.get_json(f"/series/{show_id}/extended")
+        except TMDBError as exc:
+            raise SeasonMapUnavailableError(
+                f"tvdb season map unavailable for {show_id}: {exc}"
+            ) from exc
+        if raw is None:
+            raise SeasonMapUnavailableError(f"tvdb season map unavailable for {show_id}: not found")
+        payload = raw.get("data")
+        if not isinstance(payload, dict):
+            raise SeasonMapUnavailableError(
+                f"tvdb season map unavailable for {show_id}: empty details"
+            )
+        return payload
+
     def _fetch_all_episodes(self, show_id: int) -> list[dict[str, Any]]:
         cached = self._episodes_cache.get(show_id)
         if cached is not None:
@@ -306,16 +323,40 @@ class TVDBClient:
         self._cache_put(_EPISODES_NAMESPACE, str(show_id), episodes)
         return episodes
 
+    def _fetch_all_episodes_strict(self, show_id: int) -> list[dict[str, Any]]:
+        episodes: list[dict[str, Any]] = []
+        page = 0
+        while True:
+            try:
+                raw = self._transport.get_json(
+                    f"/series/{show_id}/episodes/default", {"page": page}
+                )
+            except TMDBError as exc:
+                raise SeasonMapUnavailableError(
+                    f"tvdb season map unavailable for {show_id}: {exc}"
+                ) from exc
+            if raw is None:
+                raise SeasonMapUnavailableError(
+                    f"tvdb season map unavailable for {show_id}: not found"
+                )
+            data: dict[str, Any] = raw.get("data") or {}
+            page_episodes: list[dict[str, Any]] = data.get("episodes") or []
+            episodes.extend(page_episodes)
+            links: dict[str, Any] = raw.get("links") or {}
+            if not links.get("next"):
+                return episodes
+            page += 1
+
     def get_season_map(self, show_id: int) -> tuple[dict[int, dict[str, Any]], int]:
         cached = self._season_map_cache.get(show_id)
         if cached is not None:
             return cached
-        details = self.get_tv_details(show_id)
-        if not details:
-            return {}, 0
+        raw_details = self._get_tv_details_strict(show_id)
+        episodes = self._fetch_all_episodes_strict(show_id)
+        details = normalize_series_details(raw_details, episodes)
         season_posters: dict[int, str] = details.get("_season_posters") or {}
         seasons: dict[int, dict[str, Any]] = {}
-        for ep in self._fetch_all_episodes(show_id):
+        for ep in episodes:
             sn, num = ep.get("seasonNumber"), ep.get("number")
             if not isinstance(sn, int) or not isinstance(num, int):
                 continue

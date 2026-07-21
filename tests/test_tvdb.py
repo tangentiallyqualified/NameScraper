@@ -149,14 +149,17 @@ class _FakeTVDBTransport:
         self.fetched_urls: list[str] = []
         self.image_bytes = image_bytes
 
-    def get_json_safe(
-        self, path: str, params: dict[str, Any] | None = None
-    ) -> dict[str, Any] | None:
+    def get_json(self, path: str, params: dict[str, Any] | None = None) -> dict[str, Any] | None:
         self.calls.append((path, params))
         page = (params or {}).get("page")
         if (path, page) in self.responses:
             return self.responses[(path, page)]
         return self.responses.get(path)
+
+    def get_json_safe(
+        self, path: str, params: dict[str, Any] | None = None
+    ) -> dict[str, Any] | None:
+        return self.get_json(path, params)
 
     def fetch_bytes(self, url: str, *, timeout: int = 10) -> bytes:
         self.fetched_urls.append(url)
