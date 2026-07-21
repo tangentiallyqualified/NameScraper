@@ -106,12 +106,7 @@ def _bootstrap_quality_baseline_once(current: dict) -> dict:
 
 
 def build_baseline(current: dict, previous_baseline: dict, accept_enlarged: bool = False) -> dict:
-    """Refresh evidence while preserving the frozen legacy inventory.
-
-    When ``accept_enlarged`` is true, the caller must first pass the same
-    evidence through ``gate_refresh_debt`` with an exact operator-reviewed
-    expected-entry set. This low-level function does not authorize debt.
-    """
+    """Refresh evidence; accepting debt requires callers to pre-gate exact expected entries."""
     if not accept_enlarged and isinstance(previous_baseline.get("coverage"), dict):
         if not isinstance(current.get("coverage"), dict):
             raise QualityEvidenceError("current coverage evidence missing")
@@ -127,10 +122,8 @@ def build_baseline(current: dict, previous_baseline: dict, accept_enlarged: bool
             )
             raise QualityEvidenceError(f"coverage gate failed: {descriptions}")
     previous_typing = previous_baseline.get("typing", {})
-    return _build_baseline(
-        current,
-        _normalized_python_files(previous_typing.get("legacy_python_files")),
-    )
+    legacy_files = _normalized_python_files(previous_typing.get("legacy_python_files"))
+    return _build_baseline(current, legacy_files)
 
 
 def _finding_violation(identity: tuple[str, str, str, str | None], kind: str) -> Finding:
@@ -459,18 +452,12 @@ def run_quality_baseline_update(
         previous = _load_baseline(repo_root)
         current = collect_current(repo_root, previous)
         current["coverage"] = _coverage.collect_quality_coverage(repo_root)
-        _quality_refresh.gate_refresh_debt(
-            evaluate_ratchets(current, previous),
-            accept_enlarged,
-            expected_entries,
-        )
+        violations = evaluate_ratchets(current, previous)
+        _quality_refresh.gate_refresh_debt(violations, accept_enlarged, expected_entries)
         baseline = build_baseline(current, previous, accept_enlarged)
         path = repo_root / "scripts" / "audit" / "quality-baseline.json"
-        path.write_text(
-            json.dumps(baseline, indent=1, sort_keys=True) + "\n",
-            encoding="utf-8",
-            newline="\n",
-        )
+        serialized = json.dumps(baseline, indent=1, sort_keys=True) + "\n"
+        path.write_text(serialized, encoding="utf-8", newline="\n")
     except _quality_refresh.QualityBaselineRefused as exc:
         print(f"quality baseline: refused - {exc}")
         return 1

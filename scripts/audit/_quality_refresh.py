@@ -36,6 +36,31 @@ def debt_identity(finding: Mapping[str, object]) -> str:
     return f"{finding['analyzer']}|{finding['rule']}|{finding['path']}"
 
 
+def _expected_debt_counts(expected_entries: Iterable[str]) -> Counter[str]:
+    expected = list(expected_entries)
+    malformed = [
+        entry for entry in expected if len(entry.split("|")) != 3 or not all(entry.split("|"))
+    ]
+    if malformed:
+        raise QualityBaselineRefused(f"malformed expectation: {malformed[0]}")
+    expected_counts = Counter(expected)
+    duplicate = next(
+        (entry for entry, count in expected_counts.items() if count > 1),
+        None,
+    )
+    if duplicate is not None:
+        raise QualityBaselineRefused(f"duplicate expectation: {duplicate}")
+    return expected_counts
+
+
+def _require_exact_debt(debt: list[dict[str, object]], expected_counts: Counter[str]) -> None:
+    actual_counts = Counter(debt_identity(finding) for finding in debt)
+    if extra := sorted((actual_counts - expected_counts).elements()):
+        raise QualityBaselineRefused(f"unexpected debt: {extra[0]}")
+    if missing := sorted((expected_counts - actual_counts).elements()):
+        raise QualityBaselineRefused(f"expected debt not produced: {missing[0]}")
+
+
 def gate_refresh_debt(
     violations: list[dict[str, object]],
     accept_enlarged: bool,
@@ -50,24 +75,8 @@ def gate_refresh_debt(
         reject_new_debt(violations)
         return
     debt = [finding for finding in violations if finding["kind"] != "stale-baseline"]
-    expected = list(expected_entries)
-    malformed = [
-        entry for entry in expected if len(entry.split("|")) != 3 or not all(entry.split("|"))
-    ]
-    if malformed:
-        raise QualityBaselineRefused(f"malformed expectation: {malformed[0]}")
-    expected_counts = Counter(expected)
-    duplicate = next(
-        (entry for entry, count in expected_counts.items() if count > 1),
-        None,
-    )
-    if duplicate is not None:
-        raise QualityBaselineRefused(f"duplicate expectation: {duplicate}")
-    actual_counts = Counter(debt_identity(finding) for finding in debt)
-    if extra := sorted((actual_counts - expected_counts).elements()):
-        raise QualityBaselineRefused(f"unexpected debt: {extra[0]}")
-    if missing := sorted((expected_counts - actual_counts).elements()):
-        raise QualityBaselineRefused(f"expected debt not produced: {missing[0]}")
+    expected_counts = _expected_debt_counts(expected_entries)
+    _require_exact_debt(debt, expected_counts)
     for finding in debt:
         print(
             f"quality baseline: accepted {finding['kind']}: {finding['path']}: "
