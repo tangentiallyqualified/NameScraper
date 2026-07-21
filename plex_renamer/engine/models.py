@@ -369,6 +369,16 @@ def plan_has_actions(plan: dict) -> bool:
     return bool(plan.get("append_sources"))
 
 
+def is_merge_row(item: PreviewItem) -> bool:
+    """True when this preview item is a multi-part merge row -- one or
+    more sibling part paths to append via mkvmerge (spec: multi-part
+    episode merge). A merge row's video op must never queue without its
+    materialized append plan (final-review C1); shared here so
+    ``_queue_bridge``, ``automux_service``, and the GUI coordinator all
+    test the same shape instead of re-deriving it."""
+    return bool(item.merge_part_paths)
+
+
 def file_mux_active(state: ScanState, index: int) -> bool:
     """True when this preview item will actually be muxed: cached plan
     with actions, not opted out, and (AutoMux not disabled for the entry
@@ -381,10 +391,8 @@ def file_mux_active(state: ScanState, index: int) -> bool:
     plan = state.mux_plans.get(index)
     if plan is None or not plan_has_actions(plan):
         return False
-    is_merge_row = 0 <= index < len(state.preview_items) and bool(
-        state.preview_items[index].merge_part_paths
-    )
-    return is_merge_row or not state.automux_disabled
+    merge_row = 0 <= index < len(state.preview_items) and is_merge_row(state.preview_items[index])
+    return merge_row or not state.automux_disabled
 
 
 @dataclass(frozen=True)

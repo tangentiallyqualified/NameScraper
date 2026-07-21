@@ -659,3 +659,126 @@ def test_mux_only_state_queued_through_real_gating(tmp_path, monkeypatch):
     op = video_ops[0]
     assert op.mux is not None
     assert op.selected is True
+
+
+def _tv_state_with_merge_row(tmp_path):
+    """A checked merge row (two parts) plus an unrelated normal checked
+    row, for the final-review C1 regression tests below."""
+    lib = tmp_path / "lib"
+    parts = [lib / "Show" / f"Show S01E05 ({i}).mkv" for i in (1, 2)]
+    merge_item = PreviewItem(
+        original=parts[0],
+        new_name="Show - S01E05 - Five.mkv",
+        target_dir=tmp_path / "out" / "Show (2020)" / "Season 01",
+        season=1,
+        episodes=[5],
+        status="OK",
+        media_type="tv",
+        merge_part_paths=list(parts),
+        merge_part_file_ids=[0, 1],
+    )
+    normal_item = PreviewItem(
+        original=lib / "Show" / "Show S01E01.mkv",
+        new_name="Show - S01E01 - Pilot.mkv",
+        target_dir=tmp_path / "out" / "Show (2020)" / "Season 01",
+        season=1,
+        episodes=[1],
+        status="OK",
+        media_type="tv",
+    )
+    return ScanState(
+        folder=lib / "Show",
+        media_info={"id": 7, "name": "Show", "year": "2020"},
+        preview_items=[merge_item, normal_item],
+        scanned=True,
+        checked=True,
+        relative_folder="Show",
+    )
+
+
+def test_merge_row_without_append_plan_never_queues_gate_failure(tmp_path, monkeypatch):
+    """C1: a checked merge row whose parts fail the append-compatibility
+    gate must be skipped entirely (no video op, no companion ops) rather
+    than degrading to a plain rename of part 1; the unrelated row still
+    queues, and the skip reason is surfaced via result.skipped_rows."""
+
+    def fake_prober(mkv, path, **kwargs):
+        codec = "HEVC" if "(2)" in path.name else "AVC"
+        return ProbeResult(
+            path=str(path),
+            ok=True,
+            tracks=[
+                MediaTrack(
+                    track_id=0,
+                    track_type="video",
+                    codec=codec,
+                    language="und",
+                    name="",
+                    is_default=True,
+                    is_forced=False,
+                ),
+                MediaTrack(
+                    track_id=1,
+                    track_type="audio",
+                    codec="AAC",
+                    language="eng",
+                    name="",
+                    is_default=True,
+                    is_forced=False,
+                ),
+            ],
+            container_type="Matroska",
+            duration_ms=600_000,
+        )
+
+    monkeypatch.setattr(svc_mod, "probe_file", fake_prober)
+    state = _tv_state_with_merge_row(tmp_path)
+    store = _FakeStore()
+
+    result = add_tv_batch_jobs(
+        store,
+        states=[state],
+        library_root=tmp_path / "lib",
+        output_root=tmp_path / "out",
+        command_gating=_Gating(),
+        settings_service=_settings(tmp_path),
+    )
+
+    assert result.added == 1
+    job = store.jobs[0]
+    video_ops = [op for op in job.rename_ops if op.file_type == "video"]
+    # Only the normal row's video op queued -- the merge row is entirely
+    # absent (no video op, no companions for it).
+    assert len(video_ops) == 1
+    assert video_ops[0].original_relative == str(Path("Show/Show S01E01.mkv"))
+    assert not any("Show S01E05" in op.original_relative for op in job.rename_ops)
+    assert len(result.skipped_rows) == 1
+    assert "codec mismatch" in result.skipped_rows[0]
+
+
+def test_merge_row_without_append_plan_never_queues_no_mkvmerge(tmp_path):
+    """C1 variant: mkvmerge unresolvable needs no gate/probe error at all
+    (automux_service.ensure_state_plans's early return when mkvmerge is
+    None) -- the merge row must still be skipped rather than falling back
+    to a plain rename of part 1, with a fallback reason surfaced."""
+    state = _tv_state_with_merge_row(tmp_path)
+    svc = _settings(tmp_path)
+    svc.mkvmerge_path = str(tmp_path / "does-not-exist.exe")  # unresolvable
+    store = _FakeStore()
+
+    result = add_tv_batch_jobs(
+        store,
+        states=[state],
+        library_root=tmp_path / "lib",
+        output_root=tmp_path / "out",
+        command_gating=_Gating(),
+        settings_service=svc,
+    )
+
+    assert result.added == 1
+    job = store.jobs[0]
+    video_ops = [op for op in job.rename_ops if op.file_type == "video"]
+    assert len(video_ops) == 1
+    assert video_ops[0].original_relative == str(Path("Show/Show S01E01.mkv"))
+    assert len(result.skipped_rows) == 1
+    assert "mkvmerge is not available" in result.skipped_rows[0]
