@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from plex_renamer._job_execution_remux import execute_remux_op
-from plex_renamer.engine._mux_planner import MuxPlan
+from plex_renamer.engine._mux_planner import MuxPlan, SubtitleMergeDecision
 from plex_renamer.engine.models import RenameResult
 from plex_renamer.job_store import RenameOp
 
@@ -121,3 +121,75 @@ def test_without_no_fear_sources_survive(tmp_path: Path) -> None:
     )
     assert ok, result.errors
     assert all((source_root / f"p{i}.mkv").exists() for i in (1, 2, 3))
+
+
+def test_escaping_append_source_fails_before_running(tmp_path: Path) -> None:
+    """I2: an absolute/escaping append_sources entry in the serialized plan
+    must fail the boundary check before mkvmerge ever runs -- otherwise it
+    would replace source_root under the pathlib join, get fed to mkvmerge,
+    and (under No Fear) be deleted."""
+    source_root, output_root = _setup(tmp_path, parts=1)
+    outside = tmp_path / "outside" / "secret.mkv"
+    outside.parent.mkdir(parents=True, exist_ok=True)
+    outside.write_bytes(b"x")
+    plan = MuxPlan(
+        output_name="Show - S01E05.mkv",
+        append_sources=["../outside/secret.mkv"],
+        mkvmerge_path="mkvmerge",
+    )
+    result = RenameResult()
+    ran: list[list[str]] = []
+
+    def runner(args: list[str], on_percent: Any = None) -> tuple[int, str]:
+        ran.append(args)
+        return 0, ""
+
+    ok = execute_remux_op(
+        _op(plan),
+        source_root=source_root,
+        output_root=output_root,
+        result=result,
+        runner=runner,
+    )
+    assert not ok
+    assert ran == []
+    assert any("escape their roots" in e for e in result.errors)
+    assert outside.exists()  # never touched, let alone deleted
+
+
+def test_escaping_merged_sub_source_fails_before_running(tmp_path: Path) -> None:
+    """I2 variant: same boundary check applies to merged_sub_paths."""
+    source_root, output_root = _setup(tmp_path, parts=1)
+    outside = tmp_path / "outside" / "secret.srt"
+    outside.parent.mkdir(parents=True, exist_ok=True)
+    outside.write_bytes(b"x")
+    plan = MuxPlan(
+        output_name="Show - S01E05.mkv",
+        subtitle_merges=[
+            SubtitleMergeDecision(
+                source_relative="../outside/secret.srt",
+                action="merge",
+                language="eng",
+                set_default=False,
+            )
+        ],
+        mkvmerge_path="mkvmerge",
+    )
+    result = RenameResult()
+    ran: list[list[str]] = []
+
+    def runner(args: list[str], on_percent: Any = None) -> tuple[int, str]:
+        ran.append(args)
+        return 0, ""
+
+    ok = execute_remux_op(
+        _op(plan),
+        source_root=source_root,
+        output_root=output_root,
+        result=result,
+        runner=runner,
+    )
+    assert not ok
+    assert ran == []
+    assert any("escape their roots" in e for e in result.errors)
+    assert outside.exists()

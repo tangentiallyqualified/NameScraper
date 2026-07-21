@@ -89,9 +89,17 @@ def execute_remux_op(
 
     source_boundary = source_root.resolve(strict=False)
     output_boundary = output_root.resolve(strict=False)
+    merged_sources = [source_root / rel for rel in plan.merged_sub_paths]
+    append_sources = [source_root / rel for rel in plan.append_source_paths]
     try:
         src.resolve().relative_to(source_boundary)
         final.resolve(strict=False).relative_to(output_boundary)
+        # I2: append_sources/merged_sources are serialized plan data, not
+        # boundary-checked op fields -- an absolute or ..\ path there would
+        # otherwise replace source_root under the pathlib join below, get
+        # fed straight to mkvmerge, and (under No Fear) be deleted.
+        for extra in (*merged_sources, *append_sources):
+            extra.resolve(strict=False).relative_to(source_boundary)
     except (OSError, ValueError):
         result.errors.append(f"Remux paths escape their roots: {op.original_relative}")
         return False
@@ -111,13 +119,11 @@ def execute_remux_op(
             return False
         mkvmerge = str(located)
 
-    merged_sources = [source_root / rel for rel in plan.merged_sub_paths]
     for sub in merged_sources:
         if not sub.exists():
             result.errors.append(f"Subtitle source not found: {sub.name}")
             return False
 
-    append_sources = [source_root / rel for rel in plan.append_source_paths]
     for part in append_sources:
         if not part.exists():
             result.errors.append(f"Merge part not found: {part.name}")
