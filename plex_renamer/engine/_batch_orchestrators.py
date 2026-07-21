@@ -19,7 +19,7 @@ from ..parsing import (
     is_sample_file,
     looks_like_tv_episode,
 )
-from ..providers import MetadataProvider
+from ..providers import MetadataProvider, SeasonMapUnavailableError
 from ..tmdb import TMDBClient
 from ._batch_tv_duplicates import (
     apply_duplicate_labels as _apply_tv_duplicate_labels,
@@ -898,6 +898,12 @@ class BatchTVOrchestrator:
             has_actionable = any(item.is_actionable for item in items)
             if not has_actionable:
                 state.checked = False
+        except SeasonMapUnavailableError:
+            state.reset_scan()
+            state.checked = False
+            state.scan_error = "Episode guide is unavailable; retry the provider scan."
+            _log.warning("Episode guide unavailable for %s", state.display_name)
+            return
         finally:
             state.scanning = False
 

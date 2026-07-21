@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from typing import Any
 
 from ..constants import VIDEO_EXTENSIONS
 from ..parsing import (
     clean_folder_name,
     get_season,
 )
-from ..providers import MetadataProvider
+from ..providers import MetadataProvider, SeasonMapUnavailableError
 from ._tv_scanner_consolidated import (
     collect_absolute_files as _collect_absolute_files,
     match_file_title_to_tmdb as _match_file_title_to_tmdb,
@@ -27,6 +28,19 @@ from .models import CompletenessReport, PreviewItem, SeasonFolderEntry
 _log = logging.getLogger(__name__)
 
 _HINT_OVERFLOW_MARGIN = 4
+
+
+def _normalize_season_map(value: object) -> dict[int, dict[str, Any]]:
+    """Validate untrusted provider season-map data at the scan boundary."""
+    if not isinstance(value, dict):
+        raise SeasonMapUnavailableError("malformed season map: expected mapping")
+
+    normalized: dict[int, dict[str, Any]] = {}
+    for raw_season, payload in value.items():
+        if not isinstance(raw_season, int) or not isinstance(payload, dict):
+            raise SeasonMapUnavailableError("malformed season map entry")
+        normalized[raw_season] = payload
+    return normalized
 
 
 def _count_video_files(folder: Path) -> int:
@@ -74,7 +88,7 @@ class TVScanner:
         self.episode_posters: dict[tuple[int, int], str | None] = {}
         self.episode_meta: dict[tuple[int, int], dict] = {}
         self._season_dirs: list[tuple[Path, int]] | None = None
-        self._tmdb_seasons: dict | None = None
+        self._tmdb_seasons: dict[int, dict[str, Any]] | None = None
         self._alt_show_names: list[str] | None = None
         self.assignment_table: EpisodeAssignmentTable | None = None
 
@@ -107,14 +121,17 @@ class TVScanner:
             logger=_log,
         )
 
-    def _get_tmdb_seasons(self) -> dict:
+    def _get_tmdb_seasons(self) -> dict[int, dict[str, Any]]:
         """Fetch TMDB season map. Cached after first call."""
         if self._tmdb_seasons is not None:
             return self._tmdb_seasons
-        raw_tmdb_seasons, _ = self.tmdb.get_season_map(self.show_info["id"])
-        self._tmdb_seasons = {
-            int(season_num): season_data for season_num, season_data in raw_tmdb_seasons.items()
-        }
+        result = self.tmdb.get_season_map(self.show_info["id"])
+        if not isinstance(result, tuple) or len(result) != 2:
+            raise SeasonMapUnavailableError(
+                "malformed season map: expected (mapping, episode count)"
+            )
+        raw_tmdb_seasons, _episode_count = result
+        self._tmdb_seasons = _normalize_season_map(raw_tmdb_seasons)
         return self._tmdb_seasons
 
     def _get_alt_show_names(self) -> list[str]:
@@ -151,7 +168,7 @@ class TVScanner:
         non_special_tmdb_seasons = {season_num for season_num in tmdb_seasons if season_num != 0}
         if is_flat_folder and len(non_special_tmdb_seasons) > 1:
             use_consolidated = self._season_hint is None
-            if not use_consolidated:
+            if self._season_hint is not None:
                 # Absolute-numbering sources (common for anime) often label every
                 # file with a single S## that TMDB has split across seasons. If
                 # the video count overflows the hinted season's capacity by more

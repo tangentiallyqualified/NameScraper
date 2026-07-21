@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 import pytest
 
 from plex_renamer._tmdb_transport import TMDBNetworkError
+from plex_renamer.engine._tv_scanner import TVScanner
 from plex_renamer.providers import SeasonMapUnavailableError
 from plex_renamer.tmdb import TMDBClient
 from plex_renamer.tvdb import TVDBClient
@@ -20,6 +22,32 @@ class EmptySeasonMapProvider:
 class UnavailableSeasonMapProvider:
     def get_season_map(self, show_id: int) -> tuple[dict[int, dict[str, Any]], int]:
         raise SeasonMapUnavailableError(f"tmdb season map unavailable for {show_id}")
+
+
+class _ProviderReturning:
+    provider_name = "tmdb"
+
+    def __init__(self, payload: object) -> None:
+        self.payload = payload
+
+    def get_season_map(self, show_id: int) -> object:
+        return self.payload
+
+    def get_season(self, show_id: int, season_number: int) -> dict[str, Any]:
+        return {}
+
+    def get_alternative_titles(
+        self, media_id: int, media_type: str = "tv"
+    ) -> list[tuple[str, str]]:
+        return []
+
+
+def _scanner(tmp_path: Path, provider: _ProviderReturning) -> TVScanner:
+    return TVScanner(
+        provider,  # type: ignore[arg-type]
+        {"id": 7, "name": "Example Show"},
+        tmp_path,
+    )
 
 
 class _FailingTransport:
@@ -56,6 +84,21 @@ def test_valid_empty_map_is_a_success(empty_provider: EmptySeasonMapProvider) ->
 def test_unavailable_map_raises_typed_error(failing_provider: UnavailableSeasonMapProvider) -> None:
     with pytest.raises(SeasonMapUnavailableError, match="tmdb season map unavailable for 7"):
         failing_provider.get_season_map(7)
+
+
+@pytest.mark.parametrize("payload", [None, (None, 0), ({1: []}, 0), ({"bad": {}}, 0)])
+def test_scanner_rejects_malformed_season_maps(tmp_path: Path, payload: object) -> None:
+    scanner = _scanner(tmp_path, provider=_ProviderReturning(payload))
+
+    with pytest.raises(SeasonMapUnavailableError, match="malformed season map"):
+        scanner.scan()
+
+
+def test_scanner_accepts_a_valid_empty_season_map(tmp_path: Path) -> None:
+    scanner = _scanner(tmp_path, provider=_ProviderReturning(({}, 0)))
+
+    items, _has_mismatch = scanner.scan()
+    assert items == []
 
 
 def test_tmdb_season_map_wraps_transport_failure() -> None:

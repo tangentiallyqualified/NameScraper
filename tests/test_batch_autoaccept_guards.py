@@ -21,11 +21,14 @@ from plex_renamer.app.services import (
     MovieLibraryDiscoveryService,
     TVLibraryDiscoveryService,
 )
+from plex_renamer.app.services.command_gating_service import CommandGatingService
 from plex_renamer.engine._batch_orchestrators import (
     BatchMovieOrchestrator,
     BatchTVOrchestrator,
 )
 from plex_renamer.engine.matching import MOVIE_CAP_SEQUEL_MISMATCH
+from plex_renamer.engine.models import PreviewItem, ScanState
+from plex_renamer.providers import SeasonMapUnavailableError
 
 
 class _FakeTMDBSameNameShows:
@@ -65,6 +68,55 @@ class _FakeTMDBSameNameShows:
 
     def get_alternative_titles(self, media_id, media_type="tv"):
         return []
+
+
+class _ProviderRaising:
+    provider_name = "tmdb"
+
+    def get_season_map(self, show_id: int) -> tuple[dict, int]:
+        raise SeasonMapUnavailableError(f"tmdb season map unavailable for {show_id}")
+
+
+def _scan_with_provider(tmp_path: Path, provider: _ProviderRaising) -> ScanState:
+    show = tmp_path / "Example Show"
+    show.mkdir()
+    episode = show / "Example.Show.S01E01.mkv"
+    episode.write_text("x")
+    state = ScanState(
+        folder=show,
+        media_info={"id": 7, "name": "Example Show"},
+        preview_items=[
+            PreviewItem(
+                original=episode,
+                new_name="Example Show - S01E01.mkv",
+                target_dir=show,
+                season=1,
+                episodes=[1],
+                status="OK",
+            )
+        ],
+        checked=True,
+    )
+    orchestrator = BatchTVOrchestrator(
+        provider,  # type: ignore[arg-type]
+        tmp_path,
+        discovery_service=TVLibraryDiscoveryService(),
+    )
+    orchestrator.states = [state]
+    orchestrator.scan_all()
+    return state
+
+
+def test_batch_failure_sets_scan_error_and_cannot_queue(tmp_path: Path) -> None:
+    state = _scan_with_provider(tmp_path, _ProviderRaising())
+
+    assert state.scan_error == "Episode guide is unavailable; retry the provider scan."
+    assert state.preview_items == []
+    assert state.checked is False
+    assert state.scanned is False
+    assert (
+        not CommandGatingService().evaluate_scan_state(state, allow_show_level_queue=True).enabled
+    )
 
 
 class SameNameShowTieDetectionTests(unittest.TestCase):
