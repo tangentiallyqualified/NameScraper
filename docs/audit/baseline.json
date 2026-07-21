@@ -2,7 +2,7 @@
  "coverage": {
   "available": true,
   "failed": false,
-  "input_digest": "7637587931de97bf199b29be6db5cee066c48fbbb794e3c3bb2f54a3410e9ef6",
+  "input_digest": "0a6c53da574fc6a379c28fb5f215d0a4165f724f5e57099cff29de545516e9fa",
   "module_count": 187,
   "partial": false,
   "reason": null,
@@ -102,7 +102,7 @@
   "statement_coverage": 89.1,
   "total_loc": 42744
  },
- "input_digest": "7637587931de97bf199b29be6db5cee066c48fbbb794e3c3bb2f54a3410e9ef6",
+ "input_digest": "0a6c53da574fc6a379c28fb5f215d0a4165f724f5e57099cff29de545516e9fa",
  "modules": {
   "plex_renamer/__init__.py": {
    "coverage_percent": 100.0,
@@ -4878,7 +4878,7 @@
    "sha256": "fbd3b5af986e40d6"
   },
   "plex_renamer/gui_qt/widgets/scan_progress.py": {
-   "coverage_percent": 94.5,
+   "coverage_percent": 94.8,
    "dead_allowlisted": 0,
    "dead_candidates": 1,
    "dead_evidence_usable": true,
@@ -5245,7 +5245,7 @@
   "coverage": {
    "available": true,
    "failed": false,
-   "input_digest": "97f0f3283c15fb588370f85c2708e02e03e12b2dc8558a271fcba8e570a87d17",
+   "input_digest": "7637587931de97bf199b29be6db5cee066c48fbbb794e3c3bb2f54a3410e9ef6",
    "module_count": 187,
    "partial": false,
    "reason": null,
@@ -5345,7 +5345,7 @@
    "statement_coverage": 89.1,
    "total_loc": 42744
   },
-  "input_digest": "97f0f3283c15fb588370f85c2708e02e03e12b2dc8558a271fcba8e570a87d17",
+  "input_digest": "7637587931de97bf199b29be6db5cee066c48fbbb794e3c3bb2f54a3410e9ef6",
   "modules": {
    "plex_renamer/__init__.py": {
     "coverage_percent": 100.0,

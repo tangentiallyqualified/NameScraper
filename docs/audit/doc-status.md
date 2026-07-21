@@ -32,4 +32,4 @@
 | `docs/audit/findings-review.md` | 2026-07-17 | - |
 | `docs/audit/deferred-issues.md` | 2026-07-18 | - |
 
-_Generated from audit input 7637587931de by scripts\audit.cmd._
+_Generated from audit input 0a6c53da574f by scripts\audit.cmd._

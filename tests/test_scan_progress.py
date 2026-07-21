@@ -228,6 +228,7 @@ class FillerRotationTests(QtSmokeBase):
         # Pins the exhausted-order reshuffle branch deterministically; left to
         # the rotation timer alone, its coverage depends on how long a scan
         # happens to run on the measuring machine.
+        import plex_renamer.gui_qt.widgets.scan_progress as mod
         from plex_renamer.gui_qt.widgets.scan_progress import ScanProgressWidget
 
         w = ScanProgressWidget(media_type="tv")
@@ -235,8 +236,15 @@ class FillerRotationTests(QtSmokeBase):
         for _ in range(len(w._fillers)):
             w._rotate_filler()
         last_before_wrap = w._item_label.text()
-        w._rotate_filler()
+        last_index = w._filler_order[-1]
+        sampled_order = [
+            last_index,
+            *(index for index in range(len(w._fillers)) if index != last_index),
+        ]
+        with patch.object(mod.random, "sample", return_value=sampled_order):
+            w._rotate_filler()
         self.assertEqual(w._filler_pos, 1)
+        self.assertNotEqual(w._filler_order[0], last_index)
         self.assertNotEqual(w._item_label.text(), last_before_wrap)
         w.stop()
 
