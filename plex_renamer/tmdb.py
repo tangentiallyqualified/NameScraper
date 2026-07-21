@@ -140,7 +140,7 @@ class TMDBClient:
             ) from exc
         if data is None:
             raise SeasonMapUnavailableError(f"tmdb season map unavailable for {show_id}: not found")
-        if not isinstance(data.get("seasons"), list):
+        if not isinstance(data, dict) or not isinstance(data.get("seasons"), list):
             raise SeasonMapUnavailableError(
                 f"tmdb season map unavailable for {show_id}: invalid details"
             )
@@ -155,7 +155,11 @@ class TMDBClient:
             ) from exc
         if data is None:
             raise SeasonMapUnavailableError(f"tmdb season map unavailable for {show_id}: not found")
-        if not isinstance(data.get("episodes"), list):
+        if not isinstance(data, dict) or not isinstance(data.get("episodes"), list):
+            raise SeasonMapUnavailableError(
+                f"tmdb season map unavailable for {show_id}: invalid season data"
+            )
+        if not all(isinstance(episode, dict) for episode in data["episodes"]):
             raise SeasonMapUnavailableError(
                 f"tmdb season map unavailable for {show_id}: invalid season data"
             )
