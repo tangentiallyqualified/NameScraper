@@ -112,9 +112,25 @@ def test_update_without_flag_still_refuses_enlarged_debt(
     assert "accepted" not in output
 
 
-def test_accept_enlarged_requires_update_quality_baseline(tmp_path: Path) -> None:
+def test_expect_enlarged_requires_accept_and_update(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    with pytest.raises(SystemExit) as exc_info:
+        _main(["--expect-enlarged", "inventory|LOC|plex_renamer/a.py"])
+
+    assert exc_info.value.code == 2
+    assert (
+        "--expect-enlarged requires --update-quality-baseline and --accept-enlarged"
+        in capsys.readouterr().err
+    )
+
+
+def test_accept_enlarged_requires_update_quality_baseline(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     """Verify --accept-enlarged alone is rejected (requires --update-quality-baseline)."""
     with pytest.raises(SystemExit) as exc_info:
         _main(["--accept-enlarged", "--repo-root", str(tmp_path)])
 
     assert exc_info.value.code == 2
+    assert "--accept-enlarged requires --update-quality-baseline" in capsys.readouterr().err
