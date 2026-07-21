@@ -1,7 +1,9 @@
-<!-- Generated from audit input 0a6c53da574f; do not edit. regenerate: scripts\audit.cmd --fast -->
+<!-- Generated from audit input 28d79560b049; do not edit. regenerate: scripts\audit.cmd --fast -->
 
 
 # Code Index
+
+> WARNING: Coverage evidence ignored (unavailable evidence); coverage percentages are omitted.
 
 One line per module. Detail tiers: code-index/app.md, code-index/engine.md, code-index/gui_qt.md, code-index/root.md
 
@@ -58,7 +60,7 @@ One line per module. Detail tiers: code-index/app.md, code-index/engine.md, code
 - `plex_renamer/engine/_batch_tv_episode_claims.py` — Episode-claim reconciliation for scanned batch TV siblings. [pub 2 | in 1 | out 5] [⚠ complexity]
 - `plex_renamer/engine/_batch_tv_match_policy.py` — Match-selection helpers for batch TV discovery. [pub 4 | in 1 | out 3] [⚠ complexity]
 - `plex_renamer/engine/_batch_tv_season_merge.py` — Season-merge helpers for batch TV orchestration. [pub 7 | in 1 | out 4] [⚠ complexity]
-- `plex_renamer/engine/_core.py` — Compatibility re-export layer for the old engine monolith. [pub 0 | in 0 | out 7] [◌ cov 0%]
+- `plex_renamer/engine/_core.py` — Compatibility re-export layer for the old engine monolith. [pub 0 | in 0 | out 7]
 - `plex_renamer/engine/_discovery_ports.py` — Structural ports for application-owned library discovery. [pub 4 | in 2 | out 0]
 - `plex_renamer/engine/_episode_projection.py` — Project an EpisodeAssignmentTable into PreviewItem rows. [pub 1 | in 4 | out 5] [⚠ complexity]
 - `plex_renamer/engine/_episode_resolution.py` — Shared episode resolution policy and confidence calibration. [pub 14 | in 4 | out 3] [⚠ complexity]
@@ -165,7 +167,7 @@ One line per module. Detail tiers: code-index/app.md, code-index/engine.md, code
 ## root
 
 - `plex_renamer/__init__.py` — NameScraper — rename media files into a library-standard (Plex/Jellyfin) naming format. [pub 0 | in 0 | out 0]
-- `plex_renamer/__main__.py` — Entry point for NameScraper. [pub 1 | in 0 | out 1] [◌ cov 0%]
+- `plex_renamer/__main__.py` — Entry point for NameScraper. [pub 1 | in 0 | out 1]
 - `plex_renamer/_ffprobe.py` — Optional ffprobe helper: per-stream audio bitrates for containers [pub 2 | in 2 | out 0]
 - `plex_renamer/_job_execution_filesystem.py` — Filesystem helpers for queued rename execution. [pub 6 | in 2 | out 3] [⚠ complexity]
 - `plex_renamer/_job_execution_metadata.py` — Decorate phase: write metadata sidecars and embed titles after a [pub 3 | in 1 | out 4] [⚠ complexity]

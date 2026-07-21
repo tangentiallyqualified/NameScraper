@@ -1,7 +1,9 @@
-<!-- Generated from audit input 0a6c53da574f; do not edit. regenerate: scripts\audit.cmd --fast -->
+<!-- Generated from audit input 28d79560b049; do not edit. regenerate: scripts\audit.cmd --fast -->
 
 
 # Package detail: gui_qt
+
+> WARNING: Coverage evidence ignored (unavailable evidence); coverage percentages are omitted.
 
 
 ### `plex_renamer/gui_qt/__init__.py` — PySide6 shell for NameScraper.
