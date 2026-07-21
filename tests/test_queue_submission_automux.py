@@ -2,6 +2,7 @@
 
 from pathlib import Path
 from types import SimpleNamespace
+from typing import cast
 
 from plex_renamer._mkv_probe import MediaTrack, ProbeResult
 from plex_renamer.app.controllers._queue_submission_helpers import (
@@ -39,6 +40,11 @@ class _Gating:
 
     def is_actionable_item(self, item):
         return True
+
+
+def _gating() -> CommandGatingService:
+    """Structural fake, cast to the real type the helpers expect."""
+    return cast(CommandGatingService, _Gating())
 
 
 def _settings(tmp_path):
@@ -151,7 +157,7 @@ def test_per_episode_optout_excludes_only_that_file(tmp_path, monkeypatch):
         states=[state],
         library_root=tmp_path / "lib",
         output_root=tmp_path / "out",
-        command_gating=_Gating(),
+        command_gating=_gating(),
         settings_service=_settings(tmp_path),
     )
 
@@ -178,7 +184,7 @@ def test_tv_batch_bakes_remux_job(tmp_path, monkeypatch):
         states=[_tv_state(tmp_path)],
         library_root=tmp_path / "lib",
         output_root=tmp_path / "out",
-        command_gating=_Gating(),
+        command_gating=_gating(),
         settings_service=_settings(tmp_path),
     )
     assert result.added == 1
@@ -197,7 +203,7 @@ def test_tv_batch_without_settings_stays_rename(tmp_path):
         states=[_tv_state(tmp_path)],
         library_root=tmp_path / "lib",
         output_root=tmp_path / "out",
-        command_gating=_Gating(),
+        command_gating=_gating(),
     )
     assert result.added == 1
     assert store.jobs[0].job_kind == JobKind.RENAME
@@ -213,7 +219,7 @@ def test_disabled_state_stays_rename(tmp_path, monkeypatch):
         states=[state],
         library_root=tmp_path / "lib",
         output_root=tmp_path / "out",
-        command_gating=_Gating(),
+        command_gating=_gating(),
         settings_service=_settings(tmp_path),
     )
     assert store.jobs[0].job_kind == JobKind.RENAME
@@ -274,7 +280,7 @@ def test_tv_batch_merge_row_bakes_remux_job_with_automux_off(tmp_path, monkeypat
         states=[state],
         library_root=tmp_path / "lib",
         output_root=tmp_path / "out",
-        command_gating=_Gating(),
+        command_gating=_gating(),
         settings_service=settings,
     )
 
@@ -306,7 +312,7 @@ def test_tv_batch_merge_row_survives_automux_disabled(tmp_path, monkeypatch):
         states=[state],
         library_root=tmp_path / "lib",
         output_root=tmp_path / "out",
-        command_gating=_Gating(),
+        command_gating=_gating(),
         settings_service=_settings(tmp_path),
     )
 
@@ -367,7 +373,7 @@ def test_mux_only_op_for_correctly_named_file(tmp_path, monkeypatch):
         states=[state],
         library_root=tmp_path / "lib",
         output_root=tmp_path / "out",
-        command_gating=_Gating(),
+        command_gating=_gating(),
         settings_service=_settings(tmp_path),
     )
 
@@ -394,7 +400,7 @@ def test_mux_only_file_optout_produces_no_op(tmp_path, monkeypatch):
         states=[state],
         library_root=tmp_path / "lib",
         output_root=tmp_path / "out",
-        command_gating=_Gating(),
+        command_gating=_gating(),
         settings_service=_settings(tmp_path),
     )
 
@@ -521,7 +527,7 @@ def test_data_source_reflects_state_provider_name_not_shared_client(tmp_path):
         states=[state],
         library_root=tmp_path / "lib",
         output_root=tmp_path / "out",
-        command_gating=_Gating(),
+        command_gating=_gating(),
         tmdb_client=_SharedClient(),
     )
 
@@ -564,7 +570,7 @@ def test_provider_for_state_resolves_bake_client_per_show(tmp_path, monkeypatch)
         states=[state_a, state_b],
         library_root=tmp_path / "lib",
         output_root=tmp_path / "out",
-        command_gating=_Gating(),
+        command_gating=_gating(),
         tmdb_client=tmdb_client,
         provider_for_state=_provider_for_state,
     )
@@ -604,7 +610,7 @@ def test_movie_batch_bakes_remux_job(tmp_path, monkeypatch):
         states=[state],
         library_root=lib,
         output_root=tmp_path / "out",
-        command_gating=_Gating(),
+        command_gating=_gating(),
         settings_service=_settings(tmp_path),
     )
     assert result.added == 1
@@ -740,7 +746,7 @@ def test_merge_row_without_append_plan_never_queues_gate_failure(tmp_path, monke
         states=[state],
         library_root=tmp_path / "lib",
         output_root=tmp_path / "out",
-        command_gating=_Gating(),
+        command_gating=_gating(),
         settings_service=_settings(tmp_path),
     )
 
@@ -771,7 +777,7 @@ def test_merge_row_without_append_plan_never_queues_no_mkvmerge(tmp_path):
         states=[state],
         library_root=tmp_path / "lib",
         output_root=tmp_path / "out",
-        command_gating=_Gating(),
+        command_gating=_gating(),
         settings_service=svc,
     )
 

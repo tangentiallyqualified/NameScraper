@@ -14,16 +14,28 @@ import subprocess
 import uuid
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any, Protocol, cast
 
 from ._mkv_command import build_mkvmerge_args
 from ._mkv_locate import find_mkvmerge
 from .engine._mux_planner import MuxPlan
 from .engine.models import RenameResult
+from .job_store import RenameOp
 
 _log = logging.getLogger(__name__)
 
 _PROGRESS_RE = re.compile(r"[Pp]rogress:?\s*#?\s*(\d{1,3})\s*%")
 _CREATION_FLAGS = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+
+
+class _MkvmergeRunner(Protocol):
+    """Shape of ``run_mkvmerge`` and its test doubles: named ``on_percent``
+    so callers can pass it as a keyword, unlike a bare ``Callable[[...], R]``.
+    """
+
+    def __call__(
+        self, args: list[str], on_percent: Callable[[int], None] | None = None
+    ) -> tuple[int, str]: ...
 
 
 def run_mkvmerge(
@@ -67,14 +79,14 @@ def run_mkvmerge(
 
 
 def execute_remux_op(
-    op,
+    op: RenameOp,
     *,
     source_root: Path,
     output_root: Path,
     result: RenameResult,
     on_percent: Callable[[int], None] | None = None,
     set_active_temp: Callable[[str | None], None] | None = None,
-    runner: Callable | None = None,
+    runner: _MkvmergeRunner | None = None,
     title: str | None = None,
     tags_path: Path | None = None,
     cover_path: Path | None = None,
@@ -82,7 +94,10 @@ def execute_remux_op(
     """Execute one mux op.  Returns True on success; errors go to *result*."""
     # Late-bound default so tests can monkeypatch run_mkvmerge at module level.
     runner = runner or run_mkvmerge
-    plan = MuxPlan.from_dict(op.mux)
+    # Callers only invoke this for ops with a mux plan (job_executor filters
+    # on truthy op.mux before dispatch); the cast documents that invariant
+    # without altering the crash-on-None behavior for a caller that doesn't.
+    plan = MuxPlan.from_dict(cast(dict[str, Any], op.mux))
     src = source_root / op.original_relative
     target_dir = output_root / op.target_dir_relative
     final = target_dir / op.new_name

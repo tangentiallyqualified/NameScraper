@@ -61,18 +61,19 @@ def test_resolution_mismatch_named() -> None:
 
 
 def test_audio_param_mismatches_named() -> None:
-    assert "sample rate" in check_append_compatibility(
+    sample_rate_reason = check_append_compatibility(
         [_probe([_audio(sample_rate=48000)]), _probe([_audio(sample_rate=44100)])]
     )
-    assert "channel" in check_append_compatibility(
+    assert sample_rate_reason is not None and "sample rate" in sample_rate_reason
+    channel_reason = check_append_compatibility(
         [_probe([_audio(channels=2)]), _probe([_audio(channels=6)])]
     )
+    assert channel_reason is not None and "channel" in channel_reason
 
 
 def test_track_count_and_order_mismatch() -> None:
-    assert "track count" in check_append_compatibility(
-        [_probe([_video(), _audio()]), _probe([_video()])]
-    )
+    count_reason = check_append_compatibility([_probe([_video(), _audio()]), _probe([_video()])])
+    assert count_reason is not None and "track count" in count_reason
     assert (
         check_append_compatibility([_probe([_video(), _audio()]), _probe([_audio(), _video()])])
         is not None

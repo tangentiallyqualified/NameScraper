@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from ..constants import JobKind, MediaType
 from .models import MediaInfoValue, PreviewItem, ScanState, file_mux_active, is_merge_row
 
 if TYPE_CHECKING:
-    from ..job_store import RenameJob
+    from ..job_store import RenameJob, RenameOp
 
 
 def get_checked_indices_from_state(state: ScanState) -> set[int]:
@@ -46,11 +46,11 @@ def _build_rename_ops(
     output_root: Path,
     show_folder: str | None = None,
     mux_plans: dict[int, dict] | None = None,
-) -> list:
+) -> list[RenameOp]:
     """Convert preview items into serializable RenameOp rows."""
     from ..job_store import RenameOp
 
-    ops = []
+    ops: list[RenameOp] = []
     for index, item in enumerate(items):
         plan_for_index = (mux_plans or {}).get(index)
         if not _is_queue_actionable(item) and plan_for_index is None:
@@ -200,7 +200,7 @@ def build_rename_job_from_items(
     source_folder: Path,
     show_folder_rename: str | None = None,
     poster_path: str | None = None,
-    mux_plans: dict[int, dict] | None = None,
+    mux_plans: dict[int, dict[str, Any]] | None = None,
 ) -> RenameJob:
     """Create a RenameJob from raw preview items."""
     from ..job_store import RenameJob

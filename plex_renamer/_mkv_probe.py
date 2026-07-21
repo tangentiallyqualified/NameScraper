@@ -9,6 +9,7 @@ import subprocess
 import threading
 from dataclasses import dataclass, field, replace
 from pathlib import Path
+from typing import Any
 
 from ._lang_normalize import normalize_lang
 
@@ -67,7 +68,7 @@ def _as_int(value: object) -> int:
         return 0
 
 
-def _parse_dimensions(props: dict) -> tuple[int, int]:
+def _parse_dimensions(props: dict[str, Any]) -> tuple[int, int]:
     """Extract pixel dimensions from the 'pixel_dimensions' property string."""
     raw = str(props.get("pixel_dimensions", ""))
     if "x" in raw:
@@ -76,7 +77,7 @@ def _parse_dimensions(props: dict) -> tuple[int, int]:
     return 0, 0
 
 
-def parse_identify_json(path: str, payload: dict) -> ProbeResult:
+def parse_identify_json(path: str, payload: dict[str, Any]) -> ProbeResult:
     """Pure parse of a ``mkvmerge -J`` JSON document."""
     container = payload.get("container", {})
     if not (container.get("recognized") and container.get("supported")):

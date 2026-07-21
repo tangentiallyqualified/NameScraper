@@ -21,9 +21,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from plex_renamer._job_execution_remux import (
-    execute_remux_op,  # pyright: ignore[reportUnknownVariableType]
-)
+from plex_renamer._job_execution_remux import execute_remux_op
 from plex_renamer._mkv_probe import clear_probe_cache, probe_file
 from plex_renamer.engine._merge_gate import check_append_compatibility
 from plex_renamer.engine._mux_planner import MuxPlan, SubtitleMergeDecision
@@ -139,7 +137,7 @@ def main() -> int:
             status="OK",
             season=1,
             episodes=[5],
-            mux=plan.to_dict(),  # pyright: ignore[reportUnknownMemberType]
+            mux=plan.to_dict(),
         )
         result = RenameResult()
         out_root = root / "out"

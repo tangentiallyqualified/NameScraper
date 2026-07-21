@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
 from pathlib import PurePath
+from typing import Any
 
 from .._lang_normalize import normalize_lang, normalize_lang_list
 from .._mkv_probe import MediaTrack, ProbeResult
@@ -69,11 +70,11 @@ class MuxPlan:
     def append_source_paths(self) -> list[str]:
         return list(self.append_sources)
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, d: dict) -> MuxPlan:
+    def from_dict(cls, d: dict[str, Any]) -> MuxPlan:
         d = dict(d)
         d.setdefault("container_conversion", False)
         d.setdefault("append_sources", [])

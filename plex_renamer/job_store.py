@@ -24,6 +24,7 @@ import uuid
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from ._job_path_propagation import rewrite_job_paths
 from ._job_store_codec import (
@@ -68,13 +69,13 @@ class RenameOp:
     # renamed alongside it.  Extensible for future companion types (e.g. "nfo").
     file_type: str = "video"
     # Serialized MuxPlan dict for REMUX jobs; None for plain move ops.
-    mux: dict | None = None
+    mux: dict[str, Any] | None = None
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, d: dict) -> RenameOp:
+    def from_dict(cls, d: dict[str, Any]) -> RenameOp:
         d = dict(d)
         d.setdefault("file_type", "video")  # Back-compat: old rows lack this field
         d.setdefault("mux", None)  # Back-compat: old rows lack this field

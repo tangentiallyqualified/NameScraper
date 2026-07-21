@@ -20,7 +20,7 @@ _MEDIA_FIELDS: dict[str, object] = {"media_id": 1, "media_name": "Show"}
 def _grouped_table(tmp_path: Path, *, origin: str = ORIGIN_AUTO) -> EpisodeAssignmentTable:
     table = EpisodeAssignmentTable()
     table.add_slot(EpisodeSlot(season=1, episode=5, title="Five"))
-    ids = []
+    ids: list[int] = []
     for index in (1, 2, 3):
         path = tmp_path / f"Show S01E05 ({index}).mkv"
         path.write_bytes(b"0")

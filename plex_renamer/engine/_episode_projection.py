@@ -6,6 +6,7 @@ This is the ONLY place episode preview status strings are minted.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 from ..parsing import build_tv_name
 from ._movie_scanner import _build_subtitle_companions
@@ -42,7 +43,7 @@ def _unassigned_item(
     entry: FileEntry,
     reason: str,
     root: Path,
-    media_fields: dict,
+    media_fields: dict[str, Any],
 ) -> PreviewItem:
     if reason.startswith(REASON_DUPLICATE_COPY):
         return PreviewItem(
@@ -98,9 +99,9 @@ def _unassigned_item(
 def project_preview_items(
     table: EpisodeAssignmentTable,
     *,
-    show_info: dict,
+    show_info: dict[str, Any],
     root: Path,
-    media_fields: dict,
+    media_fields: dict[str, Any],
 ) -> list[PreviewItem]:
     """Produce one PreviewItem per logical claim, plus one per unassigned file."""
     threshold = get_episode_auto_accept_threshold()
