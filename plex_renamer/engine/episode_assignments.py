@@ -93,6 +93,9 @@ class Assignment:
     role: str = ROLE_PRIMARY
     # 1-based position within a part group (primary=1); 0 = not grouped.
     part_order: int = 0
+    # Identity of the part group this assignment belongs to; 0 = not grouped.
+    # Distinguishes two independent groups that happen to target the same slot.
+    part_group: int = 0
     evidence: frozenset[str] = field(default_factory=frozenset)
     approved: bool = False
 
@@ -106,6 +109,7 @@ class EpisodeAssignmentTable:
         self.unassigned_reasons: dict[int, str] = {}
         self._assignments: dict[int, Assignment] = {}
         self._next_file_id = 0
+        self._next_part_group = 1
 
     # ── registration ────────────────────────────────────────────────
 
@@ -205,9 +209,13 @@ class EpisodeAssignmentTable:
         """
         if len(ordered_file_ids) < 2:
             raise ValueError("A part group needs at least two files")
+        if len(set(ordered_file_ids)) != len(ordered_file_ids):
+            raise ValueError(f"Duplicate file id(s) in part group {ordered_file_ids}")
         missing = [i for i in ordered_file_ids if i not in self.files]
         if missing:
             raise ValueError(f"Unknown file id(s) {missing}")
+        group_id = self._next_part_group
+        self._next_part_group += 1
         for order, file_id in enumerate(ordered_file_ids, start=1):
             assignment = self.assign(
                 file_id,
@@ -220,13 +228,16 @@ class EpisodeAssignmentTable:
                 assignment,
                 role=ROLE_PRIMARY if order == 1 else ROLE_PART,
                 part_order=order,
+                part_group=group_id,
             )
 
     def ungroup_parts(self, file_id: int) -> None:
         """Dissolve the group containing *file_id*: every member reverts to
         an independent primary claim (the normal conflict flow applies)."""
         for member in self.part_group_members(file_id):
-            self._assignments[member.file_id] = replace(member, role=ROLE_PRIMARY, part_order=0)
+            self._assignments[member.file_id] = replace(
+                member, role=ROLE_PRIMARY, part_order=0, part_group=0
+            )
 
     def part_group_members(self, file_id: int) -> list[Assignment]:
         """All assignments in *file_id*'s part group, ordered by part_order;
@@ -237,7 +248,7 @@ class EpisodeAssignmentTable:
         members = [
             a
             for a in self._assignments.values()
-            if a.season == own.season and a.episodes == own.episodes and a.part_order > 0
+            if a.part_group == own.part_group and a.part_order > 0
         ]
         return sorted(members, key=lambda a: a.part_order)
 
@@ -276,11 +287,11 @@ class EpisodeAssignmentTable:
         form ONE logical claim (list ordered by part_order); ungrouped
         claims are singleton groups."""
         raw = self.claims(season, episode)
-        grouped: dict[tuple[int, tuple[int, ...]], list[Assignment]] = {}
+        grouped: dict[int, list[Assignment]] = {}
         singles: list[list[Assignment]] = []
         for claim in raw:
             if claim.part_order > 0:
-                grouped.setdefault((claim.season, claim.episodes), []).append(claim)
+                grouped.setdefault(claim.part_group, []).append(claim)
             else:
                 singles.append([claim])
         for group in grouped.values():
@@ -334,6 +345,7 @@ def merge_tables(
 ) -> dict[int, int]:
     """Absorb *other* into *primary*; returns old->new file id mapping."""
     id_map: dict[int, int] = {}
+    group_id_map: dict[int, int] = {}
     for slot in other.slots.values():
         if slot.key not in primary.slots:
             primary.add_slot(slot)
@@ -361,10 +373,18 @@ def merge_tables(
                 evidence=assignment.evidence,
             )
             if assignment.role != new_assignment.role or assignment.part_order:
+                mapped_group = 0
+                if assignment.part_group:
+                    mapped_group = group_id_map.get(assignment.part_group, 0)
+                    if not mapped_group:
+                        mapped_group = primary._next_part_group
+                        primary._next_part_group += 1
+                        group_id_map[assignment.part_group] = mapped_group
                 primary._assignments[new_entry.file_id] = replace(
                     new_assignment,
                     role=assignment.role,
                     part_order=assignment.part_order,
+                    part_group=mapped_group,
                 )
             if assignment.approved:
                 primary.set_approved(new_entry.file_id)
@@ -386,12 +406,50 @@ def carry_over_manual_assignments(
     TMDB are skipped silently (the rescan reflects current reality).
     Spec: manual assignments survive re-scans of the same show match;
     a rematch to a different show id discards the old table entirely.
+
+    Manual part groups are carried atomically: either every member of the
+    group re-lands on the same slot in *new*, or (if any member's path is
+    missing) the whole group is skipped, matching the per-file skip-silently
+    contract.
     """
     new_by_path = {entry.path: entry.file_id for entry in new.files.values()}
+    carried_groups: set[int] = set()
     for assignment in old.assignments():
         if assignment.origin != ORIGIN_MANUAL:
             continue
         entry = old.files[assignment.file_id]
+        if assignment.part_group:
+            if assignment.part_group in carried_groups:
+                continue
+            carried_groups.add(assignment.part_group)
+            members = old.part_group_members(assignment.file_id)
+            new_ids: list[int] = []
+            for member in members:
+                member_entry = old.files[member.file_id]
+                new_member_id = new_by_path.get(member_entry.path)
+                if new_member_id is None:
+                    new_ids = []
+                    break
+                new_ids.append(new_member_id)
+            if not new_ids:
+                continue
+            try:
+                new.assign(
+                    new_ids[0],
+                    assignment.season,
+                    list(assignment.episodes),
+                    origin=ORIGIN_MANUAL,
+                    displace=True,
+                )
+            except ValueError:
+                continue
+            new.group_parts(
+                new_ids,
+                assignment.season,
+                list(assignment.episodes),
+                origin=ORIGIN_MANUAL,
+            )
+            continue
         new_id = new_by_path.get(entry.path)
         if new_id is None:
             continue
