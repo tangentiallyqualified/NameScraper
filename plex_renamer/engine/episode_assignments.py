@@ -116,8 +116,31 @@ class EpisodeAssignmentTable:
     def add_slot(self, slot: EpisodeSlot) -> None:
         self.slots[slot.key] = slot
 
-    def add_file(self, path: Path, **evidence) -> FileEntry:
-        entry = FileEntry(file_id=self._next_file_id, path=path, **evidence)
+    def add_file(
+        self,
+        path: Path,
+        *,
+        parsed_episodes: tuple[int, ...] = (),
+        raw_title: str | None = None,
+        is_season_relative: bool = False,
+        season_hint: int | None = None,
+        folder_season: int | None = None,
+        from_extras_folder: bool = False,
+        source_relative_folder: str = "",
+        part_marker: int | None = None,
+    ) -> FileEntry:
+        entry = FileEntry(
+            file_id=self._next_file_id,
+            path=path,
+            parsed_episodes=parsed_episodes,
+            raw_title=raw_title,
+            is_season_relative=is_season_relative,
+            season_hint=season_hint,
+            folder_season=folder_season,
+            from_extras_folder=from_extras_folder,
+            source_relative_folder=source_relative_folder,
+            part_marker=part_marker,
+        )
         self.files[entry.file_id] = entry
         self._next_file_id += 1
         return entry

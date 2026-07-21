@@ -11,6 +11,7 @@ from plex_renamer.engine.episode_assignments import (
     ORIGIN_MANUAL,
     ROLE_PART,
     ROLE_PRIMARY,
+    Assignment,
     EpisodeAssignmentTable,
     EpisodeSlot,
     carry_over_manual_assignments,
@@ -37,9 +38,14 @@ def test_group_parts_creates_primary_and_parts_in_order() -> None:
     table = _table_with_slot()
     ids = _add_parts(table, 3)
     table.group_parts(ids, 1, [5], origin=ORIGIN_AUTO, confidence=0.9)
-    roles = [(a.role, a.part_order) for a in (table.assignment_for(i) for i in ids)]
+    assignments: list[Assignment] = []
+    for file_id in ids:
+        assignment = table.assignment_for(file_id)
+        assert assignment is not None
+        assignments.append(assignment)
+    roles = [(a.role, a.part_order) for a in assignments]
     assert roles == [(ROLE_PRIMARY, 1), (ROLE_PART, 2), (ROLE_PART, 3)]
-    assert all(table.assignment_for(i).confidence == 0.9 for i in ids)
+    assert all(a.confidence == 0.9 for a in assignments)
 
 
 def test_grouped_claims_are_one_logical_claim_not_a_conflict() -> None:
@@ -97,7 +103,11 @@ def test_merge_tables_preserves_roles_and_part_order() -> None:
     table.group_parts(ids, 1, [5], origin=ORIGIN_MANUAL)
     target = _table_with_slot()
     id_map = merge_tables(target, table)
-    moved = [target.assignment_for(id_map[i]) for i in ids]
+    moved: list[Assignment] = []
+    for file_id in ids:
+        assignment = target.assignment_for(id_map[file_id])
+        assert assignment is not None
+        moved.append(assignment)
     assert [(a.role, a.part_order) for a in moved] == [(ROLE_PRIMARY, 1), (ROLE_PART, 2)]
 
 
@@ -106,7 +116,10 @@ def test_set_approved_on_any_member_approves_the_group() -> None:
     ids = _add_parts(table, 3)
     table.group_parts(ids, 1, [5], origin=ORIGIN_AUTO)
     table.set_approved(ids[0])
-    assert all(table.assignment_for(i).approved for i in ids)
+    for file_id in ids:
+        assignment = table.assignment_for(file_id)
+        assert assignment is not None
+        assert assignment.approved
 
 
 def test_carry_over_preserves_manual_group() -> None:
