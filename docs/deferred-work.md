@@ -3,7 +3,7 @@
 This is the sole authoritative backlog for unfinished NameScraper work.
 Historical plans and specifications are recovery material, not current requirements.
 
-Last reviewed: 2026-07-21 at `25f5a12`
+Last reviewed: 2026-07-21 at `eb7f6df`
 
 ## Maintenance rules
 
@@ -93,8 +93,10 @@ Last reviewed: 2026-07-21 at `25f5a12`
   confidence tiers without bypassing explicit conflict evidence.
 - **Acceptance:** A documented fixture set covers each changed tier, demonstrates the
   intended approve/review split, and passes the episode-resolution and scan suites.
-- **Evidence:** `plex_renamer/engine/_episode_resolution.py` owns the named calibration
-  policy; the review at `25f5a12` retained calibration as active work.
+- **Evidence:** `plex_renamer/engine/_episode_resolution.py` defines the named
+  confidence constants and `apply_confidence_adjustments`; a deterministic search of
+  `tests/` for `calibrat|false approval|needless review|outcome fixture` finds no
+  outcome-calibration fixture set.
 
 ### MATCH-002 — Surface failed or empty episode maps as errors
 
@@ -105,9 +107,10 @@ Last reviewed: 2026-07-21 at `25f5a12`
   data and present an actionable scan/review error instead of silently continuing.
 - **Acceptance:** Failure, malformed-map, and valid-empty fixtures produce distinct
   states; failed maps cannot auto-approve or queue a show.
-- **Evidence:** The provider-to-scan path in
-  `plex_renamer/engine/_batch_orchestrators.py` consumes episode maps, and the
-  `25f5a12` classification review found no complete error contract for this boundary.
+- **Evidence:** `TVScanner._get_tmdb_seasons` consumes `get_season_map` but discards
+  its total/count result; `TMDBClient.get_season_map` and
+  `TVDBClient.get_season_map` both use `({}, 0)` for unavailable show details, so
+  provider failure and a valid empty result reach the scanner in the same shape.
 
 ### MATCH-003 — Match date-named files to aired episodes
 
@@ -147,8 +150,10 @@ Last reviewed: 2026-07-21 at `25f5a12`
   provider path, with provider identity preserved on jobs.
 - **Acceptance:** At least two registered movie providers can be selected and routed
   end to end in tests without changing TV provider behavior.
-- **Evidence:** `plex_renamer/app/services/settings_service.py` exposes only
-  `tv_metadata_source`; movie selection was confirmed absent at `25f5a12`.
+- **Evidence:** `SettingsService` and `_settings_schema.py` expose
+  `tv_metadata_source` but no movie-provider key; a deterministic search of
+  `plex_renamer/` and `tests/` for
+  `movie_metadata_source|movie_provider|metadata_provider` returns no symbols.
 
 ### META-002 — Add TVDB key test UX
 
@@ -183,8 +188,10 @@ Last reviewed: 2026-07-21 at `25f5a12`
   output so later scans can route directly to the same source.
 - **Acceptance:** A setting-gated formatter writes canonical tags for each supported
   provider, round-trips through ID-tag parsing, and avoids duplicate tags.
-- **Evidence:** Current ID-tag routing is implemented for input names, while output
-  formatting at `25f5a12` has no corresponding writer.
+- **Evidence:** `_parsing_id_tags.extract_provider_id_tag` and
+  `strip_provider_id_tags` implement input routing, while the output builders
+  `build_tv_name`, `build_movie_name`, and `build_show_folder_name` accept no
+  provider or media-ID argument.
 
 ### META-005 — Wire TVDB translations
 
@@ -208,9 +215,9 @@ Last reviewed: 2026-07-21 at `25f5a12`
   renaming media again.
 - **Acceptance:** A dry-run-capable operation identifies eligible outputs, regenerates
   selected metadata idempotently, and reports partial failures without touching media.
-- **Evidence:** Existing startup backfill is limited to cached job poster paths in
-  `plex_renamer/app/controllers/_queue_history_helpers.py`; no general exported-
-  metadata backfill exists at `25f5a12`.
+- **Evidence:** `backfill_missing_queue_job_poster_paths` updates only
+  `RenameJob.poster_path`; a deterministic search for NFO/artwork/tag metadata
+  backfill or regeneration finds only the poster-path backfill tests.
 
 ## AutoMux and multi-part media
 
@@ -236,8 +243,9 @@ Last reviewed: 2026-07-21 at `25f5a12`
   movie workflow without weakening TV merge gates.
 - **Acceptance:** Ordered movie parts produce one preview and one verified merge job;
   incompatible tracks and ambiguous part sets stay unmerged with actionable errors.
-- **Evidence:** Current part grouping and `plex_renamer/engine/_merge_gate.py` are wired
-  to episode assignments; the `25f5a12` review confirmed movie merging is absent.
+- **Evidence:** `EpisodeMappingService.merge_files` requires an episode assignment
+  table plus `season` and `episodes`, while `MovieScanner.scan` has no
+  `detect_part_groups`, `part_group`, or merge path.
 
 ### MUX-003 — Deduplicate subtitle tracks
 
@@ -248,8 +256,10 @@ Last reviewed: 2026-07-21 at `25f5a12`
   codec, title, and content-safe evidence, then retain the preferred track.
 - **Acceptance:** Duplicate, forced, commentary-like, and same-language distinct-track
   fixtures produce deterministic plans without deleting unique subtitles.
-- **Evidence:** AutoMux deduplication currently covers audio; subtitle deduplication was
-  confirmed outside the implemented scope at `25f5a12`.
+- **Evidence:** `_mux_planner.build_mux_plan` invokes
+  `_mux_audio_dedup.dedupe_audio_decisions` only for `probe.audio_tracks`; a
+  deterministic search for `subtitle.*dedup|dedup.*subtitle|dedupe_sub` returns no
+  implementation or tests.
 
 ### MUX-004 — Prioritize multiple video tracks
 
@@ -260,8 +270,9 @@ Last reviewed: 2026-07-21 at `25f5a12`
   conservative policy and leave ambiguous files untouched.
 - **Acceptance:** Resolution, default flag, codec, and ambiguity fixtures produce a
   deterministic selected track or a review result, never silent destructive removal.
-- **Evidence:** `plex_renamer/app/services/automux_service.py` plans track edits without
-  a completed multi-video prioritization policy at `25f5a12`.
+- **Evidence:** `_mux_planner.build_mux_plan` emits every `probe.video_tracks` member
+  with `keep=True` and reason `video`; it performs no ranking or ambiguity branch
+  before adding those decisions.
 
 ### MUX-005 — Add per-title AutoMux policy overrides
 
@@ -324,9 +335,10 @@ Last reviewed: 2026-07-21 at `25f5a12`
   geometry through shared scale/theme tokens, and add guards for new residue.
 - **Acceptance:** The reviewed literal inventory has documented allowlist entries or
   tokenized replacements, and 100/150/200-percent visual checks remain unclipped.
-- **Evidence:** The `25f5a12` tree contains 190 `Npx` occurrences in
-  `plex_renamer/gui_qt/resources/theme.qss.tmpl` and direct unscaled geometry in
-  `_media_workspace_roster.py` and `_settings_tab_sections.py`.
+- **Evidence:** The file `theme.qss.tmpl` in
+  `plex_renamer/gui_qt/resources/` contains 228 matches for `[0-9]+px`;
+  `_media_workspace_roster.py` and `_settings_tab_sections.py` still pass direct
+  integer geometry to Qt sizing, margin, and spacing APIs.
 
 ## Architecture and quality debt
 
@@ -340,8 +352,9 @@ Last reviewed: 2026-07-21 at `25f5a12`
   seams while preserving branch order and confidence behavior.
 - **Acceptance:** Characterization covers every extracted branch, targeted/full tests
   remain green, and complexity/LOC ratchets improve without new decisions.
-- **Evidence:** `scripts/audit/quality-baseline.json` records a 2,037-LOC ceiling and
-  complexity 49 for `apply_confidence_adjustments` at `25f5a12`.
+- **Evidence:** The current `scripts/audit/quality-baseline.json` records a 2,037-LOC
+  ceiling for `_episode_resolution.py` and complexity 49 for
+  `apply_confidence_adjustments`.
 
 ### ARCH-002 — Extract `revert_job` filesystem seams
 
@@ -352,8 +365,8 @@ Last reviewed: 2026-07-21 at `25f5a12`
   operation-specific undo handlers from orchestration.
 - **Acceptance:** Tests cover each job kind, missing files, partial rollback, and
   boundary safety; `revert_job` complexity falls without changing recovery results.
-- **Evidence:** `scripts/audit/quality-baseline.json` records complexity 43 for
-  `revert_job` and an 891-LOC file ceiling at `25f5a12`.
+- **Evidence:** The current `scripts/audit/quality-baseline.json` records complexity
+  43 for `revert_job` and an 891-LOC ceiling for `job_executor.py`.
 
 ### ARCH-003 — Extract episode-row action dispatch seams
 
@@ -365,8 +378,9 @@ Last reviewed: 2026-07-21 at `25f5a12`
   while retaining one refresh and status-message contract.
 - **Acceptance:** Each action has a dispatch characterization test, GUI behavior is
   unchanged, and the coordinator method's complexity is materially reduced.
-- **Evidence:** `scripts/audit/quality-baseline.json` records complexity 51 for the
-  handler and a 595-LOC file ceiling at `25f5a12`.
+- **Evidence:** The current `scripts/audit/quality-baseline.json` records complexity
+  51 for `handle_episode_row_action` and a 595-LOC ceiling for
+  `_media_workspace_actions.py`.
 
 ### QUAL-001 — Burn down pyright clusters
 
@@ -377,8 +391,8 @@ Last reviewed: 2026-07-21 at `25f5a12`
   decisions without weakening global checking.
 - **Acceptance:** Each campaign reduces the committed pyright baseline, passes affected
   tests, and introduces no untracked suppressions or enlarged debt.
-- **Evidence:** `scripts/audit/quality-baseline.json` contains 1,230 pyright findings
-  among 1,326 total findings at `25f5a12`.
+- **Evidence:** The current `scripts/audit/quality-baseline.json` contains 1,230
+  pyright findings among 1,326 total findings.
 
 ### QUAL-002 — Reduce LOC ceilings and legacy-typing inventory
 
@@ -389,8 +403,8 @@ Last reviewed: 2026-07-21 at `25f5a12`
   policy opportunistically, preserving the ratchets' no-enlargement behavior.
 - **Acceptance:** Baseline refreshes only prune entries; no touched file grows past its
   ceiling and newly strict files pass pyright without blanket exclusions.
-- **Evidence:** `scripts/audit/quality-baseline.json` contains 42 LOC ceilings and 354
-  legacy typing files at `25f5a12`.
+- **Evidence:** The current `scripts/audit/quality-baseline.json` contains 42 LOC
+  ceilings and 354 legacy typing files.
 
 ### QUAL-003 — Resolve decision-covered vulture residue
 
@@ -402,8 +416,8 @@ Last reviewed: 2026-07-21 at `25f5a12`
   only narrow framework-required decisions.
 - **Acceptance:** Each reviewed cluster reduces findings or records evidence-backed
   decisions; runtime callback discovery tests protect retained symbols.
-- **Evidence:** `scripts/audit/quality-baseline.json` contains 95 vulture findings at
-  `25f5a12`.
+- **Evidence:** The current `scripts/audit/quality-baseline.json` contains 95 vulture
+  findings.
 
 ## Audit-harness hardening
 
