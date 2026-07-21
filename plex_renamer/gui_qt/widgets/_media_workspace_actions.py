@@ -362,6 +362,15 @@ class MediaWorkspaceActionCoordinator:
         preview = row.primary_file
         try:
             if action_id == "approve" and preview is not None:
+                try:
+                    p_index = state.preview_items.index(preview)
+                except ValueError:
+                    p_index = -1
+                if p_index in state.merge_gate_errors:
+                    workspace.status_message.emit(
+                        f"Cannot approve: {state.merge_gate_errors[p_index]}", 5000
+                    )
+                    return
                 service.approve_file(state, preview)
                 message = "Episode mapping approved."
             elif action_id == "unassign" and preview is not None:
@@ -465,6 +474,31 @@ class MediaWorkspaceActionCoordinator:
                     episode=row.episode,
                 )
                 message = "File assigned."
+            elif action_id == "merge_parts":
+                table = state.assignments
+                if table is None:
+                    workspace.status_message.emit(
+                        "Need at least two files claiming this episode to merge.", 4000
+                    )
+                    return
+                claims = table.claims(row.season, row.episode)
+                ordered = sorted(
+                    (claim.file_id for claim in claims),
+                    key=lambda fid: (
+                        table.files[fid].part_marker or 99,
+                        table.files[fid].path.name.casefold(),
+                    ),
+                )
+                if len(ordered) < 2:
+                    workspace.status_message.emit(
+                        "Need at least two files claiming this episode to merge.", 4000
+                    )
+                    return
+                service.merge_files(state, ordered, season=row.season, episodes=[row.episode])
+                message = f"Merged {len(ordered)} parts into one episode."
+            elif action_id == "ungroup" and preview is not None:
+                service.ungroup_file(state, preview)
+                message = "Parts ungrouped."
             else:
                 return
         except ValueError as exc:

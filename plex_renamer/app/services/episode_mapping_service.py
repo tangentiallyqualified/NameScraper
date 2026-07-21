@@ -114,6 +114,29 @@ class EpisodeMappingService:
         table.unassign(preview.file_id)
         self.reproject(state)
 
+    def merge_files(
+        self,
+        state: ScanState,
+        ordered_file_ids: list[int],
+        *,
+        season: int,
+        episodes: list[int],
+    ) -> None:
+        """Manually group *ordered_file_ids* (merge order) into one episode."""
+        from ...engine.episode_assignments import ORIGIN_MANUAL
+
+        table = self._require_table(state)
+        table.group_parts(ordered_file_ids, season, episodes, origin=ORIGIN_MANUAL)
+        self.reproject(state)
+
+    def ungroup_file(self, state: ScanState, preview: PreviewItem) -> None:
+        """Dissolve the part group anchored on *preview*'s file."""
+        table = self._require_table(state)
+        if preview.file_id is None:
+            raise ValueError("Preview row is not linked to a scanned file")
+        table.ungroup_parts(preview.file_id)
+        self.reproject(state)
+
     def approve_file(self, state: ScanState, preview: PreviewItem) -> None:
         table = self._require_table(state)
         if preview.file_id is None:
