@@ -939,6 +939,8 @@ class BatchTVOrchestrator:
                     raise
                 # Keep the failure user-visible: an empty show with no
                 # explanation reads as "no episodes found" (RC40).
+                state.reset_scan()
+                state.checked = False
                 state.scan_error = str(error)
                 _log.exception("Failed to scan %s: %s", state.display_name, error)
             _emit_scan_progress(progress_callback, index + 1, total, state.display_name)

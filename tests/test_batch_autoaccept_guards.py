@@ -77,7 +77,14 @@ class _ProviderRaising:
         raise SeasonMapUnavailableError(f"tmdb season map unavailable for {show_id}")
 
 
-def _scan_with_provider(tmp_path: Path, provider: _ProviderRaising) -> ScanState:
+class _ProviderExploding:
+    provider_name = "tmdb"
+
+    def get_season_map(self, show_id: int) -> tuple[dict, int]:
+        raise RuntimeError("provider exploded")
+
+
+def _scan_with_provider(tmp_path: Path, provider: object) -> ScanState:
     show = tmp_path / "Example Show"
     show.mkdir()
     episode = show / "Example.Show.S01E01.mkv"
@@ -114,6 +121,19 @@ def test_batch_failure_sets_scan_error_and_cannot_queue(tmp_path: Path) -> None:
     assert state.preview_items == []
     assert state.checked is False
     assert state.scanned is False
+    assert (
+        not CommandGatingService().evaluate_scan_state(state, allow_show_level_queue=True).enabled
+    )
+
+
+def test_batch_untyped_failure_clears_stale_state_and_cannot_queue(tmp_path: Path) -> None:
+    state = _scan_with_provider(tmp_path, _ProviderExploding())
+
+    assert state.scan_error == "provider exploded"
+    assert state.preview_items == []
+    assert state.checked is False
+    assert state.scanned is False
+    assert state.check_vars == {}
     assert (
         not CommandGatingService().evaluate_scan_state(state, allow_show_level_queue=True).enabled
     )

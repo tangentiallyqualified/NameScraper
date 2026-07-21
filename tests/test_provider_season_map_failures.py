@@ -86,7 +86,10 @@ def test_unavailable_map_raises_typed_error(failing_provider: UnavailableSeasonM
         failing_provider.get_season_map(7)
 
 
-@pytest.mark.parametrize("payload", [None, (None, 0), ({1: []}, 0), ({"bad": {}}, 0)])
+@pytest.mark.parametrize(
+    "payload",
+    [None, (None, 0), ({1: []}, 0), ({"bad": {}}, 0), ({True: {}}, 0)],
+)
 def test_scanner_rejects_malformed_season_maps(tmp_path: Path, payload: object) -> None:
     scanner = _scanner(tmp_path, provider=_ProviderReturning(payload))
 

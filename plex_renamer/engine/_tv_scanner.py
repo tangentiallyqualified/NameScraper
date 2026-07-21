@@ -37,7 +37,11 @@ def _normalize_season_map(value: object) -> dict[int, dict[str, Any]]:
 
     normalized: dict[int, dict[str, Any]] = {}
     for raw_season, payload in value.items():
-        if not isinstance(raw_season, int) or not isinstance(payload, dict):
+        if (
+            isinstance(raw_season, bool)
+            or not isinstance(raw_season, int)
+            or not isinstance(payload, dict)
+        ):
             raise SeasonMapUnavailableError("malformed season map entry")
         normalized[raw_season] = payload
     return normalized
