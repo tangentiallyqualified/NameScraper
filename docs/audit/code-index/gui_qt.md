@@ -1,4 +1,4 @@
-<!-- Generated from audit input f609ca7fd5b8; do not edit. regenerate: scripts\audit.cmd --fast -->
+<!-- Generated from audit input cc8c385e6d35; do not edit. regenerate: scripts\audit.cmd --fast -->
 
 
 # Package detail: gui_qt
@@ -77,7 +77,7 @@
 - `load_stylesheet() -> str` — (no docstring)
 
 ### `plex_renamer/gui_qt/widgets/__init__.py` — Phase 3+ widget modules for the PySide6 shell.
-- Tests: tests/test_episode_expansion.py, tests/test_episode_table_delegate.py, tests/test_gui_theme.py, tests/test_roster_model.py, tests/test_workspace_automux.py, tests/test_workspace_expansion.py, tests/test_workspace_poster_warmup.py
+- Tests: tests/conftest_qt.py, tests/test_episode_expansion.py, tests/test_episode_table_delegate.py, tests/test_gui_theme.py, tests/test_roster_model.py, tests/test_work_panel.py, tests/test_workspace_automux.py, tests/test_workspace_expansion.py, tests/test_workspace_poster_warmup.py
 
 ### `plex_renamer/gui_qt/widgets/_automux_tracks.py` — AutoMux tracks section (spec §8.1/§8.2): embedded-track keep/strip and
 - `AutoMuxTracksWidget` — (no docstring) (used by: plex_renamer.gui_qt.widgets._media_workspace_automux)
@@ -239,14 +239,15 @@
 - `apply_alternate_match(workspace, state, match, *, warning_box) -> None` — (no docstring) (used by: plex_renamer.gui_qt.widgets._media_workspace_actions)
 - `apply_selected_match(workspace, state, chosen, *, tmdb, warning_box) -> None` — (no docstring)
 - `finish_tv_rematch(workspace, updated_state, tmdb) -> None` — (no docstring)
+- `switch_source(workspace, provider_name) -> None` — Re-resolve the selected show on another pooled provider (workspace (used by: plex_renamer.gui_qt.widgets._media_workspace_actions)
 
 ### `plex_renamer/gui_qt/widgets/_media_workspace_queue_actions.py` — Queue-oriented action workflows for the media workspace.
 - `queue_selected_state(workspace, *, warning_box) -> None` — (no docstring) (used by: plex_renamer.gui_qt.widgets._media_workspace_actions)
 - `queue_checked(workspace, *, question_box, warning_box) -> None` — (no docstring) (used by: plex_renamer.gui_qt.widgets._media_workspace_actions)
 - `summarize_skip_reasons(workspace, states) -> dict[str, int]` — (no docstring) (used by: plex_renamer.gui_qt.widgets._media_workspace_actions)
-- `queue_states(workspace, states, *, empty_message, warning_box) -> None` — (no docstring) (used by: plex_renamer.gui_qt.widgets._media_workspace_actions)
+- `queue_states(workspace, states, *, empty_message, warning_box, on_settled) -> None` — Validate then hand the batch to a background submission. (used by: plex_renamer.gui_qt.widgets._media_workspace_actions)
 - `queue_eligibility(workspace, states)` — (no docstring) (used by: plex_renamer.gui_qt.widgets._media_workspace_action_bar, plex_renamer.gui_qt.widgets._media_workspace_actions)
-- Tests: tests/test_qt_media_workspace.py
+- Tests: tests/test_qt_media_workspace.py, tests/test_qt_queue_submission_async.py
 
 ### `plex_renamer/gui_qt/widgets/_media_workspace_refresh.py` — Refresh and queue-normalization helpers for the media workspace.
 - `MediaWorkspaceRefreshCoordinator` — (no docstring) (used by: plex_renamer.gui_qt.widgets.media_workspace)
@@ -261,6 +262,7 @@
 
 ### `plex_renamer/gui_qt/widgets/_media_workspace_sync.py` — Selection and checkbox synchronization helpers for the media workspace.
 - `MediaWorkspaceSyncCoordinator` — (no docstring) (used by: plex_renamer.gui_qt.widgets.media_workspace)
+- Tests: tests/test_workspace_automux.py
 
 ### `plex_renamer/gui_qt/widgets/_media_workspace_ui.py` — UI construction helpers for the media workspace.
 - `MediaWorkspaceUiCoordinator` — (no docstring) (used by: plex_renamer.gui_qt.widgets.media_workspace)
@@ -344,9 +346,9 @@
 
 ### `plex_renamer/gui_qt/widgets/busy_overlay.py` — BusyOverlay: translucent scrim + spinner + label over any panel (spec §7).
 - `Spinner` — Rotating accent arc.  Plan 6's loading screen reuses this widget.
-- `BusyOverlay` — (no docstring)
-- `busy_scope(target, text, *, delay_ms, immediate)` — (no docstring) (used by: plex_renamer.gui_qt._main_window_state, plex_renamer.gui_qt.widgets._media_workspace_actions, plex_renamer.gui_qt.widgets._media_workspace_queue_actions)
-- Tests: tests/test_qt_busy_overlay.py, tests/test_qt_chrome.py, tests/test_qt_media_workspace.py
+- `BusyOverlay` — (no docstring) (used by: plex_renamer.gui_qt.widgets._media_workspace_queue_actions)
+- `busy_scope(target, text, *, delay_ms, immediate)` — (no docstring) (used by: plex_renamer.gui_qt._main_window_state, plex_renamer.gui_qt.widgets._media_workspace_actions)
+- Tests: tests/test_qt_busy_overlay.py, tests/test_qt_chrome.py, tests/test_qt_media_workspace.py, tests/test_qt_queue_submission_async.py
 
 ### `plex_renamer/gui_qt/widgets/empty_state.py` — Empty-state widget shown when no folder has been selected.
 - `EmptyStateWidget` — Centered drop zone with folder picker and recent folders. (used by: plex_renamer.gui_qt.widgets._media_workspace_ui)
@@ -369,7 +371,7 @@
 
 ### `plex_renamer/gui_qt/widgets/media_workspace.py` — Media workspace widget for TV Shows and Movies tabs.
 - `MediaWorkspace` — TV or Movie tab workspace with state-driven content switching. (used by: plex_renamer.gui_qt._main_window_tabs)
-- Tests: tests/test_qt_media_workspace.py, tests/test_qt_media_workspace_review_actions.py, tests/test_workspace_expansion.py
+- Tests: tests/test_qt_media_workspace.py, tests/test_qt_media_workspace_review_actions.py, tests/test_qt_queue_submission_async.py, tests/test_workspace_expansion.py
 
 ### `plex_renamer/gui_qt/widgets/queue_tab.py` — Queue tab — controller-backed queue view for Phase 4.
 - `QueueTab` — Queue tab backed by QueueController. (used by: plex_renamer.gui_qt._main_window_tabs)

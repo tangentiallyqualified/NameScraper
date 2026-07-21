@@ -1,4 +1,4 @@
-<!-- Generated from audit input f609ca7fd5b8; do not edit. regenerate: scripts\audit.cmd --fast -->
+<!-- Generated from audit input cc8c385e6d35; do not edit. regenerate: scripts\audit.cmd --fast -->
 
 
 # Package detail: app
@@ -7,7 +7,7 @@
 ### `plex_renamer/app/__init__.py` — UI-neutral application-layer services and models for NameScraper.
 
 ### `plex_renamer/app/controllers/__init__.py` — Application controllers — UI-neutral orchestration layer.
-- Tests: tests/test_queue_output_targets.py
+- Tests: tests/test_queue_output_targets.py, tests/test_queue_submission_automux.py
 
 ### `plex_renamer/app/controllers/_controller_event_helpers.py` — Helpers for controller listeners, progress, and runtime settings.
 - `add_controller_listener(listeners, on_library_changed, on_progress, on_scan_complete, on_mode_changed) -> int` — (no docstring) (used by: plex_renamer.app.controllers.media_controller)
@@ -79,8 +79,8 @@
 ### `plex_renamer/app/controllers/_queue_submission_helpers.py` — Helpers for queue job creation and batch submission.
 - `BatchQueueResult` — Summary of a batch queue submission. (used by: plex_renamer.app.controllers.queue_controller)
 - `add_single_queue_job(job_store, *, items, checked_indices, media_type, tmdb_id, media_name, library_root, output_root, source_folder, show_folder_rename, poster_path, settings_service, tmdb_client) -> RenameJob` — (no docstring) (used by: plex_renamer.app.controllers.queue_controller)
-- `add_tv_batch_jobs(job_store, *, states, library_root, output_root, command_gating, settings_service, tmdb_client) -> BatchQueueResult` — (no docstring) (used by: plex_renamer.app.controllers.queue_controller)
-- `add_movie_batch_jobs(job_store, *, states, library_root, output_root, command_gating, settings_service, tmdb_client) -> BatchQueueResult` — (no docstring) (used by: plex_renamer.app.controllers.queue_controller)
+- `add_tv_batch_jobs(job_store, *, states, library_root, output_root, command_gating, settings_service, tmdb_client, provider_for_state, progress) -> BatchQueueResult` — (no docstring) (used by: plex_renamer.app.controllers.queue_controller)
+- `add_movie_batch_jobs(job_store, *, states, library_root, output_root, command_gating, settings_service, tmdb_client, progress) -> BatchQueueResult` — (no docstring) (used by: plex_renamer.app.controllers.queue_controller)
 - Tests: tests/test_queue_metadata_wiring.py, tests/test_queue_submission_automux.py
 
 ### `plex_renamer/app/controllers/_scan_operation_helpers.py` — Helpers for controller scan progress and cancellation state.
@@ -99,7 +99,7 @@
 - `restore_movie_session(controller, snapshot) -> None` — (no docstring) (used by: plex_renamer.app.controllers._controller_movie_workflows)
 
 ### `plex_renamer/app/controllers/_tv_batch_helpers.py` — Helpers for TV batch discovery and bulk episode scans.
-- `start_tv_batch_session(controller, folder, tmdb, discovery_service) -> None` — (no docstring) (used by: plex_renamer.app.controllers._controller_tv_workflows)
+- `start_tv_batch_session(controller, folder, tmdb, discovery_service, *, fallback_provider) -> None` — (no docstring) (used by: plex_renamer.app.controllers._controller_tv_workflows)
 - `scan_all_tv_batch_shows(controller) -> None` — (no docstring) (used by: plex_renamer.app.controllers._controller_tv_workflows)
 - `retarget_tv_state_to_output(state, output_root) -> None` — Retarget actionable TV preview items into the configured output root. (used by: plex_renamer.app.controllers._controller_match_helpers, plex_renamer.app.controllers._single_show_scan_helpers)
 - Tests: tests/test_media_controller.py
@@ -111,11 +111,11 @@
 
 ### `plex_renamer/app/controllers/media_controller.py` — UI-neutral orchestration of TV and movie scanning sessions.
 - `MediaController` — UI-neutral orchestration of TV and movie scanning sessions. (used by: plex_renamer.app, plex_renamer.app.controllers, plex_renamer.gui_qt.main_window)
-- Tests: tests/test_media_controller.py
+- Tests: tests/test_media_controller.py, tests/test_tv_provider_selection.py
 
 ### `plex_renamer/app/controllers/queue_controller.py` — UI-neutral job queue management.
 - `QueueController` — UI-neutral job queue management. (used by: plex_renamer.app, plex_renamer.app.controllers, plex_renamer.gui_qt.main_window)
-- Tests: tests/test_qt_media_workspace.py, tests/test_qt_queue_history.py, tests/test_queue_controller.py, tests/test_queue_executor_progress.py
+- Tests: tests/test_qt_media_workspace.py, tests/test_qt_queue_history.py, tests/test_qt_queue_submission_async.py, tests/test_queue_controller.py, tests/test_queue_executor_progress.py
 
 ### `plex_renamer/app/models/__init__.py` — Typed application-layer models shared across controllers and services.
 - Tests: tests/test_cache_service.py, tests/test_command_gating_service.py, tests/test_conflict_queue_protection.py, tests/test_episode_expansion_confidence.py, tests/test_manual_assign_queueable.py, tests/test_media_controller.py, tests/test_media_controller_scan_show.py, tests/test_movie_discovery.py, tests/test_qt_main_window.py, tests/test_qt_workspace_widgets.py, tests/test_refresh_policy_service.py, tests/test_scan_improvements.py
@@ -141,7 +141,7 @@
 - Tests: tests/test_episode_expansion.py, tests/test_episode_table_delegate.py, tests/test_episode_table_model.py, tests/test_qt_media_workspace.py, tests/test_work_panel.py
 
 ### `plex_renamer/app/services/__init__.py` — Phase 1 application-layer services.
-- Tests: tests/test_alt_title_matching_orchestrator.py, tests/test_automux_service.py, tests/test_batch_autoaccept_guards.py, tests/test_episode_metadata_ownership.py, tests/test_jojo_matching.py, tests/test_movie_confidence_adjustments.py, tests/test_movie_discovery.py, tests/test_queue_submission_automux.py, tests/test_scan_improvements.py, tests/test_workspace_automux.py, tests/test_workspace_expansion.py
+- Tests: tests/test_alt_title_matching_orchestrator.py, tests/test_automux_service.py, tests/test_batch_autoaccept_guards.py, tests/test_episode_metadata_ownership.py, tests/test_fallback_matching.py, tests/test_id_tag_routing.py, tests/test_jojo_matching.py, tests/test_movie_confidence_adjustments.py, tests/test_movie_discovery.py, tests/test_queue_submission_automux.py, tests/test_scan_improvements.py, tests/test_switch_provider.py, tests/test_workspace_automux.py, tests/test_workspace_expansion.py
 
 ### `plex_renamer/app/services/_movie_library_classification.py` — Folder-classification helpers for recursive movie library discovery.
 - `DirChild` — (no docstring)
@@ -160,6 +160,7 @@
 ### `plex_renamer/app/services/automux_service.py` — Session-scoped AutoMux planning: probe files and attach mux plans.
 - `mux_settings_from_service(svc) -> MuxSettings` — (no docstring)
 - `resolve_mkvmerge(svc) -> Path | None` — (no docstring)
+- `resolve_ffprobe(svc) -> Path | None` — (no docstring)
 - `automux_active(svc) -> bool` — AutoMux UI exists only when a toggle is on AND mkvmerge resolves (used by: plex_renamer.app.controllers._queue_submission_helpers)
 - `companion_subs_for_item(item, source_root) -> list[tuple[str, str]]` — (source_relative, raw_lang_tag) pairs for the item's subtitle
 - `plan_for_item(state, index, *, probe, settings, mkvmerge_path, source_root) -> dict | None` — Serialized MuxPlan for one preview item, or None when no remux.
@@ -168,15 +169,15 @@
 - `state_has_mux_actions(state) -> bool` — (no docstring) (used by: plex_renamer.gui_qt.widgets._roster_model)
 - `state_mux_eligible(state) -> bool` — True when any cached plan carries actions, regardless of the
 - `effective_mux_plans(state) -> dict[int, dict] | None` — Plans to bake into a queue job — None when AutoMux contributes (used by: plex_renamer.app.controllers._queue_submission_helpers)
-- Tests: tests/test_automux_service.py, tests/test_automux_settings.py
+- Tests: tests/test_automux_service.py, tests/test_automux_settings.py, tests/test_ffprobe_fallback.py
 
 ### `plex_renamer/app/services/cache_service.py` — Persistent metadata cache with freshness tracking and bounded eviction.
 - `PersistentCacheService` — SQLite-backed cache for persisted metadata and scan-related state. (used by: plex_renamer.app, plex_renamer.app.controllers.media_controller, plex_renamer.app.services, plex_renamer.gui_qt.main_window)
-- Tests: tests/conftest_qt.py, tests/test_cache_service.py, tests/test_media_controller.py, tests/test_qt_main_window.py, tests/test_settings_longpath.py, tests/test_settings_tab_cache.py, tests/test_tmdb.py
+- Tests: tests/conftest_qt.py, tests/test_cache_service.py, tests/test_media_controller.py, tests/test_qt_main_window.py, tests/test_settings_longpath.py, tests/test_settings_tab_cache.py, tests/test_tmdb.py, tests/test_tv_provider_selection.py
 
 ### `plex_renamer/app/services/command_gating_service.py` — Queue command gating extracted from widget click handlers.
 - `CommandGatingService` — Compute queue eligibility independently of any GUI toolkit. (used by: plex_renamer.app, plex_renamer.app.controllers._movie_state_helpers, plex_renamer.app.controllers._queue_submission_helpers, plex_renamer.app.controllers.media_controller, plex_renamer.app.controllers.queue_controller, plex_renamer.app.services, plex_renamer.gui_qt.main_window, plex_renamer.gui_qt.widgets._media_helpers, plex_renamer.gui_qt.widgets._media_workspace_actions, plex_renamer.gui_qt.widgets._media_workspace_refresh, plex_renamer.gui_qt.widgets._media_workspace_sync)
-- Tests: tests/test_command_gating_service.py, tests/test_conflict_queue_protection.py, tests/test_manual_assign_queueable.py, tests/test_media_controller.py, tests/test_qt_media_workspace.py, tests/test_qt_media_workspace_review_actions.py, tests/test_queue_controller.py, tests/test_queue_submission_automux.py, tests/test_workspace_expansion.py
+- Tests: tests/test_command_gating_service.py, tests/test_conflict_queue_protection.py, tests/test_manual_assign_queueable.py, tests/test_media_controller.py, tests/test_qt_media_workspace.py, tests/test_qt_media_workspace_review_actions.py, tests/test_qt_queue_submission_async.py, tests/test_queue_controller.py, tests/test_queue_submission_automux.py, tests/test_tv_provider_selection.py, tests/test_workspace_expansion.py
 
 ### `plex_renamer/app/services/episode_mapping_service.py` — Build TV episode-guide projections.
 - `EpisodeMappingService` — Project raw scan preview state into episode-guide workflow state. (used by: plex_renamer.app.controllers._controller_event_helpers, plex_renamer.app.services, plex_renamer.app.services.episode_projection_cache, plex_renamer.gui_qt.widgets._episode_table_model, plex_renamer.gui_qt.widgets._media_workspace_actions)
@@ -210,11 +211,11 @@
 ### `plex_renamer/app/services/refresh_policy_service.py` — Refresh policy rules for metadata TTLs, cooldowns, and rescan scope.
 - `ManualRefreshDecision` — (no docstring)
 - `RefreshPolicyService` — Central refresh policy rules, independent of any GUI toolkit. (used by: plex_renamer.app, plex_renamer.app.controllers.media_controller, plex_renamer.app.services, plex_renamer.app.services.cache_service, plex_renamer.gui_qt.main_window)
-- Tests: tests/test_media_controller.py, tests/test_refresh_policy_service.py, tests/test_tmdb.py
+- Tests: tests/test_media_controller.py, tests/test_refresh_policy_service.py, tests/test_tmdb.py, tests/test_tv_provider_selection.py
 
 ### `plex_renamer/app/services/settings_service.py` — Lightweight JSON-backed user preferences.
 - `SettingsService` — Read/write user preferences backed by a JSON file. (used by: plex_renamer.app.controllers.media_controller, plex_renamer.app.services, plex_renamer.app.services.automux_service, plex_renamer.gui_qt.main_window, plex_renamer.gui_qt.widgets._media_workspace_roster, plex_renamer.gui_qt.widgets.empty_state, plex_renamer.gui_qt.widgets.media_workspace, plex_renamer.gui_qt.widgets.settings_tab)
-- Tests: tests/conftest_qt.py, tests/test_alt_title_matching.py, tests/test_automux_service.py, tests/test_automux_settings.py, tests/test_media_controller.py, tests/test_qt_main_window.py, tests/test_qt_media_workspace.py, tests/test_queue_submission_automux.py, tests/test_recent_menus.py, tests/test_settings_longpath.py, tests/test_settings_page_composition.py, tests/test_settings_service.py, tests/test_settings_tab_automux.py, tests/test_settings_tab_cache.py, tests/test_workspace_automux.py, tests/test_workspace_expansion.py
+- Tests: tests/conftest_qt.py, tests/test_alt_title_matching.py, tests/test_automux_service.py, tests/test_automux_settings.py, tests/test_ffprobe_fallback.py, tests/test_media_controller.py, tests/test_qt_main_window.py, tests/test_qt_media_workspace.py, tests/test_qt_media_workspace_review_actions.py, tests/test_qt_queue_submission_async.py, tests/test_queue_submission_automux.py, tests/test_recent_menus.py, tests/test_settings_longpath.py, tests/test_settings_page_composition.py, tests/test_settings_service.py, tests/test_settings_tab_automux.py, tests/test_settings_tab_cache.py, tests/test_tv_provider_selection.py, tests/test_workspace_automux.py, tests/test_workspace_expansion.py
 
 ### `plex_renamer/app/services/tv_library_discovery_service.py` — Recursive TV-library discovery for nested batch scan workflows.
 - `TVLibraryDiscoveryService` — Discover nested TV show roots without misclassifying container folders. (used by: plex_renamer.app.controllers._tv_batch_helpers, plex_renamer.app.controllers.media_controller, plex_renamer.app.services)
