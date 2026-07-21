@@ -12,6 +12,8 @@ from plex_renamer.engine._episode_resolution import (
 )
 from plex_renamer.engine.episode_assignments import (
     REASON_DUPLICATE_COPY,
+    ROLE_PART,
+    ROLE_PRIMARY,
     EpisodeAssignmentTable,
     EpisodeSlot,
 )
@@ -147,9 +149,12 @@ def test_variant_tagged_copies_resolve_as_duplicates():
     assert reason.startswith(REASON_DUPLICATE_COPY)
 
 
-def test_numeric_parenthetical_is_not_a_variant_tag():
-    # '(1)' vs '(2)' are part numbers — two different episodes squeezed
-    # onto one slot must stay a visible conflict, never fold to one copy.
+def test_numeric_parenthetical_run_groups_as_parts():
+    # '(1)' vs '(2)' are part numbers. Pre-multi-part, the safest reading
+    # was a visible conflict; the multi-part merge spec (2026-07-20)
+    # supersedes that: a complete same-base (1)(2) run in one directory is
+    # a part SET — one logical claim (primary + part), surfaced for review
+    # and never silently folded to a duplicate copy or dropped.
     table = EpisodeAssignmentTable()
     table.add_slot(EpisodeSlot(season=0, episode=1, title="Punchline"))
     part1 = table.add_file(
@@ -178,7 +183,15 @@ def test_numeric_parenthetical_is_not_a_variant_tag():
             evidence=frozenset({"number", "special-number-only"}),
         )
     resolve_table_conflicts(table)
-    assert (0, 1) in table.conflicts()
+    assert table.conflicts() == {}
+    first = table.assignment_for(part1.file_id)
+    second = table.assignment_for(part2.file_id)
+    assert first is not None and second is not None
+    assert (first.role, first.part_order) == (ROLE_PRIMARY, 1)
+    assert (second.role, second.part_order) == (ROLE_PART, 2)
+    # Neither file may be folded away as a duplicate copy.
+    assert part1.file_id not in table.unassigned_reasons
+    assert part2.file_id not in table.unassigned_reasons
 
 
 def test_duplicate_projects_with_duplicate_status(tmp_path):
