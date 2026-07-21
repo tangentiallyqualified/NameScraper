@@ -280,7 +280,11 @@ def main(argv: list[str] | None = None) -> int:
     repo_root = options.repo_root.resolve()
 
     if options.update_quality_baseline:
-        return _ratchets.run_quality_baseline_update(repo_root, options.accept_enlarged)
+        return _ratchets.run_quality_baseline_update(
+            repo_root,
+            options.accept_enlarged,
+            options.expect_enlarged,
+        )
 
     if options.quality_check:
         return _ratchets.run_quality_check(repo_root)

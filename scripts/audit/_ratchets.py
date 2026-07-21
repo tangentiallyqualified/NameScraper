@@ -444,13 +444,21 @@ def _load_baseline(repo_root: Path) -> dict:
     return baseline
 
 
-def run_quality_baseline_update(repo_root: Path, accept_enlarged: bool = False) -> int:
+def run_quality_baseline_update(
+    repo_root: Path,
+    accept_enlarged: bool = False,
+    expected_entries: tuple[str, ...] | list[str] = (),
+) -> int:
     """Refresh a supported baseline without ever seeding newly discovered Python files."""
     try:
         previous = _load_baseline(repo_root)
         current = collect_current(repo_root, previous)
         current["coverage"] = _coverage.collect_quality_coverage(repo_root)
-        _quality_refresh.gate_refresh_debt(evaluate_ratchets(current, previous), accept_enlarged)
+        _quality_refresh.gate_refresh_debt(
+            evaluate_ratchets(current, previous),
+            accept_enlarged,
+            expected_entries,
+        )
         baseline = build_baseline(current, previous, accept_enlarged)
         path = repo_root / "scripts" / "audit" / "quality-baseline.json"
         path.write_text(

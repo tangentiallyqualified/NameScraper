@@ -11,7 +11,7 @@ from typing import cast
 
 import pytest
 
-from scripts.audit import __main__ as cli, _coverage, _ratchets
+from scripts.audit import __main__ as cli, _coverage, _quality_refresh, _ratchets
 
 _main = cast(
     Callable[[list[str]], int],
@@ -21,6 +21,9 @@ _build_quality_baseline = cast(
     Callable[[dict[str, object], float], dict[str, object]],
     _coverage.build_quality_baseline,  # pyright: ignore[reportUnknownMemberType]
 )
+
+EXPECTED_LOC = "inventory|LOC|plex_renamer/legacy.py"
+EXPECTED_COVERAGE = "coverage|package-floor|plex_renamer"
 
 
 def _coverage_evidence(covered: int = 2) -> dict[str, object]:
@@ -79,7 +82,18 @@ def test_update_with_accept_enlarged_accepts_and_prints_summary(
 ) -> None:
     path, _before = _write_enlarged_debt_fixture(tmp_path, monkeypatch)
 
-    result = _main(["--update-quality-baseline", "--accept-enlarged", "--repo-root", str(tmp_path)])
+    result = _main(
+        [
+            "--update-quality-baseline",
+            "--accept-enlarged",
+            "--expect-enlarged",
+            EXPECTED_LOC,
+            "--expect-enlarged",
+            EXPECTED_COVERAGE,
+            "--repo-root",
+            str(tmp_path),
+        ]
+    )
 
     assert result == 0
     refreshed = json.loads(path.read_text(encoding="utf-8"))
@@ -96,6 +110,55 @@ def test_update_with_accept_enlarged_accepts_and_prints_summary(
     )
     assert "quality baseline: accepted 2 new/enlarged debt entries" in output
     assert "quality baseline: updated -" in output
+
+
+@pytest.mark.parametrize(
+    ("expected", "message"),
+    [
+        ([EXPECTED_LOC], "unexpected debt: coverage|package-floor|plex_renamer"),
+        (
+            [EXPECTED_LOC, EXPECTED_COVERAGE, "ruff|F401|plex_renamer/extra.py"],
+            "expected debt not produced: ruff|F401|plex_renamer/extra.py",
+        ),
+        ([EXPECTED_LOC, EXPECTED_LOC, EXPECTED_COVERAGE], "duplicate expectation"),
+        (["inventory|LOC"], "malformed expectation"),
+    ],
+)
+def test_accept_enlarged_requires_exact_expectations(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    expected: list[str],
+    message: str,
+) -> None:
+    path, before = _write_enlarged_debt_fixture(tmp_path, monkeypatch)
+    args = ["--update-quality-baseline", "--accept-enlarged", "--repo-root", str(tmp_path)]
+    for entry in expected:
+        args.extend(["--expect-enlarged", entry])
+
+    assert _main(args) == 1
+    assert path.read_bytes() == before
+    assert message in capsys.readouterr().out
+
+
+def test_accept_enlarged_refuses_an_extra_actual_duplicate_identity() -> None:
+    violations: list[dict[str, object]] = [
+        {
+            "analyzer": "inventory",
+            "rule": "LOC",
+            "path": "plex_renamer/legacy.py",
+            "kind": "enlarged-debt",
+        },
+        {
+            "analyzer": "inventory",
+            "rule": "LOC",
+            "path": "plex_renamer/legacy.py",
+            "kind": "enlarged-debt",
+        },
+    ]
+
+    with pytest.raises(_quality_refresh.QualityBaselineRefused, match="unexpected debt"):
+        _quality_refresh.gate_refresh_debt(violations, True, [EXPECTED_LOC])
 
 
 def test_update_without_flag_still_refuses_enlarged_debt(

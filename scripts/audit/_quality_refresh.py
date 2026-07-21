@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from collections import Counter
+from collections.abc import Iterable, Mapping
+
 
 class QualityBaselineRefused(RuntimeError):
     """Raised when refresh would enroll new or enlarged debt."""
@@ -28,7 +31,16 @@ def reject_new_debt(violations: list[dict[str, object]]) -> None:
     raise QualityBaselineRefused(f"{len(debt)} new/enlarged debt entries ({details}{suffix})")
 
 
-def gate_refresh_debt(violations: list[dict[str, object]], accept_enlarged: bool) -> None:
+def debt_identity(finding: Mapping[str, object]) -> str:
+    """Return the operator-facing identity for a debt finding."""
+    return f"{finding['analyzer']}|{finding['rule']}|{finding['path']}"
+
+
+def gate_refresh_debt(
+    violations: list[dict[str, object]],
+    accept_enlarged: bool,
+    expected_entries: Iterable[str] = (),
+) -> None:
     """Refuse non-stale debt unless the caller explicitly opted to accept it.
 
     With acceptance, print one ASCII summary line per accepted entry plus a
@@ -38,6 +50,22 @@ def gate_refresh_debt(violations: list[dict[str, object]], accept_enlarged: bool
         reject_new_debt(violations)
         return
     debt = [finding for finding in violations if finding["kind"] != "stale-baseline"]
+    expected = list(expected_entries)
+    malformed = [entry for entry in expected if len(entry.split("|")) != 3]
+    if malformed:
+        raise QualityBaselineRefused(f"malformed expectation: {malformed[0]}")
+    expected_counts = Counter(expected)
+    duplicate = next(
+        (entry for entry, count in expected_counts.items() if count > 1),
+        None,
+    )
+    if duplicate is not None:
+        raise QualityBaselineRefused(f"duplicate expectation: {duplicate}")
+    actual_counts = Counter(debt_identity(finding) for finding in debt)
+    if extra := sorted((actual_counts - expected_counts).elements()):
+        raise QualityBaselineRefused(f"unexpected debt: {extra[0]}")
+    if missing := sorted((expected_counts - actual_counts).elements()):
+        raise QualityBaselineRefused(f"expected debt not produced: {missing[0]}")
     for finding in debt:
         print(
             f"quality baseline: accepted {finding['kind']}: {finding['path']}: "
