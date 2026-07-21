@@ -20,8 +20,10 @@ matches their risk tolerance:
   (``split_part_marker``, used by
   ``engine/_episode_resolution.py::detect_part_groups``) needs to recognize
   "Part n" as sequence evidence, since that is a real (if ambiguous) signal
-  that two files are parts of the same episode
-  (spec: docs/superpowers/specs/2026-07-20-multi-file-episode-merge-design.md).
+  that two files are parts of the same episode.
+  Supported trailing part-marker forms include parenthesized numbers,
+  ``Part``/``pt.`` numbers, ``CD``/``Disc`` numbers, and single-letter
+  episode-token suffixes.
 """
 
 from __future__ import annotations

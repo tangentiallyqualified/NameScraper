@@ -155,9 +155,9 @@ class BulkAssignPanelTests(QtSmokeBase):
         # Destroy each panel right after its own test (deleteLater + a
         # flush + an explicit collect) instead of leaving 20+ live panels
         # for QtSmokeBase.tearDownClass's single end-of-class gc.collect()
-        # to untangle at once. See docs/superpowers/sdd/p3-task-2-report.md
-        # for the (separate, not-fully-root-caused) smoke-suite crash this
-        # module's investigation surfaced in test_qt_media_workspace.py.
+        # to untangle at once. The test-owned state/service pair is the
+        # intentionally mocked controller seam, keeping widget lifecycle
+        # coverage isolated from workspace orchestration.
         def _cleanup() -> None:
             import gc
 

@@ -1,6 +1,7 @@
-"""Tests for multi-episode TV filename formatting in build_tv_name.
+"""Tests for multi-episode TV filename formatting in ``build_tv_name``.
 
-See docs/superpowers/specs/2026-06-29-multi-episode-filename-formatting-design.md
+Protects range rendering, shared-title collapsing, distinct-title joining,
+and the filename-length cap while preserving episode markers.
 """
 
 from __future__ import annotations
