@@ -247,8 +247,10 @@ class ScanState:
     # rescan/app restart. Keys are preview-item indices; values are
     # serialized MuxPlan dicts (engine/_mux_planner.MuxPlan.to_dict()).
     automux_disabled: bool = False
-    mux_plans: dict[int, dict] = field(default_factory=dict)
+    mux_plans: dict[int, dict[str, Any]] = field(default_factory=dict)
     mux_probe_errors: dict[int, str] = field(default_factory=dict)
+    # Preview index -> append-gate failure reason (multi-part merge).
+    merge_gate_errors: dict[int, str] = field(default_factory=dict)
     # Per-file AutoMux opt-out (session-scoped; spec: gui-round5 §4b).
     mux_opt_outs: set[int] = field(default_factory=set)
 
@@ -326,6 +328,7 @@ class ScanState:
         self.automux_disabled = False
         self.mux_plans.clear()
         self.mux_probe_errors.clear()
+        self.merge_gate_errors.clear()
         self.mux_opt_outs.clear()
 
     def reset_scan(self) -> None:

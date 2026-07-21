@@ -12,9 +12,19 @@ from __future__ import annotations
 from collections.abc import Callable
 from pathlib import Path, PurePath
 
+from ..._lang_normalize import normalize_lang
 from ..._mkv_locate import find_mkvmerge
 from ..._mkv_probe import ProbeResult, probe_file
-from ...engine._mux_planner import MuxSettings, build_mux_plan
+from ...engine._merge_gate import check_append_compatibility
+from ...engine._movie_scanner import _build_subtitle_companions
+from ...engine._mux_planner import (
+    MuxPlan,
+    MuxSettings,
+    SubtitleMergeDecision,
+    _companion_is_forced,
+    _companion_language,
+    build_mux_plan,
+)
 from ...engine.models import (
     PreviewItem,
     ScanState,
@@ -121,12 +131,116 @@ def plan_for_item(
     return plan.to_dict() if plan is not None else None
 
 
+def _relative_to_root(path: Path, source_root: Path) -> str:
+    try:
+        return str(path.relative_to(source_root))
+    except ValueError:
+        return str(path)
+
+
+def _plan_merge_item(
+    state: ScanState,
+    index: int,
+    *,
+    prober: Callable[..., ProbeResult],
+    mkvmerge: Path,
+    ffprobe: Path | None,
+    settings: MuxSettings,
+    source_root: Path,
+) -> None:
+    """Probe every part, gate, and attach an append plan (or a gate error).
+
+    Merge planning is toggle-independent (spec §5): even with AutoMux off
+    *settings* is a bare ``MuxSettings()`` (plain append, all tracks kept)
+    rather than skipping the row outright, since the append itself is the
+    action the user asked for by grouping the parts.
+    """
+    item = state.preview_items[index]
+    probes = [prober(mkvmerge, part, ffprobe_path=ffprobe) for part in item.merge_part_paths]
+    failed = next((p for p in probes if not p.ok), None)
+    if failed is not None:
+        state.mux_probe_errors[index] = failed.error or "Unreadable file"
+        state.mux_plans.pop(index, None)
+        state.merge_gate_errors.pop(index, None)
+        return
+    state.mux_probe_errors.pop(index, None)
+    reason = check_append_compatibility(probes)
+    if reason is not None:
+        state.merge_gate_errors[index] = reason
+        state.mux_plans.pop(index, None)
+        return
+    state.merge_gate_errors.pop(index, None)
+
+    # Base plan from part 1 (track policies apply to every part because the
+    # gate guarantees identical layouts). Part 1's external subs ride the
+    # normal companion path with zero offset.
+    plan = build_mux_plan(
+        probe=probes[0],
+        companion_subs=companion_subs_for_item(item, source_root),
+        settings=settings,
+        new_name=item.new_name or "",
+        mkvmerge_path=str(mkvmerge),
+        source_name=item.original.name,
+    )
+    if plan is None:
+        # No stripping/merge actions of its own, but the append itself is
+        # an action, so a bare plan must still be built.
+        plan = MuxPlan(
+            output_name=str(PurePath(item.new_name or "").with_suffix(".mkv")),
+            mkvmerge_path=str(mkvmerge),
+        )
+    plan.append_sources = [
+        _relative_to_root(part, source_root) for part in item.merge_part_paths[1:]
+    ]
+
+    # Later parts' external subs: merge with a cumulative-duration offset.
+    # offset_ms tracks the running total of PRECEDING parts' durations;
+    # going negative means some preceding duration was unknown, so this
+    # part and every later part fall back to warn-and-skip rather than
+    # risk a misaligned merge.
+    video_stem = PurePath(item.new_name or "").stem
+    offset_ms = 0
+    for part_probe, part_path in zip(probes[:-1], item.merge_part_paths[1:], strict=True):
+        if part_probe.duration_ms <= 0:
+            offset_ms = -1
+        elif offset_ms >= 0:
+            offset_ms += part_probe.duration_ms
+        for companion in _build_subtitle_companions(part_path, item.new_name or ""):
+            if companion.file_type != "subtitle":
+                continue
+            rel = _relative_to_root(companion.original, source_root)
+            if offset_ms < 0 or not settings.merge_subs:
+                plan.warnings.append(
+                    "External subtitle left behind (no duration for offset or "
+                    f"merging disabled): {companion.original.name}"
+                )
+                continue
+            comp_stem = PurePath(companion.new_name or "").stem
+            raw_tag = comp_stem[len(video_stem) :] if comp_stem.startswith(video_stem) else ""
+            lang = (
+                _companion_language(raw_tag)
+                or normalize_lang(settings.untagged_sub_language)
+                or "und"
+            )
+            plan.subtitle_merges.append(
+                SubtitleMergeDecision(
+                    source_relative=rel,
+                    action="merge",
+                    language=lang,
+                    set_default=False,
+                    forced=_companion_is_forced(raw_tag),
+                    sync_offset_ms=offset_ms,
+                )
+            )
+    state.mux_plans[index] = plan.to_dict()
+
+
 def ensure_state_plans(
     state: ScanState,
     svc: SettingsService,
     source_root: Path,
     *,
-    prober: Callable | None = None,
+    prober: Callable[..., ProbeResult] | None = None,
     only_index: int | None = None,
 ) -> None:
     """Probe + plan actionable preview items, storing results on *state*.
@@ -135,13 +249,16 @@ def ensure_state_plans(
     AutoMux disabled or AutoMux is unavailable. Probe failures land in
     state.mux_probe_errors and leave the file on the plain rename path.
     """
-    if state.automux_disabled or not automux_active(svc):
+    has_merge_rows = any(item.merge_part_paths for item in state.preview_items)
+    if state.automux_disabled or (not automux_active(svc) and not has_merge_rows):
         return
     # Late-bound so tests can monkeypatch probe_file at module level.
     prober = prober or probe_file
     mkvmerge = resolve_mkvmerge(svc)
+    if mkvmerge is None:
+        return
     ffprobe = resolve_ffprobe(svc)
-    settings = mux_settings_from_service(svc)
+    settings = mux_settings_from_service(svc) if automux_active(svc) else MuxSettings()
     if only_index is not None:
         indices: list[int] = [only_index]
     else:
@@ -156,6 +273,17 @@ def ensure_state_plans(
             continue
         item = state.preview_items[index]
         if not item.new_name:
+            continue
+        if item.merge_part_paths:
+            _plan_merge_item(
+                state,
+                index,
+                prober=prober,
+                mkvmerge=mkvmerge,
+                ffprobe=ffprobe,
+                settings=settings,
+                source_root=source_root,
+            )
             continue
         probe = prober(mkvmerge, item.original, ffprobe_path=ffprobe)
         if not probe.ok:
