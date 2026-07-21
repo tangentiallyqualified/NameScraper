@@ -122,6 +122,12 @@ def test_update_with_accept_enlarged_accepts_and_prints_summary(
         ),
         ([EXPECTED_LOC, EXPECTED_LOC, EXPECTED_COVERAGE], "duplicate expectation"),
         (["inventory|LOC"], "malformed expectation"),
+        (["|LOC|plex_renamer/legacy.py"], "malformed expectation: |LOC|plex_renamer/legacy.py"),
+        (
+            ["inventory||plex_renamer/legacy.py"],
+            "malformed expectation: inventory||plex_renamer/legacy.py",
+        ),
+        (["inventory|LOC|"], "malformed expectation: inventory|LOC|"),
     ],
 )
 def test_accept_enlarged_requires_exact_expectations(
@@ -161,6 +167,66 @@ def test_accept_enlarged_refuses_an_extra_actual_duplicate_identity() -> None:
         _quality_refresh.gate_refresh_debt(violations, True, [EXPECTED_LOC])
 
 
+def test_update_refuses_duplicate_collected_identity_with_single_expectation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    previous: dict[str, object] = {
+        "schema_version": 2,
+        "findings": [],
+        "ceilings": {},
+        "complexity": {},
+        "formatting": {},
+        "typing": {"legacy_python_files": []},
+        "coverage": _build_quality_baseline(_coverage_evidence(), 80.0),
+    }
+    path = tmp_path / "scripts" / "audit" / "quality-baseline.json"
+    path.parent.mkdir(parents=True)
+    path.write_text(json.dumps(previous), encoding="utf-8")
+    before = path.read_bytes()
+    current: dict[str, object] = {
+        "findings": [
+            {
+                "analyzer": "ruff",
+                "rule": "F401",
+                "path": "plex_renamer/legacy.py",
+                "symbol": "first",
+            },
+            {
+                "analyzer": "ruff",
+                "rule": "F401",
+                "path": "plex_renamer/legacy.py",
+                "symbol": "second",
+            },
+        ],
+        "modules": {},
+        "python_files": [],
+    }
+
+    def _fake_collect_current(_root: Path, _baseline: dict[str, object]) -> dict[str, object]:
+        return current
+
+    def _fake_collect_quality_coverage(_root: Path) -> dict[str, object]:
+        return _coverage_evidence()
+
+    monkeypatch.setattr(_ratchets, "collect_current", _fake_collect_current)
+    monkeypatch.setattr(_coverage, "collect_quality_coverage", _fake_collect_quality_coverage)
+
+    result = _main(
+        [
+            "--update-quality-baseline",
+            "--accept-enlarged",
+            "--expect-enlarged",
+            "ruff|F401|plex_renamer/legacy.py",
+            "--repo-root",
+            str(tmp_path),
+        ]
+    )
+
+    assert result == 1
+    assert path.read_bytes() == before
+    assert "unexpected debt: ruff|F401|plex_renamer/legacy.py" in capsys.readouterr().out
+
+
 def test_update_without_flag_still_refuses_enlarged_debt(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -175,16 +241,23 @@ def test_update_without_flag_still_refuses_enlarged_debt(
     assert "accepted" not in output
 
 
+@pytest.mark.parametrize(
+    "prerequisites",
+    [
+        [],
+        ["--update-quality-baseline"],
+        ["--accept-enlarged"],
+    ],
+)
 def test_expect_enlarged_requires_accept_and_update(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    prerequisites: list[str], capsys: pytest.CaptureFixture[str]
 ) -> None:
     with pytest.raises(SystemExit) as exc_info:
-        _main(["--expect-enlarged", "inventory|LOC|plex_renamer/a.py"])
+        _main([*prerequisites, "--expect-enlarged", "inventory|LOC|plex_renamer/a.py"])
 
     assert exc_info.value.code == 2
-    assert (
-        "--expect-enlarged requires --update-quality-baseline and --accept-enlarged"
-        in capsys.readouterr().err
+    assert capsys.readouterr().err.splitlines()[-1] == (
+        "audit: error: --expect-enlarged requires --update-quality-baseline and --accept-enlarged"
     )
 
 

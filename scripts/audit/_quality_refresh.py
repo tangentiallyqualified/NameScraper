@@ -51,7 +51,9 @@ def gate_refresh_debt(
         return
     debt = [finding for finding in violations if finding["kind"] != "stale-baseline"]
     expected = list(expected_entries)
-    malformed = [entry for entry in expected if len(entry.split("|")) != 3]
+    malformed = [
+        entry for entry in expected if len(entry.split("|")) != 3 or not all(entry.split("|"))
+    ]
     if malformed:
         raise QualityBaselineRefused(f"malformed expectation: {malformed[0]}")
     expected_counts = Counter(expected)
