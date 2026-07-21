@@ -141,7 +141,26 @@ def test_unknown_duration_skips_later_part_sub_with_warning(tmp_path: Path) -> N
     assert all(
         m["action"] != "merge" or "(2)" not in m["source_relative"] for m in plan["subtitle_merges"]
     )
-    assert any("duration" in w for w in plan["warnings"])
+    assert any("no reliable duration for offset" in w for w in plan["warnings"])
+
+
+def test_merge_subs_disabled_leaves_later_part_sub_with_distinct_warning(tmp_path: Path) -> None:
+    """Merging disabled and unknown duration must produce distinguishable
+    warnings (spec: don't conflate the two causes)."""
+    state = _merge_state(tmp_path)
+    (tmp_path / "Show S01E05 (2).eng.srt").write_text("", encoding="utf-8")
+
+    def prober(mkvmerge: Any, path: Path, **kwargs: Any) -> ProbeResult:
+        return _probe_for(path, duration_ms=600_000)  # duration known
+
+    # automux_on=False -> settings is a bare MuxSettings() with merge_subs off.
+    ensure_state_plans(state, _svc(tmp_path, automux_on=False), tmp_path, prober=prober)
+    plan: dict[str, Any] = state.mux_plans[0]
+    assert all(
+        m["action"] != "merge" or "(2)" not in m["source_relative"] for m in plan["subtitle_merges"]
+    )
+    assert any("merging disabled" in w for w in plan["warnings"])
+    assert not any("no reliable duration for offset" in w for w in plan["warnings"])
 
 
 def test_normal_rows_unaffected_when_automux_off(tmp_path: Path) -> None:
@@ -165,3 +184,41 @@ def test_normal_rows_unaffected_when_automux_off(tmp_path: Path) -> None:
         prober=lambda *a, **k: _probe_for(video),
     )
     assert state.mux_plans == {}
+
+
+def test_mixed_rows_automux_off_plans_only_the_merge_row(tmp_path: Path) -> None:
+    """A merge row must not drag normal rows into planning when AutoMux is
+    off (regression: has_merge_rows previously gated the whole state, not
+    the per-row decision)."""
+    merge_state = _merge_state(tmp_path)
+    merge_item = merge_state.preview_items[0]
+
+    normal_video = tmp_path / "Show S01E01.mkv"
+    normal_video.write_bytes(b"0")
+    normal_item = PreviewItem(
+        original=normal_video,
+        new_name="Show - S01E01.mkv",
+        target_dir=tmp_path,
+        season=1,
+        episodes=[1],
+        status="OK",
+    )
+
+    state = ScanState(folder=tmp_path, media_info={})
+    state.preview_items = [merge_item, normal_item]
+
+    calls: list[Path] = []
+
+    def prober(mkvmerge: Any, path: Path, **kwargs: Any) -> ProbeResult:
+        calls.append(path)
+        return _probe_for(path)
+
+    ensure_state_plans(state, _svc(tmp_path, automux_on=False), tmp_path, prober=prober)
+
+    assert 0 in state.mux_plans  # merge row planned
+    assert 1 not in state.mux_plans  # normal row left alone
+    assert sorted(p.name for p in calls) == [
+        "Show S01E05 (1).mkv",
+        "Show S01E05 (2).mkv",
+        "Show S01E05 (3).mkv",
+    ]  # only the merge row's parts were probed -- never the normal row

@@ -209,10 +209,15 @@ def _plan_merge_item(
             if companion.file_type != "subtitle":
                 continue
             rel = _relative_to_root(companion.original, source_root)
-            if offset_ms < 0 or not settings.merge_subs:
+            if offset_ms < 0:
                 plan.warnings.append(
-                    "External subtitle left behind (no duration for offset or "
-                    f"merging disabled): {companion.original.name}"
+                    "External subtitle left behind (no reliable duration for "
+                    f"offset): {companion.original.name}"
+                )
+                continue
+            if not settings.merge_subs:
+                plan.warnings.append(
+                    f"External subtitle left behind (merging disabled): {companion.original.name}"
                 )
                 continue
             comp_stem = PurePath(companion.new_name or "").stem
@@ -250,7 +255,8 @@ def ensure_state_plans(
     state.mux_probe_errors and leave the file on the plain rename path.
     """
     has_merge_rows = any(item.merge_part_paths for item in state.preview_items)
-    if state.automux_disabled or (not automux_active(svc) and not has_merge_rows):
+    active = automux_active(svc)
+    if state.automux_disabled or (not active and not has_merge_rows):
         return
     # Late-bound so tests can monkeypatch probe_file at module level.
     prober = prober or probe_file
@@ -258,7 +264,7 @@ def ensure_state_plans(
     if mkvmerge is None:
         return
     ffprobe = resolve_ffprobe(svc)
-    settings = mux_settings_from_service(svc) if automux_active(svc) else MuxSettings()
+    settings = mux_settings_from_service(svc) if active else MuxSettings()
     if only_index is not None:
         indices: list[int] = [only_index]
     else:
@@ -273,6 +279,11 @@ def ensure_state_plans(
             continue
         item = state.preview_items[index]
         if not item.new_name:
+            continue
+        if not active and not item.merge_part_paths:
+            # AutoMux is off: only merge rows survive (toggle-independent
+            # append plans). Normal rows keep the pre-merge behavior of
+            # being skipped entirely -- no probe, no plan (spec §5).
             continue
         if item.merge_part_paths:
             _plan_merge_item(
