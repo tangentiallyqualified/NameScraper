@@ -22,6 +22,10 @@ from typing import Any, Protocol, cast, runtime_checkable
 from PIL import Image
 
 
+class SeasonMapUnavailableError(RuntimeError):
+    """Provider could not return a trustworthy season map for a known show."""
+
+
 @runtime_checkable
 class MetadataProvider(Protocol):
     """Structural port for TV metadata clients (TMDB today, TVDB, ...)."""
