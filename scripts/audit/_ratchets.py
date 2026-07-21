@@ -106,7 +106,9 @@ def _bootstrap_quality_baseline_once(current: dict) -> dict:
 
 
 def build_baseline(current: dict, previous_baseline: dict, accept_enlarged: bool = False) -> dict:
-    """Refresh current evidence while preserving/pruning the frozen legacy inventory."""
+    """If ``accept_enlarged=True``, callers must first pass the same evidence through
+    ``gate_refresh_debt`` with exact operator-reviewed expectations; ``build_baseline``
+    itself only refreshes evidence and does not authorize debt."""
     if not accept_enlarged and isinstance(previous_baseline.get("coverage"), dict):
         if not isinstance(current.get("coverage"), dict):
             raise QualityEvidenceError("current coverage evidence missing")
@@ -122,10 +124,8 @@ def build_baseline(current: dict, previous_baseline: dict, accept_enlarged: bool
             )
             raise QualityEvidenceError(f"coverage gate failed: {descriptions}")
     previous_typing = previous_baseline.get("typing", {})
-    return _build_baseline(
-        current,
-        _normalized_python_files(previous_typing.get("legacy_python_files")),
-    )
+    legacy_files = _normalized_python_files(previous_typing.get("legacy_python_files"))
+    return _build_baseline(current, legacy_files)
 
 
 def _finding_violation(identity: tuple[str, str, str, str | None], kind: str) -> Finding:
@@ -444,20 +444,21 @@ def _load_baseline(repo_root: Path) -> dict:
     return baseline
 
 
-def run_quality_baseline_update(repo_root: Path, accept_enlarged: bool = False) -> int:
+def run_quality_baseline_update(
+    repo_root: Path,
+    accept_enlarged: bool = False,
+    expected_entries: tuple[str, ...] | list[str] = (),
+) -> int:
     """Refresh a supported baseline without ever seeding newly discovered Python files."""
     try:
         previous = _load_baseline(repo_root)
         current = collect_current(repo_root, previous)
         current["coverage"] = _coverage.collect_quality_coverage(repo_root)
-        _quality_refresh.gate_refresh_debt(evaluate_ratchets(current, previous), accept_enlarged)
+        violations = evaluate_ratchets(current, previous)
+        _quality_refresh.gate_refresh_debt(violations, accept_enlarged, expected_entries)
         baseline = build_baseline(current, previous, accept_enlarged)
         path = repo_root / "scripts" / "audit" / "quality-baseline.json"
-        path.write_text(
-            json.dumps(baseline, indent=1, sort_keys=True) + "\n",
-            encoding="utf-8",
-            newline="\n",
-        )
+        _artifacts.write_text_lf(path, json.dumps(baseline, indent=1, sort_keys=True) + "\n")
     except _quality_refresh.QualityBaselineRefused as exc:
         print(f"quality baseline: refused - {exc}")
         return 1
@@ -465,8 +466,7 @@ def run_quality_baseline_update(repo_root: Path, accept_enlarged: bool = False) 
         print(f"quality baseline: failed - {exc}")
         return 1
 
-    findings = len(baseline["findings"])
-    ceilings = len(baseline["ceilings"])
+    findings, ceilings = len(baseline["findings"]), len(baseline["ceilings"])
     legacy_files = len(baseline["typing"]["legacy_python_files"])
     legacy_label = "file" if legacy_files == 1 else "files"
     print(

@@ -140,6 +140,10 @@ def check_lines(repo_root: Path) -> list[str]:
 
 
 def _validate_accept_enlarged(parser: argparse.ArgumentParser, options: argparse.Namespace) -> None:
+    if options.expect_enlarged and not (
+        options.update_quality_baseline and options.accept_enlarged
+    ):
+        parser.error("--expect-enlarged requires --update-quality-baseline and --accept-enlarged")
     if options.accept_enlarged and not options.update_quality_baseline:
         parser.error("--accept-enlarged requires --update-quality-baseline")
 
@@ -182,6 +186,13 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
         "--accept-enlarged",
         action="store_true",
         help="With --update-quality-baseline: accept and report new/enlarged debt entries.",
+    )
+    parser.add_argument(
+        "--expect-enlarged",
+        action="append",
+        default=[],
+        metavar="ANALYZER|RULE|PATH",
+        help="Expected new/enlarged debt identity; repeat once per reviewed entry.",
     )
     parser.add_argument(
         "--coverage-max-age",
@@ -269,7 +280,11 @@ def main(argv: list[str] | None = None) -> int:
     repo_root = options.repo_root.resolve()
 
     if options.update_quality_baseline:
-        return _ratchets.run_quality_baseline_update(repo_root, options.accept_enlarged)
+        return _ratchets.run_quality_baseline_update(
+            repo_root,
+            options.accept_enlarged,
+            options.expect_enlarged,
+        )
 
     if options.quality_check:
         return _ratchets.run_quality_check(repo_root)

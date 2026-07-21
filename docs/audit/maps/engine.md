@@ -38,5 +38,5 @@ _No internal cycle edges._
 - `plex_renamer/engine/_tv_scanner_seasons.py` — fan-in 1, fan-out 3, LOC 253
 - `plex_renamer/engine/show_details.py` — fan-in 2, fan-out 0, LOC 59
 
-_Generated from audit input c69bfb910821 by scripts\audit.cmd._
+_Generated from audit input def0685fa9c6 by scripts\audit.cmd._
 <!-- audit:generated:end map-engine -->

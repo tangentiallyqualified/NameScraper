@@ -22,6 +22,25 @@
 | `docs/audit/findings-review-non-gui.md` | 2026-07-17 | `plex_renamer.app`, `plex_renamer.tmdb`, `scripts/scan_real_library.py` |
 | `docs/audit/findings-review.md` | 2026-07-17 | - |
 | `docs/audit/deferred-issues.md` | 2026-07-21 | - |
+| `docs/current-plans/2026-07-21-tech-debt-campaign-design.md` | 2026-07-21 | - |
+| `docs/current-plans/2026-07-21-01-quality-gate-hardening.md` | 2026-07-21 | `plex_renamer/a.py`, `plex_renamer/extra.py`, `plex_renamer/legacy.py` |
+| `docs/current-plans/2026-07-21-02-provider-map-correctness.md` | 2026-07-21 | `plex_renamer.prov`, `tests/test_provider_season_map_failures.py` |
+| `docs/current-plans/2026-07-21-03-rollback-characterization.md` | 2026-07-21 | `tests/test_job_revert_characterization.py` |
+| `docs/current-plans/2026-07-21-04-rollback-seam-extraction.md` | 2026-07-21 | `plex_renamer/_job_revert.py`, `tests/test_job_revert_characterization.py` |
+| `docs/current-plans/2026-07-21-05-gui-reassign-contract.md` | 2026-07-21 | - |
+| `docs/current-plans/2026-07-21-06-engine-orchestrator-typing.md` | 2026-07-21 | - |
+| `docs/current-plans/2026-07-21-07-gui-workspace-test-typing.md` | 2026-07-21 | - |
+| `docs/current-plans/2026-07-21-08-queue-async-test-typing.md` | 2026-07-21 | - |
+| `docs/current-plans/2026-07-21-09-main-window-test-typing.md` | 2026-07-21 | - |
+| `docs/current-plans/2026-07-21-10-job-detail-test-typing.md` | 2026-07-21 | - |
+| `docs/current-plans/2026-07-21-11-episode-confidence-corpus.md` | 2026-07-21 | `tests/episode_confidence_outcomes.py`, `tests/test_episode_confidence_outcomes.py` |
+| `docs/current-plans/2026-07-21-12-episode-resolution-extraction.md` | 2026-07-21 | `plex_renamer/engine/_episode_confidence_policy.py`, `tests/test_episode_confidence_outcomes.py`, `tests/test_episode_confidence_policy.py` |
+| `docs/current-plans/2026-07-21-13-parenthesized-batch-ranges.md` | 2026-07-21 | - |
+| `docs/current-plans/2026-07-21-14-ova-number-disambiguation.md` | 2026-07-21 | - |
+| `docs/current-plans/2026-07-21-15-dotted-version-guard.md` | 2026-07-21 | - |
+| `docs/current-plans/2026-07-21-16-four-digit-tv-seasons.md` | 2026-07-21 | - |
+| `docs/current-plans/2026-07-21-17-nxn-multi-episode-chains.md` | 2026-07-21 | - |
+| `docs/current-plans/2026-07-21-tech-debt-campaign-index.md` | 2026-07-21 | - |
 | `docs/deferred-work.md` | 2026-07-21 | - |
 
-_Generated from audit input c69bfb910821 by scripts\audit.cmd._
+_Generated from audit input def0685fa9c6 by scripts\audit.cmd._
