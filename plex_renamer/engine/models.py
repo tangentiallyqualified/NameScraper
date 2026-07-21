@@ -79,6 +79,10 @@ class PreviewItem:
     episode_confidence: float = 1.0
     source_relative_folder: str = ""
     file_id: int | None = None  # Link back to EpisodeAssignmentTable.files
+    # Multi-part episode merge: ordered source paths / file ids of ALL
+    # parts (primary first). Empty for normal single-file rows.
+    merge_part_paths: list[Path] = field(default_factory=list)
+    merge_part_file_ids: list[int] = field(default_factory=list)
 
     @property
     def is_conflict(self) -> bool:

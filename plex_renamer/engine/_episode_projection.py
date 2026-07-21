@@ -15,6 +15,7 @@ from .episode_assignments import (
     REASON_DUPLICATE_COPY,
     REASON_NO_PARSE,
     REASON_NO_TITLE_MATCH,
+    ROLE_PART,
     EpisodeAssignmentTable,
     FileEntry,
 )
@@ -101,7 +102,7 @@ def project_preview_items(
     root: Path,
     media_fields: dict,
 ) -> list[PreviewItem]:
-    """Produce exactly one PreviewItem per FileEntry, in guide order."""
+    """Produce one PreviewItem per logical claim, plus one per unassigned file."""
     threshold = get_episode_auto_accept_threshold()
     conflicted = table.conflicted_file_ids()
     items: list[PreviewItem] = []
@@ -112,12 +113,14 @@ def project_preview_items(
             reason = table.unassigned_reasons.get(file_id, "")
             items.append(_unassigned_item(entry, reason, root, media_fields))
             continue
+        if assignment.role == ROLE_PART:
+            continue  # part members ride their primary's row
+        group = table.part_group_members(file_id)
 
         season = assignment.season
         episodes = list(assignment.episodes)
         titles = [
-            table.slots[(season, episode)].title or f"Episode {episode}"
-            for episode in episodes
+            table.slots[(season, episode)].title or f"Episode {episode}" for episode in episodes
         ]
         new_name = build_tv_name(
             show_info["name"],
@@ -129,11 +132,15 @@ def project_preview_items(
         )
         target_dir = root / _season_dir_name(season)
 
+        merge_part_paths: list[Path] = []
+        merge_part_file_ids: list[int] = []
+        if group:
+            merge_part_paths = [table.files[m.file_id].path for m in group]
+            merge_part_file_ids = [m.file_id for m in group]
+
         if file_id in conflicted:
             slot_key = next(
-                (season, episode)
-                for episode in episodes
-                if len(table.claims(season, episode)) > 1
+                (season, episode) for episode in episodes if len(table.claims(season, episode)) > 1
             )
             other = next(
                 table.files[claim.file_id]
@@ -141,14 +148,20 @@ def project_preview_items(
                 if claim.file_id != file_id
             )
             status = _conflict_status(slot_key[0], slot_key[1], other)
+        elif group and assignment.origin != ORIGIN_MANUAL and not assignment.approved:
+            slot_label = f"S{season:02d}E{episodes[0]:02d}"
+            status = (
+                f"{EPISODE_REVIEW_STATUS_PREFIX} "
+                f"{len(group)} parts -> {slot_label} "
+                f"({assignment.confidence:.0%})"
+            )
         elif (
             assignment.origin != ORIGIN_MANUAL
             and not assignment.approved
             and assignment.confidence < threshold
         ):
             status = (
-                f"{EPISODE_REVIEW_STATUS_PREFIX} "
-                f"({assignment.confidence:.0%} < {threshold:.0%})"
+                f"{EPISODE_REVIEW_STATUS_PREFIX} ({assignment.confidence:.0%} < {threshold:.0%})"
             )
         else:
             status = "OK"
@@ -163,6 +176,8 @@ def project_preview_items(
             episode_confidence=assignment.confidence,
             file_id=file_id,
             source_relative_folder=entry.source_relative_folder,
+            merge_part_paths=merge_part_paths,
+            merge_part_file_ids=merge_part_file_ids,
             **media_fields,
         )
         if status.startswith(("OK", "REVIEW")):
