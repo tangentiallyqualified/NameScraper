@@ -38,10 +38,20 @@ def test_no_undo_data_is_rejected_without_touching_files(tmp_path: Path) -> None
     marker = tmp_path / "out" / "marker.mkv"
     marker.parent.mkdir()
     marker.write_bytes(b"keep")
-    ok, errors = revert_job(_job(tmp_path, undo=None))
+    job = _job(tmp_path, undo=None)
+    library_marker = Path(job.library_root) / "library-marker.mkv"
+    assert job.output_root is not None
+    output_marker = Path(job.output_root) / "output-marker.mkv"
+    library_marker.write_bytes(b"keep-library")
+    output_marker.write_bytes(b"keep-output")
+
+    ok, errors = revert_job(job)
+
     assert ok is False
     assert errors == ["No undo data stored for this job."]
     assert marker.read_bytes() == b"keep"
+    assert library_marker.read_bytes() == b"keep-library"
+    assert output_marker.read_bytes() == b"keep-output"
 
 
 def test_created_sidecars_and_remux_outputs_are_removed_before_moves(
