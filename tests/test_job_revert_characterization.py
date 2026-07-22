@@ -16,6 +16,7 @@ def _job(
     undo: dict[str, object] | None,
     output: bool = True,
     kind: str = JobKind.RENAME,
+    source_folder: str = "Show",
 ) -> RenameJob:
     library_root = tmp_path / "library"
     library_root.mkdir(exist_ok=True)
@@ -28,7 +29,7 @@ def _job(
         media_name="Show",
         library_root=str(library_root),
         output_root=str(output_root) if output else None,
-        source_folder="Show",
+        source_folder=source_folder,
         job_kind=kind,
         undo_data=undo,
     )
@@ -277,7 +278,7 @@ def test_in_place_revert_refuses_file_renames_outside_library(
     revert_source, revert_target = (outside, inside) if outside_revert_source else (inside, outside)
     revert_source.parent.mkdir(parents=True, exist_ok=True)
     revert_source.write_bytes(b"keep")
-    undo = {"renames": [{"new": str(revert_source), "old": str(revert_target)}]}
+    undo: dict[str, object] = {"renames": [{"new": str(revert_source), "old": str(revert_target)}]}
 
     ok, errors = revert_job(_job(tmp_path, undo=undo, output=False))
 
@@ -299,7 +300,9 @@ def test_in_place_revert_refuses_directory_renames_outside_library(
     revert_target.parent.mkdir(parents=True, exist_ok=True)
     marker = revert_source / "marker.txt"
     marker.write_text("keep", encoding="utf-8")
-    undo = {"renamed_dirs": [{"new": str(revert_source), "old": str(revert_target)}]}
+    undo: dict[str, object] = {
+        "renamed_dirs": [{"new": str(revert_source), "old": str(revert_target)}]
+    }
 
     ok, errors = revert_job(_job(tmp_path, undo=undo, output=False))
 
@@ -311,7 +314,7 @@ def test_in_place_revert_refuses_directory_renames_outside_library(
 
 def test_in_place_revert_refuses_removed_directory_outside_library(tmp_path: Path) -> None:
     outside = tmp_path / "outside" / "recreated"
-    undo = {"removed_dirs": [str(outside)]}
+    undo: dict[str, object] = {"removed_dirs": [str(outside)]}
 
     ok, errors = revert_job(_job(tmp_path, undo=undo, output=False))
 
@@ -327,7 +330,7 @@ def test_in_place_revert_refuses_created_files_outside_library(
     outside = tmp_path / "outside" / f"{undo_key}.mkv"
     outside.parent.mkdir()
     outside.write_bytes(b"keep")
-    undo = {undo_key: [str(outside)]}
+    undo: dict[str, object] = {undo_key: [str(outside)]}
 
     ok, errors = revert_job(_job(tmp_path, undo=undo, output=False))
 
@@ -344,7 +347,7 @@ def test_in_place_created_directory_cleanup_preserves_boundary_and_outside(
     outside.mkdir()
     sentinel = tmp_path / "sentinel.txt"
     sentinel.write_text("keep", encoding="utf-8")
-    undo = {"created_dirs": [str(outside), str(library)]}
+    undo: dict[str, object] = {"created_dirs": [str(outside), str(library)]}
 
     ok, errors = revert_job(_job(tmp_path, undo=undo, output=False))
 
@@ -352,3 +355,34 @@ def test_in_place_created_directory_cleanup_preserves_boundary_and_outside(
     assert library.is_dir()
     assert outside.is_dir()
     assert sentinel.read_text(encoding="utf-8") == "keep"
+
+
+def test_in_place_revert_removes_empty_created_directory_chain_below_boundary(
+    tmp_path: Path,
+) -> None:
+    boundary = tmp_path / "library" / "Documentaries"
+    created_parent = boundary / "Generated"
+    created_dir = created_parent / "Season 01"
+    destination = created_dir / "renamed.mkv"
+    source = boundary / "episode.mkv"
+    destination.parent.mkdir(parents=True)
+    destination.write_bytes(b"video")
+    undo: dict[str, object] = {
+        "renames": [{"new": str(destination), "old": str(source)}],
+        "created_dirs": [str(created_dir)],
+    }
+
+    ok, errors = revert_job(
+        _job(
+            tmp_path,
+            undo=undo,
+            output=False,
+            source_folder="Documentaries/Show",
+        )
+    )
+
+    assert ok, errors
+    assert source.read_bytes() == b"video"
+    assert not created_dir.exists()
+    assert not created_parent.exists()
+    assert boundary.is_dir()
