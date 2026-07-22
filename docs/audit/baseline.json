@@ -2,8 +2,8 @@
  "coverage": {
   "available": true,
   "failed": false,
-  "input_digest": "def0685fa9c638372923e6454fc29d26b2219d75079835771fdf4dbfb15e4b78",
-  "module_count": 187,
+  "input_digest": "7316cd8ec001e76a832cb4a4c68dd2a2b7d0a624adff3244f162127cdec1be66",
+  "module_count": 194,
   "partial": false,
   "reason": null,
   "scope": {
@@ -73,7 +73,7 @@
   }
  },
  "headline": {
-  "avg_coverage": 89.1,
+  "avg_coverage": 89.4,
   "coverage_failed": false,
   "coverage_partial": false,
   "coverage_stale": false,
@@ -96,13 +96,13 @@
    "protected-or-ambiguous": 99,
    "test-referenced": 3
   },
-  "files": 187,
-  "module_avg_coverage": 89.9,
+  "files": 194,
+  "module_avg_coverage": 90.2,
   "modules_over_complexity": 67,
-  "statement_coverage": 89.1,
-  "total_loc": 42746
+  "statement_coverage": 89.4,
+  "total_loc": 43544
  },
- "input_digest": "def0685fa9c638372923e6454fc29d26b2219d75079835771fdf4dbfb15e4b78",
+ "input_digest": "7316cd8ec001e76a832cb4a4c68dd2a2b7d0a624adff3244f162127cdec1be66",
  "modules": {
   "plex_renamer/__init__.py": {
    "coverage_percent": 100.0,
@@ -700,6 +700,30 @@
    "max_complexity": 11,
    "sha256": "6de5a063a40b25b3"
   },
+  "plex_renamer/_provider_errors.py": {
+   "coverage_percent": 100.0,
+   "dead_allowlisted": 0,
+   "dead_candidates": 0,
+   "dead_evidence_usable": true,
+   "dead_exact_low_confidence": 0,
+   "dead_high_confidence": 0,
+   "dead_low_confidence": 0,
+   "dead_medium_confidence": 0,
+   "dead_protected_ambiguous": 0,
+   "dead_symbols": [],
+   "dead_test_referenced": 0,
+   "dead_tiers": {
+    "allowlisted": 0,
+    "high-confidence": 0,
+    "low-confidence": 0,
+    "medium-confidence": 0,
+    "protected-or-ambiguous": 0,
+    "test-referenced": 0
+   },
+   "loc": 5,
+   "max_complexity": 1,
+   "sha256": "6494257ba130a1d5"
+  },
   "plex_renamer/_tmdb_batch_search.py": {
    "coverage_percent": 97.6,
    "dead_allowlisted": 0,
@@ -773,7 +797,7 @@
    "sha256": "5951220620b871d5"
   },
   "plex_renamer/_tmdb_metadata_cache.py": {
-   "coverage_percent": 92.4,
+   "coverage_percent": 95.3,
    "dead_allowlisted": 0,
    "dead_candidates": 0,
    "dead_evidence_usable": true,
@@ -792,9 +816,9 @@
     "protected-or-ambiguous": 0,
     "test-referenced": 0
    },
-   "loc": 218,
-   "max_complexity": 7,
-   "sha256": "099fc191d638b8e5"
+   "loc": 202,
+   "max_complexity": 8,
+   "sha256": "4cfbc3c60a5d95ce"
   },
   "plex_renamer/_tmdb_search_helpers.py": {
    "coverage_percent": 95.7,
@@ -820,6 +844,54 @@
    "max_complexity": 7,
    "sha256": "19e3b60d38078964"
   },
+  "plex_renamer/_tmdb_season_map.py": {
+   "coverage_percent": 96.7,
+   "dead_allowlisted": 0,
+   "dead_candidates": 0,
+   "dead_evidence_usable": true,
+   "dead_exact_low_confidence": 0,
+   "dead_high_confidence": 0,
+   "dead_low_confidence": 0,
+   "dead_medium_confidence": 0,
+   "dead_protected_ambiguous": 0,
+   "dead_symbols": [],
+   "dead_test_referenced": 0,
+   "dead_tiers": {
+    "allowlisted": 0,
+    "high-confidence": 0,
+    "low-confidence": 0,
+    "medium-confidence": 0,
+    "protected-or-ambiguous": 0,
+    "test-referenced": 0
+   },
+   "loc": 203,
+   "max_complexity": 5,
+   "sha256": "2d5b31a828a8745b"
+  },
+  "plex_renamer/_tmdb_snapshot_validation.py": {
+   "coverage_percent": 82.2,
+   "dead_allowlisted": 0,
+   "dead_candidates": 0,
+   "dead_evidence_usable": true,
+   "dead_exact_low_confidence": 0,
+   "dead_high_confidence": 0,
+   "dead_low_confidence": 0,
+   "dead_medium_confidence": 0,
+   "dead_protected_ambiguous": 0,
+   "dead_symbols": [],
+   "dead_test_referenced": 0,
+   "dead_tiers": {
+    "allowlisted": 0,
+    "high-confidence": 0,
+    "low-confidence": 0,
+    "medium-confidence": 0,
+    "protected-or-ambiguous": 0,
+    "test-referenced": 0
+   },
+   "loc": 122,
+   "max_complexity": 8,
+   "sha256": "45195cae6c303230"
+  },
   "plex_renamer/_tmdb_transport.py": {
    "coverage_percent": 77.0,
    "dead_allowlisted": 0,
@@ -843,6 +915,30 @@
    "loc": 166,
    "max_complexity": 11,
    "sha256": "fbc7b759eb09f112"
+  },
+  "plex_renamer/_tvdb_payloads.py": {
+   "coverage_percent": 89.1,
+   "dead_allowlisted": 0,
+   "dead_candidates": 0,
+   "dead_evidence_usable": true,
+   "dead_exact_low_confidence": 0,
+   "dead_high_confidence": 0,
+   "dead_low_confidence": 0,
+   "dead_medium_confidence": 0,
+   "dead_protected_ambiguous": 0,
+   "dead_symbols": [],
+   "dead_test_referenced": 0,
+   "dead_tiers": {
+    "allowlisted": 0,
+    "high-confidence": 0,
+    "low-confidence": 0,
+    "medium-confidence": 0,
+    "protected-or-ambiguous": 0,
+    "test-referenced": 0
+   },
+   "loc": 230,
+   "max_complexity": 9,
+   "sha256": "3034906eb568555e"
   },
   "plex_renamer/_tvdb_transport.py": {
    "coverage_percent": 84.0,
@@ -1277,7 +1373,7 @@
    "sha256": "99f9ce83f7471157"
   },
   "plex_renamer/app/controllers/_single_show_scan_helpers.py": {
-   "coverage_percent": 71.9,
+   "coverage_percent": 78.1,
    "dead_allowlisted": 0,
    "dead_candidates": 0,
    "dead_evidence_usable": true,
@@ -1296,9 +1392,9 @@
     "protected-or-ambiguous": 0,
     "test-referenced": 0
    },
-   "loc": 117,
+   "loc": 129,
    "max_complexity": 3,
-   "sha256": "77755625ae5c25da"
+   "sha256": "a3c33cb92619ab5f"
   },
   "plex_renamer/app/controllers/_tab_session_helpers.py": {
    "coverage_percent": 100.0,
@@ -1738,9 +1834,9 @@
     "protected-or-ambiguous": 0,
     "test-referenced": 0
    },
-   "loc": 268,
+   "loc": 297,
    "max_complexity": 21,
-   "sha256": "c1381ca39c64d396"
+   "sha256": "4357c7f7137278fa"
   },
   "plex_renamer/app/services/episode_mapping_service.py": {
    "coverage_percent": 95.1,
@@ -2060,7 +2156,7 @@
    "sha256": "1d0a93ec10d24b72"
   },
   "plex_renamer/engine/_batch_orchestrators.py": {
-   "coverage_percent": 83.4,
+   "coverage_percent": 86.2,
    "dead_allowlisted": 0,
    "dead_candidates": 1,
    "dead_evidence_usable": true,
@@ -2088,7 +2184,7 @@
    },
    "loc": 1394,
    "max_complexity": 26,
-   "sha256": "d00bdb28688ac8e8"
+   "sha256": "d32fcd91a97e56d7"
   },
   "plex_renamer/engine/_batch_tv_duplicates.py": {
    "coverage_percent": 83.3,
@@ -2115,7 +2211,7 @@
    "sha256": "9738461db5c50608"
   },
   "plex_renamer/engine/_batch_tv_episode_claims.py": {
-   "coverage_percent": 88.0,
+   "coverage_percent": 89.2,
    "dead_allowlisted": 0,
    "dead_candidates": 0,
    "dead_evidence_usable": true,
@@ -2163,7 +2259,7 @@
    "sha256": "1b26b4848c3abd22"
   },
   "plex_renamer/engine/_batch_tv_season_merge.py": {
-   "coverage_percent": 81.6,
+   "coverage_percent": 86.2,
    "dead_allowlisted": 0,
    "dead_candidates": 0,
    "dead_evidence_usable": true,
@@ -2422,6 +2518,30 @@
    "max_complexity": 41,
    "sha256": "ae83a01f12f5248e"
   },
+  "plex_renamer/engine/_provider_scan_guard.py": {
+   "coverage_percent": 100.0,
+   "dead_allowlisted": 0,
+   "dead_candidates": 0,
+   "dead_evidence_usable": true,
+   "dead_exact_low_confidence": 0,
+   "dead_high_confidence": 0,
+   "dead_low_confidence": 0,
+   "dead_medium_confidence": 0,
+   "dead_protected_ambiguous": 0,
+   "dead_symbols": [],
+   "dead_test_referenced": 0,
+   "dead_tiers": {
+    "allowlisted": 0,
+    "high-confidence": 0,
+    "low-confidence": 0,
+    "medium-confidence": 0,
+    "protected-or-ambiguous": 0,
+    "test-referenced": 0
+   },
+   "loc": 37,
+   "max_complexity": 1,
+   "sha256": "d5c8d7ec16e33cdf"
+  },
   "plex_renamer/engine/_queue_bridge.py": {
    "coverage_percent": 88.5,
    "dead_allowlisted": 0,
@@ -2471,7 +2591,7 @@
    "sha256": "69891cae01a01860"
   },
   "plex_renamer/engine/_scan_runtime.py": {
-   "coverage_percent": 85.7,
+   "coverage_percent": 94.7,
    "dead_allowlisted": 0,
    "dead_candidates": 0,
    "dead_evidence_usable": true,
@@ -2490,9 +2610,33 @@
     "protected-or-ambiguous": 0,
     "test-referenced": 0
    },
-   "loc": 17,
+   "loc": 41,
    "max_complexity": 3,
-   "sha256": "90af314056276b34"
+   "sha256": "d88fae02d2241ebe"
+  },
+  "plex_renamer/engine/_season_map_validation.py": {
+   "coverage_percent": 93.0,
+   "dead_allowlisted": 0,
+   "dead_candidates": 0,
+   "dead_evidence_usable": true,
+   "dead_exact_low_confidence": 0,
+   "dead_high_confidence": 0,
+   "dead_low_confidence": 0,
+   "dead_medium_confidence": 0,
+   "dead_protected_ambiguous": 0,
+   "dead_symbols": [],
+   "dead_test_referenced": 0,
+   "dead_tiers": {
+    "allowlisted": 0,
+    "high-confidence": 0,
+    "low-confidence": 0,
+    "medium-confidence": 0,
+    "protected-or-ambiguous": 0,
+    "test-referenced": 0
+   },
+   "loc": 85,
+   "max_complexity": 6,
+   "sha256": "64e861dbded41fcf"
   },
   "plex_renamer/engine/_state.py": {
    "coverage_percent": 82.6,
@@ -2519,7 +2663,7 @@
    "sha256": "2d3e250e55a853db"
   },
   "plex_renamer/engine/_tv_scanner.py": {
-   "coverage_percent": 92.3,
+   "coverage_percent": 92.6,
    "dead_allowlisted": 0,
    "dead_candidates": 0,
    "dead_evidence_usable": true,
@@ -2538,9 +2682,9 @@
     "protected-or-ambiguous": 0,
     "test-referenced": 0
    },
-   "loc": 344,
+   "loc": 356,
    "max_complexity": 11,
-   "sha256": "7f09b4f746220842"
+   "sha256": "24db35b570e5620f"
   },
   "plex_renamer/engine/_tv_scanner_consolidated.py": {
    "coverage_percent": 89.8,
@@ -2567,7 +2711,7 @@
    "sha256": "4177e02310923d7c"
   },
   "plex_renamer/engine/_tv_scanner_normal.py": {
-   "coverage_percent": 98.4,
+   "coverage_percent": 99.2,
    "dead_allowlisted": 0,
    "dead_candidates": 0,
    "dead_evidence_usable": true,
@@ -2638,6 +2782,30 @@
    "max_complexity": 25,
    "sha256": "caaf96193150d617"
   },
+  "plex_renamer/engine/_tv_score_fallback.py": {
+   "coverage_percent": 100.0,
+   "dead_allowlisted": 0,
+   "dead_candidates": 0,
+   "dead_evidence_usable": true,
+   "dead_exact_low_confidence": 0,
+   "dead_high_confidence": 0,
+   "dead_low_confidence": 0,
+   "dead_medium_confidence": 0,
+   "dead_protected_ambiguous": 0,
+   "dead_symbols": [],
+   "dead_test_referenced": 0,
+   "dead_tiers": {
+    "allowlisted": 0,
+    "high-confidence": 0,
+    "low-confidence": 0,
+    "medium-confidence": 0,
+    "protected-or-ambiguous": 0,
+    "test-referenced": 0
+   },
+   "loc": 37,
+   "max_complexity": 2,
+   "sha256": "a5c544a05c71d8bd"
+  },
   "plex_renamer/engine/episode_assignments.py": {
    "coverage_percent": 95.0,
    "dead_allowlisted": 0,
@@ -2697,7 +2865,7 @@
    },
    "loc": 641,
    "max_complexity": 20,
-   "sha256": "b14bb830c2e2714c"
+   "sha256": "d6ea5e0efc79a8e2"
   },
   "plex_renamer/engine/models.py": {
    "coverage_percent": 95.1,
@@ -2875,7 +3043,7 @@
    "sha256": "c71bc960183f54df"
   },
   "plex_renamer/gui_qt/_main_window_scan.py": {
-   "coverage_percent": 85.0,
+   "coverage_percent": 85.2,
    "dead_allowlisted": 0,
    "dead_candidates": 0,
    "dead_evidence_usable": true,
@@ -2894,9 +3062,9 @@
     "protected-or-ambiguous": 0,
     "test-referenced": 0
    },
-   "loc": 187,
+   "loc": 205,
    "max_complexity": 9,
-   "sha256": "42caa7018f6b0846"
+   "sha256": "a8fd7014208dfa45"
   },
   "plex_renamer/gui_qt/_main_window_shell.py": {
    "coverage_percent": 77.3,
@@ -5145,7 +5313,7 @@
    "sha256": "ac6228c968b3f50c"
   },
   "plex_renamer/providers.py": {
-   "coverage_percent": 94.9,
+   "coverage_percent": 95.0,
    "dead_allowlisted": 0,
    "dead_candidates": 0,
    "dead_evidence_usable": true,
@@ -5164,9 +5332,9 @@
     "protected-or-ambiguous": 0,
     "test-referenced": 0
    },
-   "loc": 158,
+   "loc": 160,
    "max_complexity": 3,
-   "sha256": "24cb8ceabf13b448"
+   "sha256": "bdb9156ce40511cc"
   },
   "plex_renamer/thread_pool.py": {
    "coverage_percent": 93.1,
@@ -5193,7 +5361,7 @@
    "sha256": "bee56ee1c29cfd9d"
   },
   "plex_renamer/tmdb.py": {
-   "coverage_percent": 75.9,
+   "coverage_percent": 81.9,
    "dead_allowlisted": 0,
    "dead_candidates": 0,
    "dead_evidence_usable": true,
@@ -5212,12 +5380,12 @@
     "protected-or-ambiguous": 0,
     "test-referenced": 0
    },
-   "loc": 601,
+   "loc": 585,
    "max_complexity": 17,
-   "sha256": "9a229600a7563129"
+   "sha256": "e91ce73d3030443f"
   },
   "plex_renamer/tvdb.py": {
-   "coverage_percent": 85.3,
+   "coverage_percent": 86.5,
    "dead_allowlisted": 0,
    "dead_candidates": 0,
    "dead_evidence_usable": true,
@@ -5236,17 +5404,17 @@
     "protected-or-ambiguous": 0,
     "test-referenced": 0
    },
-   "loc": 465,
+   "loc": 479,
    "max_complexity": 45,
-   "sha256": "1b81f2b3490cfbb3"
+   "sha256": "96a83e151b56d2ee"
   }
  },
  "previous_baseline": {
   "coverage": {
    "available": true,
    "failed": false,
-   "input_digest": "c6ce3676d3ee8b952f969fcd6078d3ac1b2094f860186c9ffc1c0bfa4742f5b1",
-   "module_count": 187,
+   "input_digest": "f1a9ddffcee214d7f69a715543fe7b3af1d84f689cfb59fc2fcfacd7962109ad",
+   "module_count": 194,
    "partial": false,
    "reason": null,
    "scope": {
@@ -5316,7 +5484,7 @@
    }
   },
   "headline": {
-   "avg_coverage": 89.1,
+   "avg_coverage": 89.4,
    "coverage_failed": false,
    "coverage_partial": false,
    "coverage_stale": false,
@@ -5339,13 +5507,13 @@
     "protected-or-ambiguous": 99,
     "test-referenced": 3
    },
-   "files": 187,
-   "module_avg_coverage": 89.9,
+   "files": 194,
+   "module_avg_coverage": 90.2,
    "modules_over_complexity": 67,
-   "statement_coverage": 89.1,
-   "total_loc": 42746
+   "statement_coverage": 89.4,
+   "total_loc": 43544
   },
-  "input_digest": "c6ce3676d3ee8b952f969fcd6078d3ac1b2094f860186c9ffc1c0bfa4742f5b1",
+  "input_digest": "f1a9ddffcee214d7f69a715543fe7b3af1d84f689cfb59fc2fcfacd7962109ad",
   "modules": {
    "plex_renamer/__init__.py": {
     "coverage_percent": 100.0,
@@ -5943,6 +6111,30 @@
     "max_complexity": 11,
     "sha256": "6de5a063a40b25b3"
    },
+   "plex_renamer/_provider_errors.py": {
+    "coverage_percent": 100.0,
+    "dead_allowlisted": 0,
+    "dead_candidates": 0,
+    "dead_evidence_usable": true,
+    "dead_exact_low_confidence": 0,
+    "dead_high_confidence": 0,
+    "dead_low_confidence": 0,
+    "dead_medium_confidence": 0,
+    "dead_protected_ambiguous": 0,
+    "dead_symbols": [],
+    "dead_test_referenced": 0,
+    "dead_tiers": {
+     "allowlisted": 0,
+     "high-confidence": 0,
+     "low-confidence": 0,
+     "medium-confidence": 0,
+     "protected-or-ambiguous": 0,
+     "test-referenced": 0
+    },
+    "loc": 5,
+    "max_complexity": 1,
+    "sha256": "6494257ba130a1d5"
+   },
    "plex_renamer/_tmdb_batch_search.py": {
     "coverage_percent": 97.6,
     "dead_allowlisted": 0,
@@ -6016,7 +6208,7 @@
     "sha256": "5951220620b871d5"
    },
    "plex_renamer/_tmdb_metadata_cache.py": {
-    "coverage_percent": 92.4,
+    "coverage_percent": 95.3,
     "dead_allowlisted": 0,
     "dead_candidates": 0,
     "dead_evidence_usable": true,
@@ -6035,9 +6227,9 @@
      "protected-or-ambiguous": 0,
      "test-referenced": 0
     },
-    "loc": 218,
-    "max_complexity": 7,
-    "sha256": "099fc191d638b8e5"
+    "loc": 202,
+    "max_complexity": 8,
+    "sha256": "4cfbc3c60a5d95ce"
    },
    "plex_renamer/_tmdb_search_helpers.py": {
     "coverage_percent": 95.7,
@@ -6063,6 +6255,54 @@
     "max_complexity": 7,
     "sha256": "19e3b60d38078964"
    },
+   "plex_renamer/_tmdb_season_map.py": {
+    "coverage_percent": 96.7,
+    "dead_allowlisted": 0,
+    "dead_candidates": 0,
+    "dead_evidence_usable": true,
+    "dead_exact_low_confidence": 0,
+    "dead_high_confidence": 0,
+    "dead_low_confidence": 0,
+    "dead_medium_confidence": 0,
+    "dead_protected_ambiguous": 0,
+    "dead_symbols": [],
+    "dead_test_referenced": 0,
+    "dead_tiers": {
+     "allowlisted": 0,
+     "high-confidence": 0,
+     "low-confidence": 0,
+     "medium-confidence": 0,
+     "protected-or-ambiguous": 0,
+     "test-referenced": 0
+    },
+    "loc": 203,
+    "max_complexity": 5,
+    "sha256": "2d5b31a828a8745b"
+   },
+   "plex_renamer/_tmdb_snapshot_validation.py": {
+    "coverage_percent": 82.2,
+    "dead_allowlisted": 0,
+    "dead_candidates": 0,
+    "dead_evidence_usable": true,
+    "dead_exact_low_confidence": 0,
+    "dead_high_confidence": 0,
+    "dead_low_confidence": 0,
+    "dead_medium_confidence": 0,
+    "dead_protected_ambiguous": 0,
+    "dead_symbols": [],
+    "dead_test_referenced": 0,
+    "dead_tiers": {
+     "allowlisted": 0,
+     "high-confidence": 0,
+     "low-confidence": 0,
+     "medium-confidence": 0,
+     "protected-or-ambiguous": 0,
+     "test-referenced": 0
+    },
+    "loc": 122,
+    "max_complexity": 8,
+    "sha256": "45195cae6c303230"
+   },
    "plex_renamer/_tmdb_transport.py": {
     "coverage_percent": 77.0,
     "dead_allowlisted": 0,
@@ -6086,6 +6326,30 @@
     "loc": 166,
     "max_complexity": 11,
     "sha256": "fbc7b759eb09f112"
+   },
+   "plex_renamer/_tvdb_payloads.py": {
+    "coverage_percent": 89.1,
+    "dead_allowlisted": 0,
+    "dead_candidates": 0,
+    "dead_evidence_usable": true,
+    "dead_exact_low_confidence": 0,
+    "dead_high_confidence": 0,
+    "dead_low_confidence": 0,
+    "dead_medium_confidence": 0,
+    "dead_protected_ambiguous": 0,
+    "dead_symbols": [],
+    "dead_test_referenced": 0,
+    "dead_tiers": {
+     "allowlisted": 0,
+     "high-confidence": 0,
+     "low-confidence": 0,
+     "medium-confidence": 0,
+     "protected-or-ambiguous": 0,
+     "test-referenced": 0
+    },
+    "loc": 230,
+    "max_complexity": 9,
+    "sha256": "3034906eb568555e"
    },
    "plex_renamer/_tvdb_transport.py": {
     "coverage_percent": 84.0,
@@ -6520,7 +6784,7 @@
     "sha256": "99f9ce83f7471157"
    },
    "plex_renamer/app/controllers/_single_show_scan_helpers.py": {
-    "coverage_percent": 71.9,
+    "coverage_percent": 78.1,
     "dead_allowlisted": 0,
     "dead_candidates": 0,
     "dead_evidence_usable": true,
@@ -6539,9 +6803,9 @@
      "protected-or-ambiguous": 0,
      "test-referenced": 0
     },
-    "loc": 117,
+    "loc": 129,
     "max_complexity": 3,
-    "sha256": "77755625ae5c25da"
+    "sha256": "a3c33cb92619ab5f"
    },
    "plex_renamer/app/controllers/_tab_session_helpers.py": {
     "coverage_percent": 100.0,
@@ -6981,9 +7245,9 @@
      "protected-or-ambiguous": 0,
      "test-referenced": 0
     },
-    "loc": 268,
+    "loc": 297,
     "max_complexity": 21,
-    "sha256": "c1381ca39c64d396"
+    "sha256": "4357c7f7137278fa"
    },
    "plex_renamer/app/services/episode_mapping_service.py": {
     "coverage_percent": 95.1,
@@ -7303,7 +7567,7 @@
     "sha256": "1d0a93ec10d24b72"
    },
    "plex_renamer/engine/_batch_orchestrators.py": {
-    "coverage_percent": 83.4,
+    "coverage_percent": 86.2,
     "dead_allowlisted": 0,
     "dead_candidates": 1,
     "dead_evidence_usable": true,
@@ -7331,7 +7595,7 @@
     },
     "loc": 1394,
     "max_complexity": 26,
-    "sha256": "d00bdb28688ac8e8"
+    "sha256": "d32fcd91a97e56d7"
    },
    "plex_renamer/engine/_batch_tv_duplicates.py": {
     "coverage_percent": 83.3,
@@ -7358,7 +7622,7 @@
     "sha256": "9738461db5c50608"
    },
    "plex_renamer/engine/_batch_tv_episode_claims.py": {
-    "coverage_percent": 88.0,
+    "coverage_percent": 89.2,
     "dead_allowlisted": 0,
     "dead_candidates": 0,
     "dead_evidence_usable": true,
@@ -7406,7 +7670,7 @@
     "sha256": "1b26b4848c3abd22"
    },
    "plex_renamer/engine/_batch_tv_season_merge.py": {
-    "coverage_percent": 81.6,
+    "coverage_percent": 86.2,
     "dead_allowlisted": 0,
     "dead_candidates": 0,
     "dead_evidence_usable": true,
@@ -7665,6 +7929,30 @@
     "max_complexity": 41,
     "sha256": "ae83a01f12f5248e"
    },
+   "plex_renamer/engine/_provider_scan_guard.py": {
+    "coverage_percent": 100.0,
+    "dead_allowlisted": 0,
+    "dead_candidates": 0,
+    "dead_evidence_usable": true,
+    "dead_exact_low_confidence": 0,
+    "dead_high_confidence": 0,
+    "dead_low_confidence": 0,
+    "dead_medium_confidence": 0,
+    "dead_protected_ambiguous": 0,
+    "dead_symbols": [],
+    "dead_test_referenced": 0,
+    "dead_tiers": {
+     "allowlisted": 0,
+     "high-confidence": 0,
+     "low-confidence": 0,
+     "medium-confidence": 0,
+     "protected-or-ambiguous": 0,
+     "test-referenced": 0
+    },
+    "loc": 37,
+    "max_complexity": 1,
+    "sha256": "d5c8d7ec16e33cdf"
+   },
    "plex_renamer/engine/_queue_bridge.py": {
     "coverage_percent": 88.5,
     "dead_allowlisted": 0,
@@ -7714,7 +8002,7 @@
     "sha256": "69891cae01a01860"
    },
    "plex_renamer/engine/_scan_runtime.py": {
-    "coverage_percent": 85.7,
+    "coverage_percent": 94.7,
     "dead_allowlisted": 0,
     "dead_candidates": 0,
     "dead_evidence_usable": true,
@@ -7733,9 +8021,33 @@
      "protected-or-ambiguous": 0,
      "test-referenced": 0
     },
-    "loc": 17,
+    "loc": 41,
     "max_complexity": 3,
-    "sha256": "90af314056276b34"
+    "sha256": "d88fae02d2241ebe"
+   },
+   "plex_renamer/engine/_season_map_validation.py": {
+    "coverage_percent": 93.0,
+    "dead_allowlisted": 0,
+    "dead_candidates": 0,
+    "dead_evidence_usable": true,
+    "dead_exact_low_confidence": 0,
+    "dead_high_confidence": 0,
+    "dead_low_confidence": 0,
+    "dead_medium_confidence": 0,
+    "dead_protected_ambiguous": 0,
+    "dead_symbols": [],
+    "dead_test_referenced": 0,
+    "dead_tiers": {
+     "allowlisted": 0,
+     "high-confidence": 0,
+     "low-confidence": 0,
+     "medium-confidence": 0,
+     "protected-or-ambiguous": 0,
+     "test-referenced": 0
+    },
+    "loc": 85,
+    "max_complexity": 6,
+    "sha256": "64e861dbded41fcf"
    },
    "plex_renamer/engine/_state.py": {
     "coverage_percent": 82.6,
@@ -7762,7 +8074,7 @@
     "sha256": "2d3e250e55a853db"
    },
    "plex_renamer/engine/_tv_scanner.py": {
-    "coverage_percent": 92.3,
+    "coverage_percent": 92.6,
     "dead_allowlisted": 0,
     "dead_candidates": 0,
     "dead_evidence_usable": true,
@@ -7781,9 +8093,9 @@
      "protected-or-ambiguous": 0,
      "test-referenced": 0
     },
-    "loc": 344,
+    "loc": 356,
     "max_complexity": 11,
-    "sha256": "7f09b4f746220842"
+    "sha256": "24db35b570e5620f"
    },
    "plex_renamer/engine/_tv_scanner_consolidated.py": {
     "coverage_percent": 89.8,
@@ -7810,7 +8122,7 @@
     "sha256": "4177e02310923d7c"
    },
    "plex_renamer/engine/_tv_scanner_normal.py": {
-    "coverage_percent": 98.4,
+    "coverage_percent": 99.2,
     "dead_allowlisted": 0,
     "dead_candidates": 0,
     "dead_evidence_usable": true,
@@ -7881,6 +8193,30 @@
     "max_complexity": 25,
     "sha256": "caaf96193150d617"
    },
+   "plex_renamer/engine/_tv_score_fallback.py": {
+    "coverage_percent": 100.0,
+    "dead_allowlisted": 0,
+    "dead_candidates": 0,
+    "dead_evidence_usable": true,
+    "dead_exact_low_confidence": 0,
+    "dead_high_confidence": 0,
+    "dead_low_confidence": 0,
+    "dead_medium_confidence": 0,
+    "dead_protected_ambiguous": 0,
+    "dead_symbols": [],
+    "dead_test_referenced": 0,
+    "dead_tiers": {
+     "allowlisted": 0,
+     "high-confidence": 0,
+     "low-confidence": 0,
+     "medium-confidence": 0,
+     "protected-or-ambiguous": 0,
+     "test-referenced": 0
+    },
+    "loc": 37,
+    "max_complexity": 2,
+    "sha256": "a5c544a05c71d8bd"
+   },
    "plex_renamer/engine/episode_assignments.py": {
     "coverage_percent": 95.0,
     "dead_allowlisted": 0,
@@ -7940,7 +8276,7 @@
     },
     "loc": 641,
     "max_complexity": 20,
-    "sha256": "b14bb830c2e2714c"
+    "sha256": "d6ea5e0efc79a8e2"
    },
    "plex_renamer/engine/models.py": {
     "coverage_percent": 95.1,
@@ -8118,7 +8454,7 @@
     "sha256": "c71bc960183f54df"
    },
    "plex_renamer/gui_qt/_main_window_scan.py": {
-    "coverage_percent": 85.0,
+    "coverage_percent": 85.2,
     "dead_allowlisted": 0,
     "dead_candidates": 0,
     "dead_evidence_usable": true,
@@ -8137,9 +8473,9 @@
      "protected-or-ambiguous": 0,
      "test-referenced": 0
     },
-    "loc": 187,
+    "loc": 205,
     "max_complexity": 9,
-    "sha256": "42caa7018f6b0846"
+    "sha256": "a8fd7014208dfa45"
    },
    "plex_renamer/gui_qt/_main_window_shell.py": {
     "coverage_percent": 77.3,
@@ -10388,7 +10724,7 @@
     "sha256": "ac6228c968b3f50c"
    },
    "plex_renamer/providers.py": {
-    "coverage_percent": 94.9,
+    "coverage_percent": 95.0,
     "dead_allowlisted": 0,
     "dead_candidates": 0,
     "dead_evidence_usable": true,
@@ -10407,9 +10743,9 @@
      "protected-or-ambiguous": 0,
      "test-referenced": 0
     },
-    "loc": 158,
+    "loc": 160,
     "max_complexity": 3,
-    "sha256": "24cb8ceabf13b448"
+    "sha256": "bdb9156ce40511cc"
    },
    "plex_renamer/thread_pool.py": {
     "coverage_percent": 93.1,
@@ -10436,7 +10772,7 @@
     "sha256": "bee56ee1c29cfd9d"
    },
    "plex_renamer/tmdb.py": {
-    "coverage_percent": 75.9,
+    "coverage_percent": 81.9,
     "dead_allowlisted": 0,
     "dead_candidates": 0,
     "dead_evidence_usable": true,
@@ -10455,12 +10791,12 @@
      "protected-or-ambiguous": 0,
      "test-referenced": 0
     },
-    "loc": 601,
+    "loc": 585,
     "max_complexity": 17,
-    "sha256": "9a229600a7563129"
+    "sha256": "e91ce73d3030443f"
    },
    "plex_renamer/tvdb.py": {
-    "coverage_percent": 85.3,
+    "coverage_percent": 86.5,
     "dead_allowlisted": 0,
     "dead_candidates": 0,
     "dead_evidence_usable": true,
@@ -10479,9 +10815,9 @@
      "protected-or-ambiguous": 0,
      "test-referenced": 0
     },
-    "loc": 465,
+    "loc": 479,
     "max_complexity": 45,
-    "sha256": "1b81f2b3490cfbb3"
+    "sha256": "96a83e151b56d2ee"
    }
   },
   "tool_status": {

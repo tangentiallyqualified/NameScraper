@@ -35,10 +35,10 @@ graph LR
 
 | Metric | Value |
 |---|---|
-| Modules | 187 |
-| Total LOC | 42746 |
-| Statement coverage | 89.1% |
-| Module-average coverage | 89.9% |
+| Modules | 194 |
+| Total LOC | 43544 |
+| Statement coverage | 89.4% |
+| Module-average coverage | 90.2% |
 | Import cycles | 0 |
 | Modules over complexity threshold | 67 |
 | Dead symbols (high confidence) | 0 |
@@ -47,7 +47,7 @@ graph LR
 
 | Status | Source | Input digest | Detail |
 |---|---|---|---|
-| matched | coverage.py | def0685fa9c6 | - |
+| matched | coverage.py | 7316cd8ec001 | - |
 
 ## Least-covered modules
 
@@ -100,14 +100,14 @@ graph LR
 |---|---|
 | `plex_renamer/constants.py` | 49 |
 | `plex_renamer/engine/__init__.py` | 42 |
-| `plex_renamer/engine/models.py` | 27 |
+| `plex_renamer/engine/models.py` | 30 |
 | `plex_renamer/gui_qt/_scale.py` | 25 |
 | `plex_renamer/app/models/__init__.py` | 23 |
 | `plex_renamer/parsing.py` | 23 |
 | `plex_renamer/job_store.py` | 17 |
 | `plex_renamer/gui_qt/theme.py` | 14 |
+| `plex_renamer/providers.py` | 13 |
 | `plex_renamer/thread_pool.py` | 13 |
-| `plex_renamer/gui_qt/widgets/_media_helpers.py` | 12 |
 
 ## Dependency issues
 
@@ -258,5 +258,5 @@ _None._
 - [x] `plex_renamer/gui_qt/widgets/busy_overlay.py:90` plex_renamer.gui_qt.widgets.busy_overlay.BusyOverlay.paintEvent#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved; allowlist: Qt invokes this QWidget paintEvent override to render the busy overlay.)
 - [x] `plex_renamer/gui_qt/widgets/scan_progress.py:164` plex_renamer.gui_qt.widgets.scan_progress._ConveyorAnimation.paintEvent#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved; allowlist: Qt invokes this QWidget paintEvent override to render the conveyor animation.)
 
-_Generated from audit input def0685fa9c6 by scripts\audit.cmd._
+_Generated from audit input 7316cd8ec001 by scripts\audit.cmd._
 <!-- audit:generated:end overview -->

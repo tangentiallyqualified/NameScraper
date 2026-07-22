@@ -4,9 +4,12 @@ from __future__ import annotations
 
 from typing import Any
 
+from ._tmdb_snapshot_validation import iter_valid_season_map_snapshots
+
 _TV_DETAILS_NAMESPACE = "tmdb.tv_details"
 _SEASON_NAMESPACE = "tmdb.season"
 _MOVIE_DETAILS_NAMESPACE = "tmdb.movie_details"
+_SEASON_MAP_CONTRACT_VERSION = 1
 
 
 class _TMDBMetadataCacheStore:
@@ -17,7 +20,7 @@ class _TMDBMetadataCacheStore:
         self._refresh_policy = refresh_policy
         self._show_cache: dict[int, dict] = {}
         self._season_cache: dict[tuple[int, int], dict] = {}
-        self._season_map_cache: dict[int, tuple[dict, int]] = {}
+        self._season_map_cache: dict[int, tuple[dict[int, dict[str, Any]], int]] = {}
         self._movie_cache: dict[int, dict] = {}
 
     @property
@@ -29,7 +32,7 @@ class _TMDBMetadataCacheStore:
         return self._season_cache
 
     @property
-    def season_map_cache(self) -> dict[int, tuple[dict, int]]:
+    def season_map_cache(self) -> dict[int, tuple[dict[int, dict[str, Any]], int]]:
         return self._season_map_cache
 
     @property
@@ -90,8 +93,9 @@ class _TMDBMetadataCacheStore:
         self._season_map_cache.clear()
         self._movie_cache.clear()
 
-    def export_snapshot(self) -> dict[str, dict]:
+    def export_snapshot(self) -> dict[str, Any]:
         return {
+            "season_map_contract_version": _SEASON_MAP_CONTRACT_VERSION,
             "show_cache": dict(self._show_cache),
             "season_cache": {
                 f"{show_id}:{season_num}": data
@@ -107,7 +111,12 @@ class _TMDBMetadataCacheStore:
             "movie_cache": dict(self._movie_cache),
         }
 
-    def import_snapshot(self, snapshot: dict | None, *, clear_existing: bool = False) -> None:
+    def import_snapshot(
+        self,
+        snapshot: dict[str, Any] | None,
+        *,
+        clear_existing: bool = False,
+    ) -> None:
         if not snapshot:
             return
         if clear_existing:
@@ -122,11 +131,11 @@ class _TMDBMetadataCacheStore:
                 self.normalize_season_snapshot(data)
             )
 
-        for show_id, data in snapshot.get("season_map_cache", {}).items():
-            self._season_map_cache[int(show_id)] = (
-                self.normalize_season_map_snapshot(data.get("seasons", {})),
-                int(data.get("total_episodes", 0)),
-            )
+        if snapshot.get("season_map_contract_version") == _SEASON_MAP_CONTRACT_VERSION:
+            for show_id, cache_entry in iter_valid_season_map_snapshots(
+                snapshot.get("season_map_cache", {})
+            ):
+                self._season_map_cache[show_id] = cache_entry
 
         for movie_id, data in snapshot.get("movie_cache", {}).items():
             self._movie_cache[int(movie_id)] = data
@@ -172,31 +181,6 @@ class _TMDBMetadataCacheStore:
                 normalized[int(key)] = value
             except (TypeError, ValueError):
                 continue
-        return normalized
-
-    @classmethod
-    def normalize_season_map_snapshot(cls, season_map: dict | None) -> dict[int, dict[str, Any]]:
-        if not season_map:
-            return {}
-
-        normalized: dict[int, dict[str, Any]] = {}
-        for season_key, season_data in season_map.items():
-            try:
-                season_num = int(season_key)
-            except (TypeError, ValueError):
-                continue
-
-            payload = season_data or {}
-            normalized[season_num] = {
-                "name": str(payload.get("name", "")),
-                "titles": cls.normalize_episode_map_keys(payload.get("titles", {})),
-                "posters": cls.normalize_episode_map_keys(payload.get("posters", {})),
-                "episodes": cls.normalize_episode_map_keys(payload.get("episodes", {})),
-                "count": int(payload.get("count", 0)),
-            }
-            if "season_poster_path" in payload:
-                normalized[season_num]["season_poster_path"] = payload.get("season_poster_path")
-
         return normalized
 
     @classmethod

@@ -21,6 +21,8 @@ from typing import Any, Protocol, cast, runtime_checkable
 
 from PIL import Image
 
+from ._provider_errors import SeasonMapUnavailableError as SeasonMapUnavailableError
+
 
 @runtime_checkable
 class MetadataProvider(Protocol):

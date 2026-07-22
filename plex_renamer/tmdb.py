@@ -41,6 +41,7 @@ from ._tmdb_search_helpers import (
     extract_alternative_titles,
     search_with_fallback as run_search_with_fallback,
 )
+from ._tmdb_season_map import fetch_tmdb_season_map
 from ._tmdb_transport import (
     TMDBAPIError as TMDBAPIError,
     TMDBError,
@@ -164,7 +165,7 @@ class TMDBClient:
             )
         return data
 
-    def get_season(self, show_id: int, season_num: int) -> dict:
+    def get_season(self, show_id: int, season_num: int) -> dict[str, Any]:
         """
         Fetch episode list for a season. Cached.
 
@@ -196,7 +197,7 @@ class TMDBClient:
         self._metadata_cache_store.put_season(show_id, season_num, result)
         return result
 
-    def get_season_map(self, show_id: int) -> tuple[dict, int]:
+    def get_season_map(self, show_id: int) -> tuple[dict[int, dict[str, Any]], int]:
         """
         Build a complete map of TMDB's season structure for a show. Cached.
 
@@ -208,29 +209,7 @@ class TMDBClient:
         if cached is not None:
             return cached
 
-        show_data = self.get_tv_details(show_id)
-        if not show_data:
-            return {}, 0
-
-        tmdb_seasons = {}
-        total_episodes = 0
-
-        for season_info in show_data.get("seasons", []):
-            sn = season_info.get("season_number", 0)
-            season_data = self.get_season(show_id, sn)
-            titles = season_data["titles"]
-            count = max(titles.keys()) if titles else season_info.get("episode_count", 0)
-            tmdb_seasons[sn] = {
-                "name": season_info.get("name", ""),
-                "titles": titles,
-                "posters": season_data["posters"],
-                "episodes": season_data.get("episodes", {}),
-                "count": count,
-            }
-            if sn > 0:
-                total_episodes += count
-
-        cached = (tmdb_seasons, total_episodes)
+        cached = fetch_tmdb_season_map(self._transport, show_id, self._details_params())
         self._metadata_cache_store.season_map_cache[show_id] = cached
         return cached
 
@@ -588,11 +567,16 @@ class TMDBClient:
         self._metadata_cache_store.clear_runtime_caches()
         self._image_cache_store.clear_runtime_caches()
 
-    def export_cache_snapshot(self) -> dict[str, dict]:
+    def export_cache_snapshot(self) -> dict[str, Any]:
         """Return a serializable snapshot of the in-memory metadata caches."""
         return self._metadata_cache_store.export_snapshot()
 
-    def import_cache_snapshot(self, snapshot: dict | None, *, clear_existing: bool = False) -> None:
+    def import_cache_snapshot(
+        self,
+        snapshot: dict[str, Any] | None,
+        *,
+        clear_existing: bool = False,
+    ) -> None:
         """Hydrate the in-memory metadata caches from a persisted snapshot."""
         if not snapshot:
             return

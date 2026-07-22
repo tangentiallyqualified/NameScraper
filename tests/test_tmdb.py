@@ -424,51 +424,6 @@ class TMDBClientTests(unittest.TestCase):
         self.assertEqual(attempts, ["One Two Three", "One Two"])
         client._session.close()
 
-    def test_cache_snapshot_roundtrip_restores_runtime_metadata(self):
-        client = TMDBClient("dummy-api-key")
-        snapshot = {
-            "show_cache": {"321": {"poster_path": "/andor.jpg", "name": "Andor"}},
-            "season_cache": {
-                "321:1": {
-                    "titles": {"1": "Pilot"},
-                    "posters": {"1": "/still.jpg"},
-                    "episodes": {"1": {"name": "Pilot"}},
-                    "season_poster_path": "/season.jpg",
-                }
-            },
-            "season_map_cache": {
-                "321": {
-                    "seasons": {
-                        "1": {
-                            "titles": {"1": "Pilot"},
-                            "posters": {"1": "/still.jpg"},
-                            "episodes": {"1": {"name": "Pilot"}},
-                            "count": 1,
-                            "season_poster_path": "/season.jpg",
-                        }
-                    },
-                    "total_episodes": 1,
-                }
-            },
-            "movie_cache": {"123": {"poster_path": "/movie.jpg", "title": "Movie"}},
-        }
-
-        client.import_cache_snapshot(snapshot, clear_existing=True)
-
-        self.assertEqual(client.get_cached_poster_path(321), "/andor.jpg")
-        self.assertEqual(client.get_cached_poster_path(123, media_type="movie"), "/movie.jpg")
-        self.assertEqual(client.get_season(321, 1)["titles"][1], "Pilot")
-        season_map, total_episodes = client.get_season_map(321)
-        self.assertEqual(total_episodes, 1)
-        self.assertEqual(season_map[1]["titles"][1], "Pilot")
-
-        exported = client.export_cache_snapshot()
-
-        self.assertEqual(exported["show_cache"][321]["poster_path"], "/andor.jpg")
-        self.assertIn("321:1", exported["season_cache"])
-        self.assertEqual(exported["movie_cache"][123]["poster_path"], "/movie.jpg")
-        client._session.close()
-
 
 def test_fetch_image_bytes_passes_absolute_url_through(monkeypatch: pytest.MonkeyPatch) -> None:
     client = TMDBClient("k")

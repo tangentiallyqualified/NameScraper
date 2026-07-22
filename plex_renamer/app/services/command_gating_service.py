@@ -3,11 +3,47 @@
 from __future__ import annotations
 
 from collections import Counter
+from typing import Protocol, cast
 
 from ...engine import PreviewItem, ScanState, get_checked_indices_from_state
 from ...engine.models import file_mux_active
 from ...parsing import build_show_folder_name
 from ..models import QueueCommandState, QueueEligibility
+
+
+class _CheckVarsView(Protocol):
+    check_vars: object
+
+
+def _cannot_be_fully_ready(state: ScanState) -> bool:
+    return bool(state.scan_error or not state.scanned or not state.preview_items)
+
+
+def _queue_relevant_indices(state: ScanState) -> set[int]:
+    return {
+        index
+        for index in range(len(state.preview_items))
+        if CommandGatingService.is_queue_relevant(state, index)
+    }
+
+
+def _selected_scan_indices(state: ScanState, *, allow_show_level_queue: bool) -> set[int]:
+    if allow_show_level_queue and state.checked:
+        return _queue_relevant_indices(state)
+    if cast(_CheckVarsView, state).check_vars:
+        return get_checked_indices_from_state(state)
+    if state.checked:
+        return _queue_relevant_indices(state)
+    return set()
+
+
+def _scan_error_eligibility(state: ScanState) -> QueueEligibility | None:
+    if not state.scan_error:
+        return None
+    return QueueEligibility(
+        command_state=QueueCommandState.DISABLED_NO_SELECTION,
+        reason=state.scan_error,
+    )
 
 
 class CommandGatingService:
@@ -16,7 +52,7 @@ class CommandGatingService:
     @staticmethod
     def is_fully_ready_state(state: ScanState) -> bool:
         """True when a scanned entry is already fully organized and non-queueable."""
-        if not state.scanned or not state.preview_items:
+        if _cannot_be_fully_ready(state):
             return False
         if state.duplicate_of is not None or state.queued:
             return False
@@ -139,21 +175,14 @@ class CommandGatingService:
         allow_show_level_queue: bool = False,
     ) -> QueueEligibility:
         """Return queue command state for a ScanState."""
-        selected: set[int] = set()
-        if allow_show_level_queue and state.checked:
-            selected = {
-                index
-                for index in range(len(state.preview_items))
-                if self.is_queue_relevant(state, index)
-            }
-        elif state.check_vars:
-            selected = get_checked_indices_from_state(state)
-        elif state.checked:
-            selected = {
-                index
-                for index in range(len(state.preview_items))
-                if self.is_queue_relevant(state, index)
-            }
+        error_eligibility = _scan_error_eligibility(state)
+        if error_eligibility is not None:
+            return error_eligibility
+
+        selected = _selected_scan_indices(
+            state,
+            allow_show_level_queue=allow_show_level_queue,
+        )
 
         if require_resolved_review and any(
             state.preview_items[index].is_review

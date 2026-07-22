@@ -1,4 +1,4 @@
-<!-- Generated from audit input def0685fa9c6; do not edit. regenerate: scripts\audit.cmd --fast -->
+<!-- Generated from audit input 7316cd8ec001; do not edit. regenerate: scripts\audit.cmd --fast -->
 
 
 # Package detail: gui_qt
@@ -56,7 +56,7 @@
 
 ### `plex_renamer/gui_qt/main_window.py` — Main application window — Phase 3 shell.
 - `MainWindow` — Top-level window with menu bar, tab bar, and status bar. (used by: plex_renamer.gui_qt.app)
-- Tests: tests/test_qt_chrome.py, tests/test_qt_main_window.py, tests/test_qt_queue_history.py, tests/test_recent_menus.py, tests/test_tab_badge.py
+- Tests: tests/test_qt_chrome.py, tests/test_qt_main_window.py, tests/test_qt_queue_history.py, tests/test_qt_scan_failure_completion.py, tests/test_recent_menus.py, tests/test_tab_badge.py
 
 ### `plex_renamer/gui_qt/models/__init__.py` — Qt item models for the PySide6 shell.
 

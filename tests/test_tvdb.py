@@ -9,6 +9,7 @@ import pytest
 
 from plex_renamer._tmdb_transport import TMDBError, TMDBRateLimitError
 from plex_renamer._tvdb_transport import TVDBTransport
+from plex_renamer.providers import SeasonMapUnavailableError
 from plex_renamer.tvdb import TVDBClient
 
 
@@ -149,14 +150,17 @@ class _FakeTVDBTransport:
         self.fetched_urls: list[str] = []
         self.image_bytes = image_bytes
 
-    def get_json_safe(
-        self, path: str, params: dict[str, Any] | None = None
-    ) -> dict[str, Any] | None:
+    def get_json(self, path: str, params: dict[str, Any] | None = None) -> dict[str, Any] | None:
         self.calls.append((path, params))
         page = (params or {}).get("page")
         if (path, page) in self.responses:
             return self.responses[(path, page)]
         return self.responses.get(path)
+
+    def get_json_safe(
+        self, path: str, params: dict[str, Any] | None = None
+    ) -> dict[str, Any] | None:
+        return self.get_json(path, params)
 
     def fetch_bytes(self, url: str, *, timeout: int = 10) -> bytes:
         self.fetched_urls.append(url)
@@ -370,6 +374,19 @@ def test_get_season_returns_empty_payload_for_unknown_season() -> None:
     assert payload == {"titles": {}, "posters": {}, "episodes": {}, "season_poster_path": None}
 
 
+def test_get_season_remains_safe_when_episode_map_is_offline() -> None:
+    client = _client({})
+
+    assert client.get_season(81189, 1) == {
+        "titles": {},
+        "posters": {},
+        "episodes": {},
+        "season_poster_path": None,
+    }
+    with pytest.raises(SeasonMapUnavailableError):
+        client.get_season_map(81189)
+
+
 def test_get_alternative_titles_uses_aliases() -> None:
     client = _detail_client()
     assert client.get_alternative_titles(81189, media_type="tv") == [("BrBa", "")]
@@ -470,3 +487,7 @@ def test_fetch_poster_falls_back_to_show_poster_when_no_season_poster() -> None:
     assert client._transport.fetched_urls == [  # type: ignore[attr-defined]
         "https://artworks.thetvdb.com/banners/posters/81189-10.jpg"
     ]
+
+
+def test_fetch_poster_remains_safe_when_season_map_is_offline() -> None:
+    assert _client({}).fetch_poster(81189, media_type="tv", season=1) is None

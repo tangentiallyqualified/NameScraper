@@ -848,22 +848,22 @@ class QtMainWindowTests(QtSmokeBase):
     def test_main_window_restores_tmdb_snapshot_when_client_is_created(self):
         from plex_renamer.gui_qt.main_window import MainWindow
 
-        with patch("plex_renamer.gui_qt.main_window.QTimer.singleShot"):
+        with (
+            patch("plex_renamer.gui_qt.main_window.QTimer.singleShot"),
+            patch("plex_renamer.gui_qt.main_window.get_api_key", return_value="dummy-key"),
+            patch("plex_renamer.gui_qt.main_window.TMDBClient") as client_cls,
+        ):
             window = MainWindow()
-        self._reset_main_window_queue(window)
-        window._tmdb = None
-        snapshot = {"movie_cache": {"123": {"poster_path": "/poster.jpg"}}}
-        lookup = type("Lookup", (), {"is_hit": True, "value": snapshot})()
-        window._cache_service.get = MagicMock(return_value=lookup)
+            self._reset_main_window_queue(window)
+            window._tmdb = None
+            snapshot = {"movie_cache": {"123": {"poster_path": "/poster.jpg"}}}
+            lookup = type("Lookup", (), {"is_hit": True, "value": snapshot})()
+            window._cache_service.get = MagicMock(return_value=lookup)
+            client = MagicMock()
+            client.export_cache_snapshot.return_value = {}
+            client_cls.return_value = client
 
-        with patch("plex_renamer.gui_qt.main_window.get_api_key", return_value="dummy-key"):
-            with patch("plex_renamer.gui_qt.main_window.TMDBClient") as client_cls:
-                client = MagicMock()
-                client.export_cache_snapshot.return_value = {}
-                client_cls.return_value = client
-
-                window._ensure_tmdb()
-
+            window._ensure_tmdb()
         client.import_cache_snapshot.assert_called_once_with(snapshot, clear_existing=True)
         window.close()
 

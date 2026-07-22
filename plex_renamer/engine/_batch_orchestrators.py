@@ -44,8 +44,9 @@ from ._batch_tv_season_merge import (
     season_merge_priority as _season_merge_priority,
 )
 from ._discovery_ports import MovieLibraryDiscoverer, TVDiscoveryCandidateLike, TVLibraryDiscoverer
+from ._provider_scan_guard import guard_season_map_scan
 from ._rename_execution import check_duplicates
-from ._scan_runtime import ScanCancelledError, _raise_if_cancelled
+from ._scan_runtime import ScanCancelledError, _raise_if_cancelled, fail_scan_state
 from ._state import get_auto_accept_threshold
 from .matching import (
     _best_episode_title_similarity,
@@ -834,10 +835,11 @@ class BatchTVOrchestrator:
         self._apply_duplicate_labels()
         return target
 
+    @guard_season_map_scan
     def scan_show(
         self,
         state: ScanState,
-        progress_callback: Callable | None = None,
+        progress_callback: Callable[..., object] | None = None,
         cancel_event: threading.Event | None = None,
     ) -> None:
         """Phase 2: Run TVScanner for a single show and populate its ScanState."""
@@ -850,7 +852,6 @@ class BatchTVOrchestrator:
         from ._tv_scanner import TVScanner
 
         _raise_if_cancelled(cancel_event)
-
         state.scanning = True
         state.scan_error = None
         _log.info("Scanning episodes for: %s", state.display_name)
@@ -900,7 +901,6 @@ class BatchTVOrchestrator:
                 state.checked = False
         finally:
             state.scanning = False
-
         by_season: dict[int | None, int] = defaultdict(int)
         for item in items:
             by_season[item.season] += 1
@@ -933,7 +933,7 @@ class BatchTVOrchestrator:
                     raise
                 # Keep the failure user-visible: an empty show with no
                 # explanation reads as "no episodes found" (RC40).
-                state.scan_error = str(error)
+                fail_scan_state(state, error)
                 _log.exception("Failed to scan %s: %s", state.display_name, error)
             _emit_scan_progress(progress_callback, index + 1, total, state.display_name)
 
@@ -1014,7 +1014,7 @@ class BatchTVOrchestrator:
                     _log.error(
                         "Failed to re-scan merged %s: %s",
                         reconciled.display_name,
-                        error,
+                        fail_scan_state(reconciled, error),
                     )
 
     def rematch_show(self, state: ScanState, new_match: dict) -> ScanState:

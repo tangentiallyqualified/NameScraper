@@ -6,6 +6,7 @@ import logging
 from typing import Any, Protocol
 
 from ...engine import ScanState
+from ...engine._scan_runtime import fail_scan_state
 from ...thread_pool import submit as _submit_bg
 from ..models import ScanLifecycle
 from ._tv_state_helpers import ensure_tv_scanner, run_tv_scan
@@ -74,8 +75,10 @@ def start_single_show_scan(
 
     def _worker() -> None:
         final_state = state
+        failure: Exception | None = None
         try:
             state.scanning = True
+            state.scan_error = None
             controller._notify("library_changed", controller.library_states)
             _run_scan(state)
             state.scanning = False
@@ -98,19 +101,28 @@ def start_single_show_scan(
 
             _retarget_to_output(controller, final_state)
         except Exception as exc:
+            failure = exc
+            fail_scan_state(final_state, exc)
             _log.exception("Single-show scan failed: %s", exc)
         finally:
             state.scanning = False
             if final_state is not state:
                 final_state.scanning = False
 
-        controller._set_progress(
-            ScanLifecycle.READY,
-            phase="TV scan complete",
-            message=f"Preview ready — {len(final_state.preview_items)} file(s)",
-        )
-        if final_state.preview_items:
-            controller.refresh_episode_guide(final_state)
+        if failure is None:
+            controller._set_progress(
+                ScanLifecycle.READY,
+                phase="TV scan complete",
+                message=f"Preview ready — {len(final_state.preview_items)} file(s)",
+            )
+            if final_state.preview_items:
+                controller.refresh_episode_guide(final_state)
+        else:
+            controller._set_progress(
+                ScanLifecycle.FAILED,
+                phase="TV scan failed",
+                message=f"TV scan failed: {final_state.scan_error}",
+            )
         controller._notify("library_changed", controller.library_states)
         controller._notify("scan_complete", final_state)
 

@@ -2724,7 +2724,7 @@ class FakeTMDB:
         self.language = "en-US"
 
     def get_season_map(self, show_id):
-        return self._seasons, None
+        return self._seasons, sum(v["count"] for n, v in self._seasons.items() if n > 0)
 
     def get_season(self, show_id, season_num):
         return self._seasons.get(

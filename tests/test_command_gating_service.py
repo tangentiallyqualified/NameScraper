@@ -44,6 +44,7 @@ def _state(
     folder_name: str = "Show (2024)",
     show_name: str = "Show",
     year: str = "2024",
+    scan_error: str | None = None,
 ) -> ScanState:
     return ScanState(
         folder=Path(f"C:/library/tv/{folder_name}"),
@@ -54,6 +55,7 @@ def _state(
         queued=queued,
         duplicate_of=duplicate_of,
         checked=checked,
+        scan_error=scan_error,
     )
 
 
@@ -101,6 +103,19 @@ class CommandGatingServiceTests(unittest.TestCase):
         item = _item(status="OK", new_name="Different.mkv")
         state = _state(items=[item])
         self.assertTrue(item.is_actionable)
+        self.assertFalse(self.svc.is_fully_ready_state(state))
+
+    def test_not_plex_ready_when_scan_error_is_present(self):
+        item = PreviewItem(
+            original=Path("C:/library/tv/Show (2024)/Season 01/Show (2024) - S01E01.mkv"),
+            new_name="Show (2024) - S01E01.mkv",
+            target_dir=Path("C:/library/tv/Show (2024)/Season 01"),
+            season=1,
+            episodes=[1],
+            status="OK",
+        )
+        state = _state(items=[item], scan_error="Episode guide is unavailable")
+
         self.assertFalse(self.svc.is_fully_ready_state(state))
 
     def test_plex_ready_when_no_rename_needed(self):
@@ -310,6 +325,15 @@ class CommandGatingServiceTests(unittest.TestCase):
         self.assertTrue(result.enabled)
         self.assertEqual(result.selected_indices, [0, 1])
         self.assertEqual(result.eligible_file_count, 2)
+
+    def test_scan_error_blocks_queue_even_with_stale_actionable_preview(self):
+        state = _state(scan_error="Episode guide is unavailable")
+
+        result = self.svc.evaluate_scan_state(state, allow_show_level_queue=True)
+
+        self.assertFalse(result.enabled)
+        self.assertEqual(result.command_state, QueueCommandState.DISABLED_NO_SELECTION)
+        self.assertEqual(result.reason, "Episode guide is unavailable")
 
     def test_mux_only_state_is_queueable(self):
         # Round6 §1: a correctly-named item (new_name == original name, no
