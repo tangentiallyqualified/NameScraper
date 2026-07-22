@@ -1,6 +1,7 @@
 """Characterize the public ``revert_job`` contract before seam extraction."""
 
 import shutil
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -8,6 +9,8 @@ import pytest
 from plex_renamer.constants import JobKind
 from plex_renamer.job_executor import revert_job
 from plex_renamer.job_store import RenameJob
+
+CopyFunction = Callable[[str, str], str]
 
 
 def _job(
@@ -76,7 +79,11 @@ def test_created_sidecars_and_remux_outputs_are_removed_before_moves(
             events.append(f"unlink:{path.name}")
         original_unlink(path, missing_ok=missing_ok)
 
-    def recording_move(src: str, dst: str, copy_function=shutil.copy2) -> str:
+    def recording_move(
+        src: str,
+        dst: str,
+        copy_function: CopyFunction = shutil.copy2,
+    ) -> str:
         src_path = Path(src)
         if src_path.is_relative_to(tmp_path):
             events.append(f"move:{src_path.name}")
@@ -84,7 +91,7 @@ def test_created_sidecars_and_remux_outputs_are_removed_before_moves(
 
     monkeypatch.setattr(Path, "unlink", recording_unlink)
     monkeypatch.setattr(shutil, "move", recording_move)
-    undo = {
+    undo: dict[str, object] = {
         "remux_outputs": [str(remux)],
         "created_files": [str(sidecar)],
         "renames": [{"new": str(destination), "old": str(source)}],
@@ -136,7 +143,7 @@ def test_revert_moves_files_back_and_removes_only_empty_created_dirs(
     destination.write_bytes(b"video")
     keep = destination_dir / "keep.txt"
     keep.write_text("keep", encoding="utf-8")
-    undo = {
+    undo: dict[str, object] = {
         "renames": [{"new": str(destination), "old": str(source)}],
         "created_dirs": [str(destination_dir)],
         "removed_dirs": [],
@@ -162,7 +169,11 @@ def test_revert_continues_after_targeted_move_failure(
     later_destination.write_bytes(b"later")
     original_move = shutil.move
 
-    def fail_targeted_move(src: str, dst: str, copy_function=shutil.copy2) -> str:
+    def fail_targeted_move(
+        src: str,
+        dst: str,
+        copy_function: CopyFunction = shutil.copy2,
+    ) -> str:
         if Path(src) == failing_destination:
             raise OSError("denied")
         return original_move(src, dst, copy_function=copy_function)
@@ -205,7 +216,7 @@ def test_revert_restores_nested_directory_renames_before_file_moves(
         return original_rename(path, target)
 
     monkeypatch.setattr(Path, "rename", recording_rename)
-    undo = {
+    undo: dict[str, object] = {
         "renames": [{"new": str(destination), "old": str(source)}],
         "created_dirs": [],
         "removed_dirs": [],
@@ -225,7 +236,7 @@ def test_revert_restores_nested_directory_renames_before_file_moves(
 
 def test_revert_recreates_removed_directories(tmp_path: Path) -> None:
     removed = tmp_path / "library" / "Show" / "Extras"
-    undo = {
+    undo: dict[str, object] = {
         "renames": [],
         "created_dirs": [],
         "removed_dirs": [str(removed)],

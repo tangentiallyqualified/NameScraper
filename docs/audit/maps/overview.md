@@ -36,9 +36,9 @@ graph LR
 | Metric | Value |
 |---|---|
 | Modules | 194 |
-| Total LOC | 43544 |
-| Statement coverage | 89.4% |
-| Module-average coverage | 90.2% |
+| Total LOC | 43533 |
+| Statement coverage | 89.6% |
+| Module-average coverage | 90.3% |
 | Import cycles | 0 |
 | Modules over complexity threshold | 67 |
 | Dead symbols (high confidence) | 0 |
@@ -47,7 +47,7 @@ graph LR
 
 | Status | Source | Input digest | Detail |
 |---|---|---|---|
-| matched | coverage.py | 7316cd8ec001 | - |
+| matched | coverage.py | 887de33f7e98 | - |
 
 ## Least-covered modules
 
@@ -72,7 +72,7 @@ graph LR
 | `plex_renamer/engine/_batch_orchestrators.py` | 1394 |
 | `plex_renamer/gui_qt/widgets/_work_panel.py` | 923 |
 | `plex_renamer/gui_qt/widgets/_episode_table_model.py` | 922 |
-| `plex_renamer/job_executor.py` | 891 |
+| `plex_renamer/job_executor.py` | 880 |
 | `plex_renamer/gui_qt/widgets/_bulk_assign_panel.py` | 758 |
 | `plex_renamer/gui_qt/widgets/_episode_table_delegate.py` | 730 |
 | `plex_renamer/engine/_tv_scanner_consolidated.py` | 720 |
@@ -87,12 +87,12 @@ graph LR
 | `plex_renamer/engine/_episode_resolution.py` | 49 |
 | `plex_renamer/tvdb.py` | 45 |
 | `plex_renamer/engine/_tv_scanner_normal.py` | 44 |
-| `plex_renamer/job_executor.py` | 43 |
 | `plex_renamer/app/services/_tv_library_classification.py` | 42 |
 | `plex_renamer/engine/_mux_audio_dedup.py` | 42 |
 | `plex_renamer/engine/_mux_planner.py` | 41 |
 | `plex_renamer/engine/_tv_scanner_consolidated.py` | 40 |
 | `plex_renamer/app/services/metadata_service.py` | 35 |
+| `plex_renamer/gui_qt/models/job_table_model.py` | 35 |
 
 ## Most depended upon
 
@@ -258,5 +258,5 @@ _None._
 - [x] `plex_renamer/gui_qt/widgets/busy_overlay.py:90` plex_renamer.gui_qt.widgets.busy_overlay.BusyOverlay.paintEvent#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved; allowlist: Qt invokes this QWidget paintEvent override to render the busy overlay.)
 - [x] `plex_renamer/gui_qt/widgets/scan_progress.py:164` plex_renamer.gui_qt.widgets.scan_progress._ConveyorAnimation.paintEvent#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved; allowlist: Qt invokes this QWidget paintEvent override to render the conveyor animation.)
 
-_Generated from audit input 7316cd8ec001 by scripts\audit.cmd._
+_Generated from audit input 887de33f7e98 by scripts\audit.cmd._
 <!-- audit:generated:end overview -->

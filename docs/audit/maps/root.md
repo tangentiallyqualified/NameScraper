@@ -46,8 +46,8 @@
 - `plex_renamer/_tmdb_snapshot_validation.py` — fan-in 1, fan-out 0, LOC 122
 - `plex_renamer/_tvdb_payloads.py` — fan-in 1, fan-out 3, LOC 230
 - `plex_renamer/_tvdb_transport.py` — fan-in 2, fan-out 1, LOC 131
-- `plex_renamer/job_executor.py` — fan-in 2, fan-out 6, LOC 891
+- `plex_renamer/job_executor.py` — fan-in 2, fan-out 6, LOC 880
 - `plex_renamer/tvdb.py` — fan-in 1, fan-out 7, LOC 479
 
-_Generated from audit input 7316cd8ec001 by scripts\audit.cmd._
+_Generated from audit input 887de33f7e98 by scripts\audit.cmd._
 <!-- audit:generated:end map-root -->

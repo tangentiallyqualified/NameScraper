@@ -46,7 +46,7 @@
    "loc": 561
   },
   "plex_renamer/job_executor.py": {
-   "loc": 891
+   "loc": 880
   },
   "plex_renamer/job_store.py": {
    "loc": 652
@@ -404,7 +404,7 @@
    "plex_renamer.job_executor._execute_output_rename": 23,
    "plex_renamer.job_executor._execute_remux": 14,
    "plex_renamer.job_executor._execute_rename": 26,
-   "plex_renamer.job_executor.revert_job": 43
+   "plex_renamer.job_executor.revert_job": 34
   },
   "plex_renamer/tmdb.py": {
    "plex_renamer.tmdb.TMDBClient.fetch_image_bytes": 12,
@@ -22944,11 +22944,15 @@
     "sha256:b5f1581fab777d5b18966aeaa143c3d9da297d9986df813bc02074f3cb2b75b8#1",
     "sha256:a6e446304081d338784393f9a1ad060b7cc7ce927b80148b18745432cfff14af#3",
     "sha256:0b9b8bd81c980180266303692e3f0cdc438da7d71d8370e19ae90582e430740b#1",
-    "sha256:a0941acf0c49cfe79a84261e65173f3e20c0cc79d4319bfd93bfe0b3c1c97783#1",
     "sha256:7ae8daed45ebff319e62ef384e2526fef3882f4f0c0e6666c54640e64adb0fea#2",
     "sha256:b0ddec8c0ef5a38bc8a88d779c71af7274e6d6a588a2bbe3a95c610b3998a45f#1",
-    "sha256:8bb2a26b5dadc7b7ebf4dcb97131b0c4d3ba68bc98907ee68e33578cd640eabd#1",
     "sha256:bb9d25037483d8d2aee1ed6cb8e479fed5438439fca7ef7d8624b2a0b9997020#1",
+    "sha256:c94f2f6f372b7580bfa044adc2baa7338648791e5270602f26af1a770ac18f1d#3",
+    "sha256:2faade42828e7cdfff5c1a40637b945dc4c9ad5c691accf4b91db8f5ccdb81b5#1",
+    "sha256:a2c855e5c4fa658f66b87e2c2dfb29cd3b2f07043af7bcee0a55686a85d774fd#1",
+    "sha256:f79bd9a89f53d591a531d19d3f2771b1994638110e63aeda803885c54308d02d#3",
+    "sha256:3d58129cdabb18c877cbfef5ee343dcbab3d34a3d9c2d357f8858c293b945aee#1",
+    "sha256:016c98061b97299da72742fd29515fd9c84128b90ff4d87d8a607ba1f1371d4f#1",
     "sha256:b2b07c7944a5c763ce43c162bb813c4fa8d6fbfe9e536ca0739e42c1b09aa4ed#1",
     "sha256:0b598668d058c56b8314585019d18a84f275a4e2cadd3af2de3335b9b07d4a6b#1",
     "sha256:aca4ab207108e292e89bf2349009bdb68e2ecd1d1ec97316b1a21a9dcc32e56f#1",
@@ -23036,25 +23040,7 @@
     "sha256:0178cc9b7c467a6f97c90119c4a46abd7d0ae857480cd5eec07d7e7627e1f5de#2",
     "sha256:af149e5de683bde1447a02bb7bdfdb2585309e439c6dc51ad5c1bf9e52edfae8#1",
     "sha256:8cc0b43845c38858d3e2b020860ced61e3fed2a0be5fea74fd0ef70d88783a21#1",
-    "sha256:2ebab2839080de06168c607c4bb904d3144843dfeaa56cf65b048368b0aee3ed#1",
-    "sha256:5e382e9d7a5a406087e48dde630fe88c008bb52c957398567f655e89cd8ddb23#1",
-    "sha256:631282dc17c57244a56e78687bc078a7009dd4aca25ec1dda1906a103db0149d#2",
-    "sha256:da488a04cf2e34b42ea314cac71e0c659a722f8c6694e21c099e610287f5bcfd#10",
-    "sha256:30861732d6dd0d23182d8c96f543304d3f2b6882c97a37d829dc669a048aa0de#1",
-    "sha256:ddf2e4bd74b46892d043256255e1d69ed3aaaf611704cb31b50d60abdf3cfbcd#1",
-    "sha256:24e109249a7740284a602d868b43d4258e6e9ddf0242ce8b2c59c0d384f7f8ae#1",
-    "sha256:d8753f02e0d25ce1c2e6335254c5221e0d101fce009a32bba9f05e3f73d5bf67#1",
-    "sha256:6223f31d04866d4f1f96d452a8ab44209bcd882e420f1a6fe010d82176e119fa#1",
-    "sha256:cb8fa7f9dfe7695ce34e5606c815843a3407450bda616656fd084b4d7838b570#1",
-    "sha256:e635f2e794b0749b51a125f02434a9a0cb1f25caf19853b5db285f1f66c3d686#1",
-    "sha256:df81c3c79c594c0f66e65d029a95361f766a8a4b6fc856db54acb2a7c3817ea0#1",
-    "sha256:501dcc82b6eb2d4d41341dd979587a167c3e2bae1bfb51c4b6e78e90c8783fad#10",
-    "sha256:645c42e49b7b4ffb117550fab0f1dc7c3c6f1ecde9e4ac2e2452524f7a017914#1",
-    "sha256:4a5245e7da73c81221801660ea5400230c317eef29a26982a7327b4df82fa4ad#1",
-    "sha256:d90aee794b9ed5876fa57617d698a6e5e604fa0aeb6910a658ed9be20cbe9cb0#1",
-    "sha256:0d1295c86c8de99554a5dce3a96af26410a197f63941de1a5d3c3632b9bf7dd0#1",
-    "sha256:5d9b0738f140c233372ac7b2167154e69d7c01caa4a563a5d7ceef1378a80a4d#3",
-    "sha256:b4884b3918a4c9f0a6a67598c58ac3028bdfd668da21f4bd14cefa486d4a57e5#4",
+    "sha256:7fd79bc5d6b51ba33b1173c84b6d113bde75cba0720a78914636d9847023a109#1",
     "sha256:032066e18e82ca33dbd59f32ab48c5148e2b51bbc203c8a1760b866bb6b64958#1",
     "sha256:fea03e5680e03571be911ff2bbb793a499058f2e441ab92f3fa1792bca0c1246#1",
     "sha256:1ee375d12cf653f9b26caea8b59629b6b80c288ee32f3ae42b8bfe1121e04050#1",
@@ -23095,11 +23081,11 @@
     "sha256:cddbbf07f75a53af10faa9c94cd1c4b85aa6ee1537a1aa0160d876732e9fcfeb#1",
     "sha256:3161ca2a6c369fcd26997c70c68b57cbd254702293091c4f57dd0fbaf9990166#1",
     "sha256:0538a69b6a407245df31bdbbbea2b8acf96b0e1a2384d036288218f02e8be329#1",
-    "sha256:da488a04cf2e34b42ea314cac71e0c659a722f8c6694e21c099e610287f5bcfd#11",
+    "sha256:da488a04cf2e34b42ea314cac71e0c659a722f8c6694e21c099e610287f5bcfd#10",
     "sha256:3ce8250088797aa469d2fffef1f89645a4045309785ef81518d3b83b195813c5#1",
     "sha256:f66c2b4034937fe5ef08dca960be02d5b7b4f890fb2981c660f1f1b17221d296#1",
     "sha256:36b76619e60dd82c7963201c54e67040eed14f97d9830d05b1b70da64550a201#1",
-    "sha256:0d1295c86c8de99554a5dce3a96af26410a197f63941de1a5d3c3632b9bf7dd0#2",
+    "sha256:0d1295c86c8de99554a5dce3a96af26410a197f63941de1a5d3c3632b9bf7dd0#1",
     "sha256:f214e32ca3eefabcaac2b19d57969f6a7016f949191049b46180c121b9814ced#1",
     "sha256:99b852e0729c2ff221c40fee4ea3343594fe2c705efd14396a279b5f01ee4f06#1",
     "sha256:a21d629a09ffdd9eee5c5d3b15d95386a236d80086ee7cef2978a3fac2429cdc#1",
@@ -23134,7 +23120,7 @@
     "sha256:2cb0e5f40e914a097238484f1bf95792fb24a411b03e5374056c5e7fb9a31eb1#1",
     "sha256:af035edb52bb5a0feb2b70eb299cfaf5670520e8f30c309be7cffa87e185f45a#1",
     "sha256:aa7b91ac80e521ea2f97c44f891a9c23849b6843709c7e79b042672b88c36dd4#1",
-    "sha256:da488a04cf2e34b42ea314cac71e0c659a722f8c6694e21c099e610287f5bcfd#12",
+    "sha256:da488a04cf2e34b42ea314cac71e0c659a722f8c6694e21c099e610287f5bcfd#11",
     "sha256:92f7d4430b3644eeaae79f618d10481f9472750be299af1b66383edd19f77ed8#1",
     "sha256:449208996c6c4cf42924efd968d2d1b704f9478cb68544a854cdf7240ed775f0#1",
     "sha256:e12319ce8f96ce3d93903e54e46ea319a5e021a01088a4772ffca3158619f6ef#1",
@@ -24106,9 +24092,9 @@
   "full_suite": true,
   "package_floors": {
    "plex_renamer": {
-    "covered": 3441,
-    "percent": 87.8,
-    "statements": 3917
+    "covered": 3481,
+    "percent": 89.2,
+    "statements": 3903
    },
    "plex_renamer/app": {
     "covered": 4,
@@ -31159,12 +31145,6 @@
   },
   {
    "analyzer": "pyright",
-   "path": "tests/test_queue_executor_progress.py",
-   "rule": "reportOptionalMemberAccess",
-   "symbol": "tests.test_queue_executor_progress.test_progress_listener_fires::reportOptionalMemberAccess::\"status\" is not a known attribute of \"None\"#1"
-  },
-  {
-   "analyzer": "pyright",
    "path": "tests/test_queue_output_targets.py",
    "rule": "reportArgumentType",
    "symbol": "tests.test_queue_output_targets.TestSingleShowScanRetarget.test_single_show_scan_retargets_items_to_output_root::reportArgumentType::Argument of type \"_Controller\" cannot be assigned to parameter \"controller\" of type \"_SingleShowScanController\" in function \"start_single_show_scan\" \"_Controller\" is incompatible with protocol \"_SingleShowScanController\" \"_SingleShowScanController\" is not assignable to \"_Controller\" \"refresh_episode_guide\" is an incompatible type Type \"(target: Unknown) -> None\" is not assignable to type \"(state: ScanState) -> Any\" Parameter name mismatch: \"state\" versus \"target\"#1"
@@ -32173,7 +32153,6 @@
   "tests/test_qt_async_guide.py": "sha256:6c402bad3d4083f2d0d0cbbdd62a1847cb7641f9ab82f72dcd3657459ffaf33a",
   "tests/test_qt_perf_guards.py": "sha256:000fd6f38aad4dc80808b762ce5716dfd8e1cf2768b4c8ff1da0ce13088cc663",
   "tests/test_queue_bridge_mux.py": "sha256:a7fa1c3446ab98d12ffc3057cb8a4b4aa81e8a375ebadc25337405c9e59c8afb",
-  "tests/test_queue_executor_progress.py": "sha256:7e7ed95f85bbf109712f7c2aa53b88e50bbeca45b28b8a15e8724c9bc3b9098b",
   "tests/test_queue_tab_remux.py": "sha256:6b7f52acb8d6a48f223811f91be8bd2065811d0a2465527f8a7040da149b86ae",
   "tests/test_recent_menus.py": "sha256:fcf96f6e61494f100c2be835a83ef522e35449a08e082060e2ccec72ca0709d3",
   "tests/test_remux_confirmation.py": "sha256:155deb658ad5591613761f29021532807db135fc3cf8ddf6fe9d33998ec2cf2b",
