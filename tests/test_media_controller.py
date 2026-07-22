@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 import time
 import unittest
 from collections.abc import Callable
@@ -665,9 +666,16 @@ class BatchTVOrchestratorRegressionTests(unittest.TestCase):
         orchestrator = BatchTVOrchestrator.__new__(BatchTVOrchestrator)
         orchestrator.states = [state]
         scanned: list[ScanState] = []
-        orchestrator.scan_show = lambda current_state, cancel_event=None: scanned.append(
-            current_state
-        )
+
+        def scan_show(
+            state: ScanState,
+            progress_callback: Callable[..., object] | None = None,
+            cancel_event: threading.Event | None = None,
+        ) -> None:
+            del progress_callback, cancel_event
+            scanned.append(state)
+
+        orchestrator.scan_show = scan_show
 
         orchestrator.scan_all()
 
