@@ -22,7 +22,7 @@
 - `plex_renamer/gui_qt/_main_window_bridges.py` — fan-in 1, fan-out 1, LOC 124
 - `plex_renamer/gui_qt/_main_window_chrome.py` — fan-in 1, fan-out 0, LOC 113
 - `plex_renamer/gui_qt/_main_window_feedback.py` — fan-in 1, fan-out 2, LOC 232
-- `plex_renamer/gui_qt/_main_window_scan.py` — fan-in 1, fan-out 1, LOC 187
+- `plex_renamer/gui_qt/_main_window_scan.py` — fan-in 1, fan-out 1, LOC 205
 - `plex_renamer/gui_qt/_main_window_shell.py` — fan-in 1, fan-out 2, LOC 80
 - `plex_renamer/gui_qt/_main_window_shortcuts.py` — fan-in 1, fan-out 0, LOC 80
 - `plex_renamer/gui_qt/_main_window_state.py` — fan-in 1, fan-out 1, LOC 166
@@ -83,5 +83,5 @@
 - `plex_renamer/gui_qt/widgets/tab_badge.py` — fan-in 1, fan-out 1, LOC 65
 - `plex_renamer/gui_qt/widgets/toast_manager.py` — fan-in 1, fan-out 2, LOC 428
 
-_Generated from audit input def0685fa9c6 by scripts\audit.cmd._
+_Generated from audit input 7316cd8ec001 by scripts\audit.cmd._
 <!-- audit:generated:end map-gui_qt -->

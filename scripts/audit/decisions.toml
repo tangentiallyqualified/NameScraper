@@ -196,11 +196,3 @@ path = "plex_renamer/_parsing_tv.py"
 symbol = "plex_renamer._parsing_tv.looks_like_tv_episode::needless-bool::Return the condition `bool(is_extras_folder(parent))` directly#1"
 reason_code = "accepted-debt"
 reason = "Collapsing the if/return/return into `return bool(is_extras_folder(parent))` removes two fully-covered statements from the plex_renamer root package's statement pool, which mechanically drags the package-level coverage floor ratchet below its committed baseline even though no code goes uncovered; left as-is rather than trip the coverage/package-floor ratchet for a purely cosmetic simplification."
-
-[[decision]]
-analyzer = "ruff"
-rule = "SIM117"
-path = "tests/test_qt_main_window.py"
-symbol = "tests.test_qt_main_window.QtMainWindowTests.test_main_window_restores_tmdb_snapshot_when_client_is_created::multiple-with-statements::Use a single `with` statement with multiple contexts instead of nested `with` statements#1"
-reason_code = "accepted-debt"
-reason = "Combining the nested `with` statements into the parenthesized multi-context form requires 4 header lines instead of 2, which pushes this already-oversized legacy file 2 lines past its frozen LOC ceiling; left as nested `with` statements rather than trip the inventory/LOC ratchet for a purely cosmetic simplification."
