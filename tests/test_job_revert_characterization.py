@@ -97,6 +97,33 @@ def test_created_sidecars_and_remux_outputs_are_removed_before_moves(
     assert not remux.exists()
 
 
+def test_revert_continues_after_targeted_unlink_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    failing_output = tmp_path / "output" / "Show" / "failing-remux.mkv"
+    later_output = tmp_path / "output" / "Other Show" / "later-remux.mkv"
+    failing_output.parent.mkdir(parents=True)
+    later_output.parent.mkdir(parents=True)
+    failing_output.write_bytes(b"failed")
+    later_output.write_bytes(b"later")
+    original_unlink = Path.unlink
+
+    def fail_targeted_unlink(path: Path, missing_ok: bool = False) -> None:
+        if path == failing_output:
+            raise OSError("denied")
+        original_unlink(path, missing_ok=missing_ok)
+
+    monkeypatch.setattr(Path, "unlink", fail_targeted_unlink)
+    undo: dict[str, object] = {"remux_outputs": [str(failing_output), str(later_output)]}
+
+    ok, errors = revert_job(_job(tmp_path, undo=undo, output=True))
+
+    assert not ok
+    assert any(failing_output.name in error for error in errors)
+    assert failing_output.read_bytes() == b"failed"
+    assert not later_output.exists()
+
+
 @pytest.mark.parametrize("cross_folder", [False, True])
 def test_revert_moves_files_back_and_removes_only_empty_created_dirs(
     tmp_path: Path, cross_folder: bool
@@ -119,6 +146,42 @@ def test_revert_moves_files_back_and_removes_only_empty_created_dirs(
     assert source.read_bytes() == b"video"
     assert keep.exists()
     assert destination_dir.exists()
+
+
+def test_revert_continues_after_targeted_move_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    failing_source = tmp_path / "library" / "Failing Show" / "episode.mkv"
+    failing_destination = tmp_path / "output" / "Failing Show" / "renamed.mkv"
+    later_source = tmp_path / "library" / "Later Show" / "episode.mkv"
+    later_destination = tmp_path / "output" / "Later Show" / "renamed.mkv"
+    failing_destination.parent.mkdir(parents=True)
+    later_destination.parent.mkdir(parents=True)
+    failing_destination.write_bytes(b"failed")
+    later_destination.write_bytes(b"later")
+    original_move = shutil.move
+
+    def fail_targeted_move(src: str, dst: str, copy_function=shutil.copy2) -> str:
+        if Path(src) == failing_destination:
+            raise OSError("denied")
+        return original_move(src, dst, copy_function=copy_function)
+
+    monkeypatch.setattr(shutil, "move", fail_targeted_move)
+    undo: dict[str, object] = {
+        "renames": [
+            {"new": str(later_destination), "old": str(later_source)},
+            {"new": str(failing_destination), "old": str(failing_source)},
+        ]
+    }
+
+    ok, errors = revert_job(_job(tmp_path, undo=undo, output=True))
+
+    assert not ok
+    assert any(failing_destination.name in error for error in errors)
+    assert failing_destination.read_bytes() == b"failed"
+    assert not failing_source.exists()
+    assert later_source.read_bytes() == b"later"
+    assert not later_destination.exists()
 
 
 def test_revert_restores_nested_directory_renames_before_file_moves(
@@ -185,3 +248,20 @@ def test_irreversible_undo_never_mutates_tree(tmp_path: Path, irreversible: obje
     assert not ok
     assert "cannot be reverted" in errors[0]
     assert output.exists()
+
+
+def test_revert_refuses_paths_outside_both_boundaries(tmp_path: Path) -> None:
+    outside_output = tmp_path / "outside-output.mkv"
+    outside_source = tmp_path / "outside-source.mkv"
+    outside_output.write_bytes(b"keep")
+    undo: dict[str, object] = {
+        "renames": [{"new": str(outside_output), "old": str(outside_source)}]
+    }
+
+    ok, errors = revert_job(_job(tmp_path, undo=undo, output=True))
+
+    assert not ok
+    assert any("outside the output root" in error for error in errors)
+    assert any("outside the source root" in error for error in errors)
+    assert outside_output.read_bytes() == b"keep"
+    assert not outside_source.exists()
