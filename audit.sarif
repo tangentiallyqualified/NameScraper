@@ -32010,33 +32010,6 @@
             {
               "physicalLocation": {
                 "artifactLocation": {
-                  "uri": "tests/test_queue_executor_progress.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 38,
-                  "startLine": 55
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "\"status\" is not a known attribute of \"None\""
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "tests.test_queue_executor_progress.test_progress_listener_fires::reportOptionalMemberAccess::\"status\" is not a known attribute of \"None\"#1"
-          },
-          "ruleId": "pyright/reportOptionalMemberAccess",
-          "ruleIndex": 9
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
                   "uri": "tests/test_queue_output_targets.py",
                   "uriBaseId": "%SRCROOT%"
                 },

@@ -2,7 +2,7 @@
  "coverage": {
   "available": true,
   "failed": false,
-  "input_digest": "7316cd8ec001e76a832cb4a4c68dd2a2b7d0a624adff3244f162127cdec1be66",
+  "input_digest": "887de33f7e98ccc7c928032a95d072efa0226dc589b3fd67b5449953d9c6688d",
   "module_count": 194,
   "partial": false,
   "reason": null,
@@ -73,7 +73,7 @@
   }
  },
  "headline": {
-  "avg_coverage": 89.4,
+  "avg_coverage": 89.6,
   "coverage_failed": false,
   "coverage_partial": false,
   "coverage_stale": false,
@@ -97,12 +97,12 @@
    "test-referenced": 3
   },
   "files": 194,
-  "module_avg_coverage": 90.2,
+  "module_avg_coverage": 90.3,
   "modules_over_complexity": 67,
-  "statement_coverage": 89.4,
-  "total_loc": 43544
+  "statement_coverage": 89.6,
+  "total_loc": 43533
  },
- "input_digest": "7316cd8ec001e76a832cb4a4c68dd2a2b7d0a624adff3244f162127cdec1be66",
+ "input_digest": "887de33f7e98ccc7c928032a95d072efa0226dc589b3fd67b5449953d9c6688d",
  "modules": {
   "plex_renamer/__init__.py": {
    "coverage_percent": 100.0,
@@ -5210,7 +5210,7 @@
    "sha256": "c82d356649b5daaa"
   },
   "plex_renamer/job_executor.py": {
-   "coverage_percent": 71.4,
+   "coverage_percent": 81.4,
    "dead_allowlisted": 0,
    "dead_candidates": 0,
    "dead_evidence_usable": true,
@@ -5229,12 +5229,12 @@
     "protected-or-ambiguous": 0,
     "test-referenced": 0
    },
-   "loc": 891,
-   "max_complexity": 43,
-   "sha256": "9bc980768858f40c"
+   "loc": 880,
+   "max_complexity": 34,
+   "sha256": "0cba212302c7adc4"
   },
   "plex_renamer/job_store.py": {
-   "coverage_percent": 89.4,
+   "coverage_percent": 91.1,
    "dead_allowlisted": 0,
    "dead_candidates": 1,
    "dead_evidence_usable": true,
@@ -5413,7 +5413,7 @@
   "coverage": {
    "available": true,
    "failed": false,
-   "input_digest": "f1a9ddffcee214d7f69a715543fe7b3af1d84f689cfb59fc2fcfacd7962109ad",
+   "input_digest": "7316cd8ec001e76a832cb4a4c68dd2a2b7d0a624adff3244f162127cdec1be66",
    "module_count": 194,
    "partial": false,
    "reason": null,
@@ -5513,7 +5513,7 @@
    "statement_coverage": 89.4,
    "total_loc": 43544
   },
-  "input_digest": "f1a9ddffcee214d7f69a715543fe7b3af1d84f689cfb59fc2fcfacd7962109ad",
+  "input_digest": "7316cd8ec001e76a832cb4a4c68dd2a2b7d0a624adff3244f162127cdec1be66",
   "modules": {
    "plex_renamer/__init__.py": {
     "coverage_percent": 100.0,
