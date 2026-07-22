@@ -16,7 +16,7 @@ class CommandGatingService:
     @staticmethod
     def is_fully_ready_state(state: ScanState) -> bool:
         """True when a scanned entry is already fully organized and non-queueable."""
-        if not state.scanned or not state.preview_items:
+        if state.scan_error or not state.scanned or not state.preview_items:
             return False
         if state.duplicate_of is not None or state.queued:
             return False
@@ -139,6 +139,12 @@ class CommandGatingService:
         allow_show_level_queue: bool = False,
     ) -> QueueEligibility:
         """Return queue command state for a ScanState."""
+        if state.scan_error:
+            return QueueEligibility(
+                command_state=QueueCommandState.DISABLED_NO_SELECTION,
+                reason=state.scan_error,
+            )
+
         selected: set[int] = set()
         if allow_show_level_queue and state.checked:
             selected = {

@@ -24,6 +24,7 @@ from typing import Any
 
 from PIL import Image
 
+from ._provider_errors import SeasonMapUnavailableError
 from ._tmdb_batch_search import (
     resolve_movie_batch_query,
     resolve_tv_batch_query,
@@ -48,7 +49,6 @@ from ._tmdb_transport import (
     TMDBRateLimitError as TMDBRateLimitError,
     TMDBTransport,
 )
-from .providers import SeasonMapUnavailableError
 
 IMAGE_BASE_URL = "https://image.tmdb.org/t/p/w500"
 API_BASE = "https://api.themoviedb.org/3"
@@ -163,6 +163,25 @@ class TMDBClient:
             raise SeasonMapUnavailableError(
                 f"tmdb season map unavailable for {show_id}: invalid season data"
             )
+        for episode in data["episodes"]:
+            episode_number = episode.get("episode_number")
+            episode_name = episode.get("name", f"Episode {episode_number}")
+            still_path = episode.get("still_path")
+            guest_stars = episode.get("guest_stars", [])
+            crew = episode.get("crew", [])
+            if (
+                isinstance(episode_number, bool)
+                or not isinstance(episode_number, int)
+                or not isinstance(episode_name, str)
+                or (still_path is not None and not isinstance(still_path, str))
+                or not isinstance(guest_stars, list)
+                or not all(isinstance(guest_star, dict) for guest_star in guest_stars)
+                or not isinstance(crew, list)
+                or not all(isinstance(crew_member, dict) for crew_member in crew)
+            ):
+                raise SeasonMapUnavailableError(
+                    f"tmdb season map unavailable for {show_id}: invalid episode data"
+                )
         return data
 
     # ─── TV Series ────────────────────────────────────────────────────
@@ -253,12 +272,25 @@ class TMDBClient:
                 raise SeasonMapUnavailableError(
                     f"tmdb season map unavailable for {show_id}: invalid season details"
                 )
-            sn = season_info.get("season_number", 0)
+            sn = season_info.get("season_number")
+            episode_count = season_info.get("episode_count")
+            season_name = season_info.get("name", "")
+            if (
+                isinstance(sn, bool)
+                or not isinstance(sn, int)
+                or isinstance(episode_count, bool)
+                or not isinstance(episode_count, int)
+                or episode_count < 0
+                or not isinstance(season_name, str)
+            ):
+                raise SeasonMapUnavailableError(
+                    f"tmdb season map unavailable for {show_id}: invalid season details"
+                )
             season_data = build_season_payload(self._get_season_strict(show_id, sn))
             titles = season_data["titles"]
-            count = max(titles.keys()) if titles else season_info.get("episode_count", 0)
+            count = max(titles.keys()) if titles else episode_count
             tmdb_seasons[sn] = {
-                "name": season_info.get("name", ""),
+                "name": season_name,
                 "titles": titles,
                 "posters": season_data["posters"],
                 "episodes": season_data.get("episodes", {}),
@@ -625,7 +657,7 @@ class TMDBClient:
         self._metadata_cache_store.clear_runtime_caches()
         self._image_cache_store.clear_runtime_caches()
 
-    def export_cache_snapshot(self) -> dict[str, dict]:
+    def export_cache_snapshot(self) -> dict[str, Any]:
         """Return a serializable snapshot of the in-memory metadata caches."""
         return self._metadata_cache_store.export_snapshot()
 

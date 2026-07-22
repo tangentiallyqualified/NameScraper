@@ -43,6 +43,50 @@ def _normalize_season_map(value: object) -> dict[int, dict[str, Any]]:
             or not isinstance(payload, dict)
         ):
             raise SeasonMapUnavailableError("malformed season map entry")
+
+        titles = payload.get("titles")
+        posters = payload.get("posters")
+        episodes = payload.get("episodes")
+        count = payload.get("count")
+        if (
+            not isinstance(titles, dict)
+            or not isinstance(posters, dict)
+            or not isinstance(episodes, dict)
+            or isinstance(count, bool)
+            or not isinstance(count, int)
+            or count < 0
+        ):
+            raise SeasonMapUnavailableError("malformed season map entry")
+        if "name" in payload and not isinstance(payload["name"], str):
+            raise SeasonMapUnavailableError("malformed season map entry")
+        if (
+            "season_poster_path" in payload
+            and payload["season_poster_path"] is not None
+            and not isinstance(payload["season_poster_path"], str)
+        ):
+            raise SeasonMapUnavailableError("malformed season map entry")
+
+        for episode_number, title in titles.items():
+            if (
+                isinstance(episode_number, bool)
+                or not isinstance(episode_number, int)
+                or not isinstance(title, str)
+            ):
+                raise SeasonMapUnavailableError("malformed season map entry")
+        for episode_number, poster in posters.items():
+            if (
+                isinstance(episode_number, bool)
+                or not isinstance(episode_number, int)
+                or (poster is not None and not isinstance(poster, str))
+            ):
+                raise SeasonMapUnavailableError("malformed season map entry")
+        for episode_number, metadata in episodes.items():
+            if (
+                isinstance(episode_number, bool)
+                or not isinstance(episode_number, int)
+                or not isinstance(metadata, dict)
+            ):
+                raise SeasonMapUnavailableError("malformed season map entry")
         normalized[raw_season] = payload
     return normalized
 
@@ -134,7 +178,15 @@ class TVScanner:
             raise SeasonMapUnavailableError(
                 "malformed season map: expected (mapping, episode count)"
             )
-        raw_tmdb_seasons, _episode_count = result
+        raw_tmdb_seasons, episode_count = result
+        if (
+            isinstance(episode_count, bool)
+            or not isinstance(episode_count, int)
+            or episode_count < 0
+        ):
+            raise SeasonMapUnavailableError(
+                "malformed season map: episode count must be a non-negative integer"
+            )
         self._tmdb_seasons = _normalize_season_map(raw_tmdb_seasons)
         return self._tmdb_seasons
 

@@ -21,9 +21,7 @@ from typing import Any, Protocol, cast, runtime_checkable
 
 from PIL import Image
 
-
-class SeasonMapUnavailableError(RuntimeError):
-    """Provider could not return a trustworthy season map for a known show."""
+from ._provider_errors import SeasonMapUnavailableError as SeasonMapUnavailableError
 
 
 @runtime_checkable

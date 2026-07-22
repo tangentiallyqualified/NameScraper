@@ -47,6 +47,21 @@ class MainWindowScanCoordinator:
     def on_scan_complete(self) -> None:
         window = self._window
         workspace = self.active_workspace()
+        if window.media_ctrl.scan_progress.lifecycle == ScanLifecycle.FAILED:
+            workspace.scan_progress_widget.stop()
+            if window.media_ctrl.library_states:
+                workspace.show_ready_when_posters_warm()
+            else:
+                workspace.show_empty()
+            message = window.media_ctrl.scan_progress.message or "The scan failed."
+            window._show_scan_feedback(
+                title="Scan failed",
+                message=message,
+                tone="error",
+            )
+            window.statusBar().showMessage("Scan failed", 3000)
+            return
+
         if window.media_ctrl.scan_progress.lifecycle == ScanLifecycle.CANCELLED:
             workspace.scan_progress_widget.stop()
             if window.media_ctrl.library_states:
@@ -183,5 +198,8 @@ class MainWindowScanCoordinator:
         return (
             window.media_ctrl.active_content_mode == "tv"
             and window.media_ctrl.batch_mode
-            and any(not state.scanned and state.show_id is not None for state in states)
+            and any(
+                not state.scanned and state.show_id is not None and not state.scan_error
+                for state in states
+            )
         )

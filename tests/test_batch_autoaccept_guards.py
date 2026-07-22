@@ -17,6 +17,8 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+import pytest
+
 from plex_renamer.app.services import (
     MovieLibraryDiscoveryService,
     TVLibraryDiscoveryService,
@@ -84,6 +86,35 @@ class _ProviderExploding:
         raise RuntimeError("provider exploded")
 
 
+class _DiscoveryMapOutageProvider:
+    provider_name = "tmdb"
+    language = "en-US"
+    MATCH = {
+        "id": 7,
+        "name": "Example Show",
+        "year": "2024",
+        "poster_path": None,
+        "overview": "",
+    }
+
+    def search_tv_batch(self, queries, progress_callback=None):
+        return [[self.MATCH] for _query in queries]
+
+    def get_tv_details(self, show_id):
+        return {"id": show_id, "seasons": [], "number_of_episodes": 1}
+
+    def get_alternative_titles(self, media_id, media_type="tv"):
+        return []
+
+    def get_season_map(self, show_id):
+        raise SeasonMapUnavailableError(f"tmdb season map unavailable for {show_id}")
+
+
+class _DiscoveryUnexpectedFailureProvider(_DiscoveryMapOutageProvider):
+    def get_season_map(self, show_id):
+        raise RuntimeError("unexpected matching defect")
+
+
 def _scan_with_provider(tmp_path: Path, provider: object) -> ScanState:
     show = tmp_path / "Example Show"
     show.mkdir()
@@ -137,6 +168,43 @@ def test_batch_untyped_failure_clears_stale_state_and_cannot_queue(tmp_path: Pat
     assert (
         not CommandGatingService().evaluate_scan_state(state, allow_show_level_queue=True).enabled
     )
+
+
+def test_discovery_abstains_from_optional_episode_evidence_during_map_outage(
+    tmp_path: Path,
+) -> None:
+    show = tmp_path / "Example Show (2024)"
+    show.mkdir()
+    (show / "Example.Show.S01E01.Pilot.mkv").write_text("x")
+    orchestrator = BatchTVOrchestrator(
+        _DiscoveryMapOutageProvider(),
+        tmp_path,
+        discovery_service=TVLibraryDiscoveryService(),
+    )
+
+    states = orchestrator.discover_shows()
+
+    assert len(states) == 1
+    assert states[0].show_id == 7
+    assert states[0].scan_error is None
+    orchestrator.scan_all()
+    assert states[0].scan_error == "Episode guide is unavailable; retry the provider scan."
+
+
+def test_discovery_does_not_swallow_unexpected_episode_evidence_defects(
+    tmp_path: Path,
+) -> None:
+    show = tmp_path / "Example Show (2024)"
+    show.mkdir()
+    (show / "Example.Show.S01E01.Pilot.mkv").write_text("x")
+    orchestrator = BatchTVOrchestrator(
+        _DiscoveryUnexpectedFailureProvider(),
+        tmp_path,
+        discovery_service=TVLibraryDiscoveryService(),
+    )
+
+    with pytest.raises(RuntimeError, match="unexpected matching defect"):
+        orchestrator.discover_shows()
 
 
 class SameNameShowTieDetectionTests(unittest.TestCase):

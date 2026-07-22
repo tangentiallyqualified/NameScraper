@@ -16,6 +16,7 @@ from typing import Any
 
 from PIL import Image
 
+from ._provider_errors import SeasonMapUnavailableError
 from ._tmdb_batch_search import (
     resolve_tv_batch_query as _resolve_tv_batch_query,  # type: ignore
     run_batch_search as _run_batch_search,  # type: ignore
@@ -24,7 +25,6 @@ from ._tmdb_image_cache import _TMDBImageCacheStore  # pyright: ignore[reportPri
 from ._tmdb_search_helpers import search_with_fallback as _run_search_with_fallback  # type: ignore
 from ._tmdb_transport import TMDBError
 from ._tvdb_transport import TVDBTransport
-from .providers import SeasonMapUnavailableError
 
 log = logging.getLogger(__name__)
 
@@ -59,6 +59,65 @@ _EPISODES_NAMESPACE = "tvdb.episodes"
 
 ARTWORK_BASE_URL = "https://artworks.thetvdb.com"
 _EXPORT_IMAGE_NAMESPACE = "tvdb.export_image"
+
+_SERIES_DETAILS_LIST_FIELDS = (
+    "artworks",
+    "seasons",
+    "characters",
+    "genres",
+    "companies",
+    "aliases",
+)
+
+
+def _has_valid_series_details_shape(payload: object) -> bool:
+    """Whether extended details can be normalized without malformed records."""
+    if not isinstance(payload, dict):
+        return False
+    for field in _SERIES_DETAILS_LIST_FIELDS:
+        value = payload.get(field)
+        if value is not None and (
+            not isinstance(value, list) or not all(isinstance(item, dict) for item in value)
+        ):
+            return False
+
+    status = payload.get("status")
+    if status is not None and not isinstance(status, dict):
+        return False
+
+    for season in payload.get("seasons") or []:
+        season_type = season.get("type")
+        if season_type is not None and not isinstance(season_type, dict):
+            return False
+        if isinstance(season_type, dict) and season_type.get("type") == "official":
+            season_id = season.get("id")
+            season_number = season.get("number")
+            if (
+                isinstance(season_id, bool)
+                or not isinstance(season_id, (int, str))
+                or isinstance(season_number, bool)
+                or not isinstance(season_number, int)
+            ):
+                return False
+
+    for artwork in payload.get("artworks") or []:
+        image = artwork.get("image")
+        language = artwork.get("language")
+        if image is not None and not isinstance(image, str):
+            return False
+        if language is not None and not isinstance(language, str):
+            return False
+        if artwork.get("type") == _SEASON_POSTER_TYPE:
+            season_id = artwork.get("seasonId")
+            if isinstance(season_id, bool) or not isinstance(season_id, (int, str)):
+                return False
+
+    for company in payload.get("companies") or []:
+        company_type = company.get("companyType")
+        if company_type is not None and not isinstance(company_type, dict):
+            return False
+
+    return True
 
 
 def _iso639_1(lang3: str | None) -> str | None:
@@ -272,10 +331,15 @@ class TVDBClient:
             self._details_cache[show_id] = persisted
             return persisted
         raw = self._transport.get_json_safe(f"/series/{show_id}/extended")
-        payload = (raw or {}).get("data")
-        if not payload:
+        if not isinstance(raw, dict):
             return None
-        details = normalize_series_details(payload, self._fetch_all_episodes(show_id))
+        payload = raw.get("data")
+        if not payload or not _has_valid_series_details_shape(payload):
+            return None
+        episodes = self._fetch_all_episodes(show_id)
+        if not all(isinstance(episode, dict) for episode in episodes):
+            return None
+        details = normalize_series_details(payload, episodes)
         self._details_cache[show_id] = details
         self._cache_put(_DETAILS_NAMESPACE, str(show_id), details)
         return details
@@ -297,6 +361,10 @@ class TVDBClient:
         if not isinstance(payload, dict) or not payload:
             raise SeasonMapUnavailableError(
                 f"tvdb season map unavailable for {show_id}: empty details"
+            )
+        if not _has_valid_series_details_shape(payload):
+            raise SeasonMapUnavailableError(
+                f"tvdb season map unavailable for {show_id}: invalid details"
             )
         return payload
 
@@ -361,6 +429,22 @@ class TVDBClient:
                 raise SeasonMapUnavailableError(
                     f"tvdb season map unavailable for {show_id}: invalid episode data"
                 )
+            for episode in page_episodes:
+                season_number = episode.get("seasonNumber")
+                episode_number = episode.get("number")
+                title = episode.get("name")
+                poster = episode.get("image")
+                if (
+                    isinstance(season_number, bool)
+                    or not isinstance(season_number, int)
+                    or isinstance(episode_number, bool)
+                    or not isinstance(episode_number, int)
+                    or (title is not None and not isinstance(title, str))
+                    or (poster is not None and not isinstance(poster, str))
+                ):
+                    raise SeasonMapUnavailableError(
+                        f"tvdb season map unavailable for {show_id}: invalid episode data"
+                    )
             episodes.extend(page_episodes)
             links = raw.get("links")
             if links is None:
@@ -409,7 +493,11 @@ class TVDBClient:
         return result
 
     def get_season(self, show_id: int, season_num: int) -> dict[str, Any]:
-        seasons, _ = self.get_season_map(show_id)
+        try:
+            seasons, _ = self.get_season_map(show_id)
+        except SeasonMapUnavailableError:
+            log.debug("TVDB season map unavailable for %s", show_id, exc_info=True)
+            return {"titles": {}, "posters": {}, "episodes": {}, "season_poster_path": None}
         payload = seasons.get(season_num)
         if payload is None:
             return {"titles": {}, "posters": {}, "episodes": {}, "season_poster_path": None}

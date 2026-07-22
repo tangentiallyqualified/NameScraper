@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from ..parsing import clean_folder_name, extract_year, normalize_for_match
-from ..providers import MetadataProvider
+from ..providers import MetadataProvider, SeasonMapUnavailableError
 from ._state import get_auto_accept_threshold
 from .models import DirectEpisodeEvidence, collect_direct_episode_evidence
 
@@ -638,4 +638,11 @@ def score_tv_results(
         preferred_country=_country_from_language(tmdb.language),
         force=bool(direct_evidence),
     )
-    return boost_tv_scores_with_episode_evidence(tmdb, scored, direct_evidence)
+    try:
+        return boost_tv_scores_with_episode_evidence(tmdb, scored, direct_evidence)
+    except SeasonMapUnavailableError:
+        _log.debug(
+            "Episode evidence unavailable; keeping title-only TV scores",
+            exc_info=True,
+        )
+        return scored

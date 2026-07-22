@@ -45,7 +45,7 @@ from ._batch_tv_season_merge import (
 )
 from ._discovery_ports import MovieLibraryDiscoverer, TVDiscoveryCandidateLike, TVLibraryDiscoverer
 from ._rename_execution import check_duplicates
-from ._scan_runtime import ScanCancelledError, _raise_if_cancelled
+from ._scan_runtime import ScanCancelledError, _raise_if_cancelled, fail_scan_state
 from ._state import get_auto_accept_threshold
 from .matching import (
     _best_episode_title_similarity,
@@ -898,10 +898,8 @@ class BatchTVOrchestrator:
             has_actionable = any(item.is_actionable for item in items)
             if not has_actionable:
                 state.checked = False
-        except SeasonMapUnavailableError:
-            state.reset_scan()
-            state.checked = False
-            state.scan_error = "Episode guide is unavailable; retry the provider scan."
+        except SeasonMapUnavailableError as error:
+            fail_scan_state(state, error)
             _log.warning("Episode guide unavailable for %s", state.display_name)
             return
         finally:
@@ -939,9 +937,7 @@ class BatchTVOrchestrator:
                     raise
                 # Keep the failure user-visible: an empty show with no
                 # explanation reads as "no episodes found" (RC40).
-                state.reset_scan()
-                state.checked = False
-                state.scan_error = str(error)
+                fail_scan_state(state, error)
                 _log.exception("Failed to scan %s: %s", state.display_name, error)
             _emit_scan_progress(progress_callback, index + 1, total, state.display_name)
 
@@ -1019,6 +1015,7 @@ class BatchTVOrchestrator:
                 except ScanCancelledError:
                     raise
                 except Exception as error:
+                    fail_scan_state(reconciled, error)
                     _log.error(
                         "Failed to re-scan merged %s: %s",
                         reconciled.display_name,
