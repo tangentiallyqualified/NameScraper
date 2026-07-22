@@ -499,10 +499,14 @@ def revert_job(job: RenameJob) -> tuple[bool, list[str]]:
     undo = job.undo_data
     library_root = Path(job.library_root)
     source_folder = Path(job.source_folder)
-    cleanup_boundary = library_root / source_folder.parent
     errors: list[str] = []
     moved_from_paths: list[Path] = []
     source_boundary = library_root.resolve(strict=False)
+    try:
+        cleanup_boundary = (library_root / source_folder.parent).resolve(strict=False)
+        cleanup_boundary.relative_to(source_boundary)
+    except (OSError, ValueError):
+        cleanup_boundary = source_boundary
     output_boundary = (
         Path(job.output_root).resolve(strict=False) if job.output_root else source_boundary
     )

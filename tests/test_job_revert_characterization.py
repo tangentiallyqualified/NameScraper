@@ -357,6 +357,26 @@ def test_in_place_created_directory_cleanup_preserves_boundary_and_outside(
     assert sentinel.read_text(encoding="utf-8") == "keep"
 
 
+def test_in_place_cleanup_traversal_does_not_remove_outside_directory(
+    tmp_path: Path,
+) -> None:
+    outside_created = tmp_path / "outside" / "Generated"
+    outside_created.mkdir(parents=True)
+    undo: dict[str, object] = {"created_dirs": [str(outside_created)]}
+
+    ok, errors = revert_job(
+        _job(
+            tmp_path,
+            undo=undo,
+            output=False,
+            source_folder="../outside/Show",
+        )
+    )
+
+    assert ok, errors
+    assert outside_created.is_dir()
+
+
 def test_in_place_revert_removes_empty_created_directory_chain_below_boundary(
     tmp_path: Path,
 ) -> None:
