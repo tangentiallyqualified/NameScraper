@@ -659,7 +659,6 @@ class BatchTVOrchestratorRegressionTests(unittest.TestCase):
         state = ScanState(
             folder=Path("C:/library/tv/QueuedShow"),
             media_info={"id": 11, "name": "Queued Show", "year": "2024"},
-            scanned=False,
             queued=True,
         )
         orchestrator = BatchTVOrchestrator.__new__(BatchTVOrchestrator)
@@ -670,7 +669,6 @@ class BatchTVOrchestratorRegressionTests(unittest.TestCase):
             scanned.append(state)
 
         orchestrator.scan_show = scan_show
-
         orchestrator.scan_all()
 
         self.assertEqual(scanned, [state])
