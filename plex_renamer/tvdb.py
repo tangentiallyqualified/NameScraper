@@ -12,7 +12,7 @@ import base64
 import io
 import logging
 from collections.abc import Callable
-from typing import Any
+from typing import Any, cast
 
 from PIL import Image
 
@@ -24,6 +24,12 @@ from ._tmdb_batch_search import (
 from ._tmdb_image_cache import _TMDBImageCacheStore  # pyright: ignore[reportPrivateUsage]
 from ._tmdb_search_helpers import search_with_fallback as _run_search_with_fallback  # type: ignore
 from ._tmdb_transport import TMDBError
+from ._tvdb_payloads import (
+    fetch_all_episodes_strict,
+    fetch_series_details_strict,
+    optional_series_details,
+    validated_record_list,
+)
 from ._tvdb_transport import TVDBTransport
 
 log = logging.getLogger(__name__)
@@ -59,65 +65,6 @@ _EPISODES_NAMESPACE = "tvdb.episodes"
 
 ARTWORK_BASE_URL = "https://artworks.thetvdb.com"
 _EXPORT_IMAGE_NAMESPACE = "tvdb.export_image"
-
-_SERIES_DETAILS_LIST_FIELDS = (
-    "artworks",
-    "seasons",
-    "characters",
-    "genres",
-    "companies",
-    "aliases",
-)
-
-
-def _has_valid_series_details_shape(payload: object) -> bool:
-    """Whether extended details can be normalized without malformed records."""
-    if not isinstance(payload, dict):
-        return False
-    for field in _SERIES_DETAILS_LIST_FIELDS:
-        value = payload.get(field)
-        if value is not None and (
-            not isinstance(value, list) or not all(isinstance(item, dict) for item in value)
-        ):
-            return False
-
-    status = payload.get("status")
-    if status is not None and not isinstance(status, dict):
-        return False
-
-    for season in payload.get("seasons") or []:
-        season_type = season.get("type")
-        if season_type is not None and not isinstance(season_type, dict):
-            return False
-        if isinstance(season_type, dict) and season_type.get("type") == "official":
-            season_id = season.get("id")
-            season_number = season.get("number")
-            if (
-                isinstance(season_id, bool)
-                or not isinstance(season_id, (int, str))
-                or isinstance(season_number, bool)
-                or not isinstance(season_number, int)
-            ):
-                return False
-
-    for artwork in payload.get("artworks") or []:
-        image = artwork.get("image")
-        language = artwork.get("language")
-        if image is not None and not isinstance(image, str):
-            return False
-        if language is not None and not isinstance(language, str):
-            return False
-        if artwork.get("type") == _SEASON_POSTER_TYPE:
-            season_id = artwork.get("seasonId")
-            if isinstance(season_id, bool) or not isinstance(season_id, (int, str)):
-                return False
-
-    for company in payload.get("companies") or []:
-        company_type = company.get("companyType")
-        if company_type is not None and not isinstance(company_type, dict):
-            return False
-
-    return True
 
 
 def _iso639_1(lang3: str | None) -> str | None:
@@ -330,43 +277,17 @@ class TVDBClient:
         if persisted is not None:
             self._details_cache[show_id] = persisted
             return persisted
-        raw = self._transport.get_json_safe(f"/series/{show_id}/extended")
-        if not isinstance(raw, dict):
+        raw = cast(object, self._transport.get_json_safe(f"/series/{show_id}/extended"))
+        payload = optional_series_details(raw)
+        if payload is None:
             return None
-        payload = raw.get("data")
-        if not payload or not _has_valid_series_details_shape(payload):
-            return None
-        episodes = self._fetch_all_episodes(show_id)
-        if not all(isinstance(episode, dict) for episode in episodes):
+        episodes = validated_record_list(cast(object, self._fetch_all_episodes(show_id)))
+        if episodes is None:
             return None
         details = normalize_series_details(payload, episodes)
         self._details_cache[show_id] = details
         self._cache_put(_DETAILS_NAMESPACE, str(show_id), details)
         return details
-
-    def _get_tv_details_strict(self, show_id: int) -> dict[str, Any]:
-        try:
-            raw = self._transport.get_json(f"/series/{show_id}/extended")
-        except TMDBError as exc:
-            raise SeasonMapUnavailableError(
-                f"tvdb season map unavailable for {show_id}: {exc}"
-            ) from exc
-        if raw is None:
-            raise SeasonMapUnavailableError(f"tvdb season map unavailable for {show_id}: not found")
-        if not isinstance(raw, dict):
-            raise SeasonMapUnavailableError(
-                f"tvdb season map unavailable for {show_id}: invalid details"
-            )
-        payload = raw.get("data")
-        if not isinstance(payload, dict) or not payload:
-            raise SeasonMapUnavailableError(
-                f"tvdb season map unavailable for {show_id}: empty details"
-            )
-        if not _has_valid_series_details_shape(payload):
-            raise SeasonMapUnavailableError(
-                f"tvdb season map unavailable for {show_id}: invalid details"
-            )
-        return payload
 
     def _fetch_all_episodes(self, show_id: int) -> list[dict[str, Any]]:
         cached = self._episodes_cache.get(show_id)
@@ -395,74 +316,12 @@ class TVDBClient:
         self._cache_put(_EPISODES_NAMESPACE, str(show_id), episodes)
         return episodes
 
-    def _fetch_all_episodes_strict(self, show_id: int) -> list[dict[str, Any]]:
-        episodes: list[dict[str, Any]] = []
-        page = 0
-        while True:
-            try:
-                raw = self._transport.get_json(
-                    f"/series/{show_id}/episodes/default", {"page": page}
-                )
-            except TMDBError as exc:
-                raise SeasonMapUnavailableError(
-                    f"tvdb season map unavailable for {show_id}: {exc}"
-                ) from exc
-            if raw is None:
-                raise SeasonMapUnavailableError(
-                    f"tvdb season map unavailable for {show_id}: not found"
-                )
-            if not isinstance(raw, dict):
-                raise SeasonMapUnavailableError(
-                    f"tvdb season map unavailable for {show_id}: invalid episode data"
-                )
-            data = raw.get("data")
-            if not isinstance(data, dict):
-                raise SeasonMapUnavailableError(
-                    f"tvdb season map unavailable for {show_id}: invalid episode data"
-                )
-            page_episodes = data.get("episodes")
-            if not isinstance(page_episodes, list):
-                raise SeasonMapUnavailableError(
-                    f"tvdb season map unavailable for {show_id}: invalid episode data"
-                )
-            if not all(isinstance(episode, dict) for episode in page_episodes):
-                raise SeasonMapUnavailableError(
-                    f"tvdb season map unavailable for {show_id}: invalid episode data"
-                )
-            for episode in page_episodes:
-                season_number = episode.get("seasonNumber")
-                episode_number = episode.get("number")
-                title = episode.get("name")
-                poster = episode.get("image")
-                if (
-                    isinstance(season_number, bool)
-                    or not isinstance(season_number, int)
-                    or isinstance(episode_number, bool)
-                    or not isinstance(episode_number, int)
-                    or (title is not None and not isinstance(title, str))
-                    or (poster is not None and not isinstance(poster, str))
-                ):
-                    raise SeasonMapUnavailableError(
-                        f"tvdb season map unavailable for {show_id}: invalid episode data"
-                    )
-            episodes.extend(page_episodes)
-            links = raw.get("links")
-            if links is None:
-                links = {}
-            elif not isinstance(links, dict):
-                raise SeasonMapUnavailableError(
-                    f"tvdb season map unavailable for {show_id}: invalid pagination"
-                )
-            if not links.get("next"):
-                return episodes
-            page += 1
-
     def get_season_map(self, show_id: int) -> tuple[dict[int, dict[str, Any]], int]:
         cached = self._season_map_cache.get(show_id)
         if cached is not None:
             return cached
-        raw_details = self._get_tv_details_strict(show_id)
-        episodes = self._fetch_all_episodes_strict(show_id)
+        raw_details = fetch_series_details_strict(self._transport, show_id)
+        episodes = fetch_all_episodes_strict(self._transport, show_id)
         details = normalize_series_details(raw_details, episodes)
         season_posters: dict[int, str] = details.get("_season_posters") or {}
         seasons: dict[int, dict[str, Any]] = {}

@@ -24,7 +24,6 @@ from typing import Any
 
 from PIL import Image
 
-from ._provider_errors import SeasonMapUnavailableError
 from ._tmdb_batch_search import (
     resolve_movie_batch_query,
     resolve_tv_batch_query,
@@ -42,6 +41,7 @@ from ._tmdb_search_helpers import (
     extract_alternative_titles,
     search_with_fallback as run_search_with_fallback,
 )
+from ._tmdb_season_map import fetch_tmdb_season_map
 from ._tmdb_transport import (
     TMDBAPIError as TMDBAPIError,
     TMDBError,
@@ -131,59 +131,6 @@ class TMDBClient:
             "include_image_language": f"{lang2},null",
         }
 
-    def _get_tv_details_strict(self, show_id: int) -> dict:
-        try:
-            data = self._transport.get_json(f"/tv/{show_id}", self._details_params())
-        except TMDBError as exc:
-            raise SeasonMapUnavailableError(
-                f"tmdb season map unavailable for {show_id}: {exc}"
-            ) from exc
-        if data is None:
-            raise SeasonMapUnavailableError(f"tmdb season map unavailable for {show_id}: not found")
-        if not isinstance(data, dict) or not isinstance(data.get("seasons"), list):
-            raise SeasonMapUnavailableError(
-                f"tmdb season map unavailable for {show_id}: invalid details"
-            )
-        return data
-
-    def _get_season_strict(self, show_id: int, season_num: int) -> dict:
-        try:
-            data = self._transport.get_json(f"/tv/{show_id}/season/{season_num}")
-        except TMDBError as exc:
-            raise SeasonMapUnavailableError(
-                f"tmdb season map unavailable for {show_id}: {exc}"
-            ) from exc
-        if data is None:
-            raise SeasonMapUnavailableError(f"tmdb season map unavailable for {show_id}: not found")
-        if not isinstance(data, dict) or not isinstance(data.get("episodes"), list):
-            raise SeasonMapUnavailableError(
-                f"tmdb season map unavailable for {show_id}: invalid season data"
-            )
-        if not all(isinstance(episode, dict) for episode in data["episodes"]):
-            raise SeasonMapUnavailableError(
-                f"tmdb season map unavailable for {show_id}: invalid season data"
-            )
-        for episode in data["episodes"]:
-            episode_number = episode.get("episode_number")
-            episode_name = episode.get("name", f"Episode {episode_number}")
-            still_path = episode.get("still_path")
-            guest_stars = episode.get("guest_stars", [])
-            crew = episode.get("crew", [])
-            if (
-                isinstance(episode_number, bool)
-                or not isinstance(episode_number, int)
-                or not isinstance(episode_name, str)
-                or (still_path is not None and not isinstance(still_path, str))
-                or not isinstance(guest_stars, list)
-                or not all(isinstance(guest_star, dict) for guest_star in guest_stars)
-                or not isinstance(crew, list)
-                or not all(isinstance(crew_member, dict) for crew_member in crew)
-            ):
-                raise SeasonMapUnavailableError(
-                    f"tmdb season map unavailable for {show_id}: invalid episode data"
-                )
-        return data
-
     # ─── TV Series ────────────────────────────────────────────────────
 
     def search_tv(self, query: str, year: str | None = None) -> list[dict]:
@@ -218,7 +165,7 @@ class TMDBClient:
             )
         return data
 
-    def get_season(self, show_id: int, season_num: int) -> dict:
+    def get_season(self, show_id: int, season_num: int) -> dict[str, Any]:
         """
         Fetch episode list for a season. Cached.
 
@@ -250,7 +197,7 @@ class TMDBClient:
         self._metadata_cache_store.put_season(show_id, season_num, result)
         return result
 
-    def get_season_map(self, show_id: int) -> tuple[dict, int]:
+    def get_season_map(self, show_id: int) -> tuple[dict[int, dict[str, Any]], int]:
         """
         Build a complete map of TMDB's season structure for a show. Cached.
 
@@ -262,44 +209,7 @@ class TMDBClient:
         if cached is not None:
             return cached
 
-        show_data = self._get_tv_details_strict(show_id)
-
-        tmdb_seasons = {}
-        total_episodes = 0
-
-        for season_info in show_data.get("seasons", []):
-            if not isinstance(season_info, dict):
-                raise SeasonMapUnavailableError(
-                    f"tmdb season map unavailable for {show_id}: invalid season details"
-                )
-            sn = season_info.get("season_number")
-            episode_count = season_info.get("episode_count")
-            season_name = season_info.get("name", "")
-            if (
-                isinstance(sn, bool)
-                or not isinstance(sn, int)
-                or isinstance(episode_count, bool)
-                or not isinstance(episode_count, int)
-                or episode_count < 0
-                or not isinstance(season_name, str)
-            ):
-                raise SeasonMapUnavailableError(
-                    f"tmdb season map unavailable for {show_id}: invalid season details"
-                )
-            season_data = build_season_payload(self._get_season_strict(show_id, sn))
-            titles = season_data["titles"]
-            count = max(titles.keys()) if titles else episode_count
-            tmdb_seasons[sn] = {
-                "name": season_name,
-                "titles": titles,
-                "posters": season_data["posters"],
-                "episodes": season_data.get("episodes", {}),
-                "count": count,
-            }
-            if sn > 0:
-                total_episodes += count
-
-        cached = (tmdb_seasons, total_episodes)
+        cached = fetch_tmdb_season_map(self._transport, show_id, self._details_params())
         self._metadata_cache_store.season_map_cache[show_id] = cached
         return cached
 
@@ -661,7 +571,12 @@ class TMDBClient:
         """Return a serializable snapshot of the in-memory metadata caches."""
         return self._metadata_cache_store.export_snapshot()
 
-    def import_cache_snapshot(self, snapshot: dict | None, *, clear_existing: bool = False) -> None:
+    def import_cache_snapshot(
+        self,
+        snapshot: dict[str, Any] | None,
+        *,
+        clear_existing: bool = False,
+    ) -> None:
         """Hydrate the in-memory metadata caches from a persisted snapshot."""
         if not snapshot:
             return

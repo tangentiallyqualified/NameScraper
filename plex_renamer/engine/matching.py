@@ -12,10 +12,12 @@ import logging
 import re
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from ..parsing import clean_folder_name, extract_year, normalize_for_match
-from ..providers import MetadataProvider, SeasonMapUnavailableError
+from ..providers import MetadataProvider
 from ._state import get_auto_accept_threshold
+from ._tv_score_fallback import boost_tv_scores_or_keep as _safe_boost
 from .models import DirectEpisodeEvidence, collect_direct_episode_evidence
 
 _log = logging.getLogger(__name__)
@@ -95,11 +97,11 @@ def title_similarity(a: str, b: str) -> float:
 
 
 def score_results(
-    results: list[dict],
+    results: list[dict[str, Any]],
     raw_name: str,
     year_hint: str | None,
     title_key: str = "title",
-) -> list[tuple[dict, float]]:
+) -> list[tuple[dict[str, Any], float]]:
     """
     Score a list of TMDB search results against a cleaned name.
 
@@ -112,7 +114,7 @@ def score_results(
     Returns a list of (result, score) tuples sorted by score descending.
     """
     query_norm = normalize_for_match(raw_name)
-    scored: list[tuple[dict, float]] = []
+    scored: list[tuple[dict[str, Any], float]] = []
 
     for r in results:
         title = r.get(title_key, "")
@@ -149,13 +151,13 @@ def score_results(
 
 
 def pick_alternate_matches(
-    scored: list[tuple[dict, float]],
+    scored: list[tuple[dict[str, Any], float]],
     *,
     selected_id: int | None,
     limit: int = 3,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Return the highest-ranked alternate matches excluding the selected id."""
-    alternates: list[dict] = []
+    alternates: list[dict[str, Any]] = []
     for result, _score in scored:
         if result.get("id") == selected_id:
             continue
@@ -201,7 +203,7 @@ def _country_from_language(language_tag: str) -> str | None:
 
 
 def boost_scores_with_alt_titles(
-    scored: list[tuple[dict, float]],
+    scored: list[tuple[dict[str, Any], float]],
     raw_name: str,
     year_hint: str | None,
     tmdb: MetadataProvider,
@@ -209,7 +211,7 @@ def boost_scores_with_alt_titles(
     media_type: str = "movie",
     preferred_country: str | None = None,
     force: bool = False,
-) -> list[tuple[dict, float]]:
+) -> list[tuple[dict[str, Any], float]]:
     """
     Re-score top candidates using TMDB alternative titles.
 
@@ -256,7 +258,7 @@ def boost_scores_with_alt_titles(
 
     query_norm = normalize_for_match(raw_name)
     english_countries = {"US", "GB"}
-    updated: list[tuple[dict, float]] = []
+    updated: list[tuple[dict[str, Any], float]] = []
 
     for i, (result, original_score) in enumerate(scored):
         if i < _ALT_TITLE_CANDIDATES and result.get("id") is not None:
@@ -404,13 +406,13 @@ def _tv_episode_evidence_adjustment(
 
 def boost_tv_scores_with_episode_evidence(
     tmdb: MetadataProvider,
-    scored: list[tuple[dict, float]],
+    scored: list[tuple[dict[str, Any], float]],
     evidence: list[DirectEpisodeEvidence],
-) -> list[tuple[dict, float]]:
+) -> list[tuple[dict[str, Any], float]]:
     if not scored or not evidence:
         return scored
 
-    updated: list[tuple[dict, float]] = []
+    updated: list[tuple[dict[str, Any], float]] = []
     for index, (result, score) in enumerate(scored):
         show_id = result.get("id")
         if index >= _ALT_TITLE_CANDIDATES or show_id is None:
@@ -602,7 +604,7 @@ def apply_movie_confidence_adjustments(
 
 
 def score_tv_results(
-    results: list[dict],
+    results: list[dict[str, Any]],
     raw_name: str,
     year_hint: str | None,
     tmdb: MetadataProvider,
@@ -610,7 +612,7 @@ def score_tv_results(
     folder: Path | None = None,
     folder_score_name: str | None = None,
     episode_evidence: list[DirectEpisodeEvidence] | None = None,
-) -> list[tuple[dict, float]]:
+) -> list[tuple[dict[str, Any], float]]:
     """Score TV search results using the same logic as batch discovery."""
     scored = score_results(results, raw_name, year_hint, title_key="name")
     if folder is not None and folder_score_name is None:
@@ -622,12 +624,10 @@ def score_tv_results(
             (result, max(score, folder_map.get(result.get("id"), 0.0))) for result, score in scored
         ]
         scored.sort(key=lambda item: item[1], reverse=True)
-
     direct_evidence = episode_evidence
     if direct_evidence is None and folder is not None:
         direct_evidence = collect_direct_episode_evidence(folder)
     direct_evidence = direct_evidence or []
-
     scored = boost_scores_with_alt_titles(
         scored,
         raw_name,
@@ -638,11 +638,4 @@ def score_tv_results(
         preferred_country=_country_from_language(tmdb.language),
         force=bool(direct_evidence),
     )
-    try:
-        return boost_tv_scores_with_episode_evidence(tmdb, scored, direct_evidence)
-    except SeasonMapUnavailableError:
-        _log.debug(
-            "Episode evidence unavailable; keeping title-only TV scores",
-            exc_info=True,
-        )
-        return scored
+    return _safe_boost(tmdb, scored, direct_evidence, boost_tv_scores_with_episode_evidence)

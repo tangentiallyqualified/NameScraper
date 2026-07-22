@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any
 
 from ..constants import VIDEO_EXTENSIONS
 from ..parsing import (
@@ -12,6 +11,7 @@ from ..parsing import (
     get_season,
 )
 from ..providers import MetadataProvider, SeasonMapUnavailableError
+from ._season_map_validation import SeasonMap, normalize_season_map as _normalize_season_map
 from ._tv_scanner_consolidated import (
     collect_absolute_files as _collect_absolute_files,
     match_file_title_to_tmdb as _match_file_title_to_tmdb,
@@ -28,67 +28,6 @@ from .models import CompletenessReport, PreviewItem, SeasonFolderEntry
 _log = logging.getLogger(__name__)
 
 _HINT_OVERFLOW_MARGIN = 4
-
-
-def _normalize_season_map(value: object) -> dict[int, dict[str, Any]]:
-    """Validate untrusted provider season-map data at the scan boundary."""
-    if not isinstance(value, dict):
-        raise SeasonMapUnavailableError("malformed season map: expected mapping")
-
-    normalized: dict[int, dict[str, Any]] = {}
-    for raw_season, payload in value.items():
-        if (
-            isinstance(raw_season, bool)
-            or not isinstance(raw_season, int)
-            or not isinstance(payload, dict)
-        ):
-            raise SeasonMapUnavailableError("malformed season map entry")
-
-        titles = payload.get("titles")
-        posters = payload.get("posters")
-        episodes = payload.get("episodes")
-        count = payload.get("count")
-        if (
-            not isinstance(titles, dict)
-            or not isinstance(posters, dict)
-            or not isinstance(episodes, dict)
-            or isinstance(count, bool)
-            or not isinstance(count, int)
-            or count < 0
-        ):
-            raise SeasonMapUnavailableError("malformed season map entry")
-        if "name" in payload and not isinstance(payload["name"], str):
-            raise SeasonMapUnavailableError("malformed season map entry")
-        if (
-            "season_poster_path" in payload
-            and payload["season_poster_path"] is not None
-            and not isinstance(payload["season_poster_path"], str)
-        ):
-            raise SeasonMapUnavailableError("malformed season map entry")
-
-        for episode_number, title in titles.items():
-            if (
-                isinstance(episode_number, bool)
-                or not isinstance(episode_number, int)
-                or not isinstance(title, str)
-            ):
-                raise SeasonMapUnavailableError("malformed season map entry")
-        for episode_number, poster in posters.items():
-            if (
-                isinstance(episode_number, bool)
-                or not isinstance(episode_number, int)
-                or (poster is not None and not isinstance(poster, str))
-            ):
-                raise SeasonMapUnavailableError("malformed season map entry")
-        for episode_number, metadata in episodes.items():
-            if (
-                isinstance(episode_number, bool)
-                or not isinstance(episode_number, int)
-                or not isinstance(metadata, dict)
-            ):
-                raise SeasonMapUnavailableError("malformed season map entry")
-        normalized[raw_season] = payload
-    return normalized
 
 
 def _count_video_files(folder: Path) -> int:
@@ -136,7 +75,7 @@ class TVScanner:
         self.episode_posters: dict[tuple[int, int], str | None] = {}
         self.episode_meta: dict[tuple[int, int], dict] = {}
         self._season_dirs: list[tuple[Path, int]] | None = None
-        self._tmdb_seasons: dict[int, dict[str, Any]] | None = None
+        self._tmdb_seasons: SeasonMap | None = None
         self._alt_show_names: list[str] | None = None
         self.assignment_table: EpisodeAssignmentTable | None = None
 
@@ -169,7 +108,7 @@ class TVScanner:
             logger=_log,
         )
 
-    def _get_tmdb_seasons(self) -> dict[int, dict[str, Any]]:
+    def _get_tmdb_seasons(self) -> SeasonMap:
         """Fetch TMDB season map. Cached after first call."""
         if self._tmdb_seasons is not None:
             return self._tmdb_seasons

@@ -28,11 +28,12 @@ def scan_failure_message(error: Exception) -> str:
     return str(error).strip() or "TV scan failed."
 
 
-def fail_scan_state(state: ScanState, error: Exception) -> None:
+def fail_scan_state(state: ScanState, error: Exception) -> Exception:
     """Clear stale scan output and leave the state visibly failed closed."""
     state.reset_scan()
     state.checked = False
     state.scan_error = scan_failure_message(error)
+    return error
 
 
 def _raise_if_cancelled(cancel_event: threading.Event | None) -> None:

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from ._tmdb_snapshot_validation import iter_valid_season_map_snapshots
+
 _TV_DETAILS_NAMESPACE = "tmdb.tv_details"
 _SEASON_NAMESPACE = "tmdb.season"
 _MOVIE_DETAILS_NAMESPACE = "tmdb.movie_details"
@@ -18,7 +20,7 @@ class _TMDBMetadataCacheStore:
         self._refresh_policy = refresh_policy
         self._show_cache: dict[int, dict] = {}
         self._season_cache: dict[tuple[int, int], dict] = {}
-        self._season_map_cache: dict[int, tuple[dict, int]] = {}
+        self._season_map_cache: dict[int, tuple[dict[int, dict[str, Any]], int]] = {}
         self._movie_cache: dict[int, dict] = {}
 
     @property
@@ -30,7 +32,7 @@ class _TMDBMetadataCacheStore:
         return self._season_cache
 
     @property
-    def season_map_cache(self) -> dict[int, tuple[dict, int]]:
+    def season_map_cache(self) -> dict[int, tuple[dict[int, dict[str, Any]], int]]:
         return self._season_map_cache
 
     @property
@@ -109,7 +111,12 @@ class _TMDBMetadataCacheStore:
             "movie_cache": dict(self._movie_cache),
         }
 
-    def import_snapshot(self, snapshot: dict | None, *, clear_existing: bool = False) -> None:
+    def import_snapshot(
+        self,
+        snapshot: dict[str, Any] | None,
+        *,
+        clear_existing: bool = False,
+    ) -> None:
         if not snapshot:
             return
         if clear_existing:
@@ -125,25 +132,10 @@ class _TMDBMetadataCacheStore:
             )
 
         if snapshot.get("season_map_contract_version") == _SEASON_MAP_CONTRACT_VERSION:
-            for show_id, data in snapshot.get("season_map_cache", {}).items():
-                try:
-                    normalized_show_id = self._normalize_snapshot_int(show_id)
-                    if not isinstance(data, dict):
-                        raise ValueError("season-map entry must be a mapping")
-                    total_episodes = data.get("total_episodes")
-                    if (
-                        isinstance(total_episodes, bool)
-                        or not isinstance(total_episodes, int)
-                        or total_episodes < 0
-                    ):
-                        raise ValueError("invalid total episode count")
-                    normalized_map = self.normalize_season_map_snapshot(data.get("seasons"))
-                except (TypeError, ValueError):
-                    continue
-                self._season_map_cache[normalized_show_id] = (
-                    normalized_map,
-                    total_episodes,
-                )
+            for show_id, cache_entry in iter_valid_season_map_snapshots(
+                snapshot.get("season_map_cache", {})
+            ):
+                self._season_map_cache[show_id] = cache_entry
 
         for movie_id, data in snapshot.get("movie_cache", {}).items():
             self._movie_cache[int(movie_id)] = data
@@ -189,74 +181,6 @@ class _TMDBMetadataCacheStore:
                 normalized[int(key)] = value
             except (TypeError, ValueError):
                 continue
-        return normalized
-
-    @staticmethod
-    def _normalize_snapshot_int(value: object) -> int:
-        if isinstance(value, bool) or not isinstance(value, (int, str)):
-            raise ValueError("identifier must be an integer")
-        try:
-            return int(value)
-        except ValueError as exc:
-            raise ValueError("identifier must be an integer") from exc
-
-    @classmethod
-    def _normalize_snapshot_episode_map(
-        cls,
-        mapping: object,
-        *,
-        value_kind: str,
-    ) -> dict[int, Any]:
-        if not isinstance(mapping, dict):
-            raise ValueError(f"{value_kind} must be a mapping")
-        normalized: dict[int, Any] = {}
-        for key, value in mapping.items():
-            episode_num = cls._normalize_snapshot_int(key)
-            if value_kind == "titles" and not isinstance(value, str):
-                raise ValueError("episode title must be text")
-            if value_kind == "posters" and value is not None and not isinstance(value, str):
-                raise ValueError("episode poster must be text or null")
-            if value_kind == "episodes" and not isinstance(value, dict):
-                raise ValueError("episode metadata must be a mapping")
-            normalized[episode_num] = value
-        return normalized
-
-    @classmethod
-    def normalize_season_map_snapshot(cls, season_map: object) -> dict[int, dict[str, Any]]:
-        if not isinstance(season_map, dict):
-            raise ValueError("season map must be a mapping")
-
-        normalized: dict[int, dict[str, Any]] = {}
-        for season_key, season_data in season_map.items():
-            season_num = cls._normalize_snapshot_int(season_key)
-            if not isinstance(season_data, dict):
-                raise ValueError("season-map payload must be a mapping")
-            name = season_data.get("name")
-            count = season_data.get("count")
-            if not isinstance(name, str):
-                raise ValueError("season name must be text")
-            if isinstance(count, bool) or not isinstance(count, int) or count < 0:
-                raise ValueError("season count must be a non-negative integer")
-            payload: dict[str, Any] = {
-                "name": name,
-                "titles": cls._normalize_snapshot_episode_map(
-                    season_data.get("titles"), value_kind="titles"
-                ),
-                "posters": cls._normalize_snapshot_episode_map(
-                    season_data.get("posters"), value_kind="posters"
-                ),
-                "episodes": cls._normalize_snapshot_episode_map(
-                    season_data.get("episodes"), value_kind="episodes"
-                ),
-                "count": count,
-            }
-            if "season_poster_path" in season_data:
-                season_poster_path = season_data.get("season_poster_path")
-                if season_poster_path is not None and not isinstance(season_poster_path, str):
-                    raise ValueError("season poster must be text or null")
-                payload["season_poster_path"] = season_poster_path
-            normalized[season_num] = payload
-
         return normalized
 
     @classmethod

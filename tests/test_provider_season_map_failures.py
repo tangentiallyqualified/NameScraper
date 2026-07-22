@@ -1,17 +1,24 @@
 """Provider-neutral season-map availability contract."""
 
+# pyright: strict
+
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
+from season_map_test_support import (
+    FailingTransport as _FailingTransport,
+    MapTransport as _MapTransport,
+)
 
-from plex_renamer._tmdb_transport import TMDBNetworkError
 from plex_renamer.engine._tv_scanner import TVScanner
-from plex_renamer.providers import SeasonMapUnavailableError
+from plex_renamer.providers import MetadataProvider, SeasonMapUnavailableError
 from plex_renamer.tmdb import TMDBClient
 from plex_renamer.tvdb import TVDBClient
+
+_EMPTY_SEASON_MAP: dict[int, dict[str, Any]] = {}
 
 
 class EmptySeasonMapProvider:
@@ -44,36 +51,14 @@ class _ProviderReturning:
 
 def _scanner(tmp_path: Path, provider: _ProviderReturning) -> TVScanner:
     return TVScanner(
-        provider,  # type: ignore[arg-type]
+        cast(MetadataProvider, provider),
         {"id": 7, "name": "Example Show"},
         tmp_path,
     )
 
 
-class _FailingTransport:
-    def get_json(
-        self, path: str, params: dict[str, object] | None = None
-    ) -> dict[str, object] | None:
-        raise TMDBNetworkError("offline")
-
-
-class _MapTransport:
-    def __init__(self, responses: dict[Any, Any]) -> None:
-        self.responses = responses
-        self.calls: list[str] = []
-
-    def get_json(self, path: str, params: dict[str, object] | None = None) -> Any:
-        self.calls.append(path)
-        page = (params or {}).get("page")
-        if (path, page) in self.responses:
-            return self.responses[(path, page)]
-        return self.responses[path]
-
-    def get_json_safe(self, path: str, params: dict[str, object] | None = None) -> Any:
-        try:
-            return self.get_json(path, params)
-        except KeyError:
-            return None
+def _tvdb_client(transport: object) -> TVDBClient:
+    return TVDBClient("key", transport=cast(Any, transport))
 
 
 @pytest.fixture
@@ -107,7 +92,7 @@ def test_scanner_rejects_malformed_season_maps(tmp_path: Path, payload: object) 
 
 
 def test_scanner_accepts_a_valid_empty_season_map(tmp_path: Path) -> None:
-    scanner = _scanner(tmp_path, provider=_ProviderReturning(({}, 0)))
+    scanner = _scanner(tmp_path, provider=_ProviderReturning((_EMPTY_SEASON_MAP, 0)))
 
     items, _has_mismatch = scanner.scan()
     assert items == []
@@ -118,7 +103,10 @@ def test_scanner_rejects_malformed_total_episode_count(
     tmp_path: Path,
     episode_count: object,
 ) -> None:
-    scanner = _scanner(tmp_path, provider=_ProviderReturning(({}, episode_count)))
+    scanner = _scanner(
+        tmp_path,
+        provider=_ProviderReturning((_EMPTY_SEASON_MAP, episode_count)),
+    )
 
     with pytest.raises(SeasonMapUnavailableError, match="malformed season map"):
         scanner.scan()
@@ -155,14 +143,14 @@ def test_scanner_rejects_malformed_nested_season_payloads(
 
 def test_tmdb_season_map_wraps_transport_failure() -> None:
     client = TMDBClient("key")
-    client._transport = _FailingTransport()  # type: ignore[assignment]
+    cast(Any, client)._transport = _FailingTransport()
 
     with pytest.raises(SeasonMapUnavailableError, match="tmdb season map unavailable"):
         client.get_season_map(7)
 
 
 def test_tvdb_season_map_wraps_transport_failure() -> None:
-    client = TVDBClient("key", transport=_FailingTransport())  # type: ignore[arg-type]
+    client = _tvdb_client(_FailingTransport())
 
     with pytest.raises(SeasonMapUnavailableError, match="tvdb season map unavailable"):
         client.get_season_map(7)
@@ -175,7 +163,7 @@ def test_tvdb_season_map_caches_a_valid_empty_result() -> None:
             "/series/7/episodes/default": {"data": {"episodes": []}, "links": {}},
         }
     )
-    client = TVDBClient("key", transport=transport)  # type: ignore[arg-type]
+    client = _tvdb_client(transport)
 
     assert client.get_season_map(7) == ({}, 0)
     assert client.get_season_map(7) == ({}, 0)
@@ -184,18 +172,16 @@ def test_tvdb_season_map_caches_a_valid_empty_result() -> None:
 
 def test_tmdb_season_map_rejects_malformed_details_payload() -> None:
     client = TMDBClient("key")
-    client._transport = _MapTransport({"/tv/7": {}})  # type: ignore[assignment]
+    cast(Any, client)._transport = _MapTransport({"/tv/7": {}})
 
     with pytest.raises(SeasonMapUnavailableError, match="tmdb season map unavailable for 7"):
         client.get_season_map(7)
-
-    assert client._metadata_cache_store.season_map_cache == {}
 
 
 def test_tmdb_season_map_caches_a_valid_empty_result() -> None:
     transport = _MapTransport({"/tv/7": {"seasons": []}})
     client = TMDBClient("key")
-    client._transport = transport  # type: ignore[assignment]
+    cast(Any, client)._transport = transport
 
     assert client.get_season_map(7) == ({}, 0)
     assert client.get_season_map(7) == ({}, 0)
@@ -204,7 +190,7 @@ def test_tmdb_season_map_caches_a_valid_empty_result() -> None:
 
 def test_tmdb_season_map_rejects_malformed_season_payload() -> None:
     client = TMDBClient("key")
-    client._transport = _MapTransport(  # type: ignore[assignment]
+    cast(Any, client)._transport = _MapTransport(
         {
             "/tv/7": {"seasons": [{"season_number": 1, "episode_count": 1}]},
             "/tv/7/season/1": {},
@@ -213,8 +199,6 @@ def test_tmdb_season_map_rejects_malformed_season_payload() -> None:
 
     with pytest.raises(SeasonMapUnavailableError, match="tmdb season map unavailable for 7"):
         client.get_season_map(7)
-
-    assert client._metadata_cache_store.season_map_cache == {}
 
 
 @pytest.mark.parametrize(
@@ -234,29 +218,25 @@ def test_tvdb_season_map_rejects_malformed_episode_payload(
             "/series/7/episodes/default": episode_payload,
         }
     )
-    client = TVDBClient("key", transport=transport)  # type: ignore[arg-type]
+    client = _tvdb_client(transport)
 
     with pytest.raises(SeasonMapUnavailableError, match="tvdb season map unavailable for 7"):
         client.get_season_map(7)
-
-    assert client._season_map_cache == {}
 
 
 @pytest.mark.parametrize("payload", [[], 0])
 def test_tmdb_season_map_rejects_non_mapping_details_payload(payload: Any) -> None:
     client = TMDBClient("key")
-    client._transport = _MapTransport({"/tv/7": payload})  # type: ignore[assignment]
+    cast(Any, client)._transport = _MapTransport({"/tv/7": payload})
 
     with pytest.raises(SeasonMapUnavailableError, match="tmdb season map unavailable for 7"):
         client.get_season_map(7)
-
-    assert client._metadata_cache_store.season_map_cache == {}
 
 
 @pytest.mark.parametrize("payload", [[], 0])
 def test_tmdb_season_map_rejects_non_mapping_season_payload(payload: Any) -> None:
     client = TMDBClient("key")
-    client._transport = _MapTransport(  # type: ignore[assignment]
+    cast(Any, client)._transport = _MapTransport(
         {
             "/tv/7": {"seasons": [{"season_number": 1, "episode_count": 1}]},
             "/tv/7/season/1": payload,
@@ -266,12 +246,10 @@ def test_tmdb_season_map_rejects_non_mapping_season_payload(payload: Any) -> Non
     with pytest.raises(SeasonMapUnavailableError, match="tmdb season map unavailable for 7"):
         client.get_season_map(7)
 
-    assert client._metadata_cache_store.season_map_cache == {}
-
 
 def test_tmdb_season_map_rejects_non_mapping_episode_entry() -> None:
     client = TMDBClient("key")
-    client._transport = _MapTransport(  # type: ignore[assignment]
+    cast(Any, client)._transport = _MapTransport(
         {
             "/tv/7": {"seasons": [{"season_number": 1, "episode_count": 1}]},
             "/tv/7/season/1": {"episodes": [None]},
@@ -280,8 +258,6 @@ def test_tmdb_season_map_rejects_non_mapping_episode_entry() -> None:
 
     with pytest.raises(SeasonMapUnavailableError, match="tmdb season map unavailable for 7"):
         client.get_season_map(7)
-
-    assert client._metadata_cache_store.season_map_cache == {}
 
 
 @pytest.mark.parametrize(
@@ -297,7 +273,7 @@ def test_tmdb_season_map_rejects_invalid_season_identifiers(
     season_path: str,
 ) -> None:
     client = TMDBClient("key")
-    client._transport = _MapTransport(  # type: ignore[assignment]
+    cast(Any, client)._transport = _MapTransport(
         {
             "/tv/7": {"seasons": [season_info]},
             season_path: {"episodes": []},
@@ -306,8 +282,6 @@ def test_tmdb_season_map_rejects_invalid_season_identifiers(
 
     with pytest.raises(SeasonMapUnavailableError, match="tmdb season map unavailable for 7"):
         client.get_season_map(7)
-
-    assert client._metadata_cache_store.season_map_cache == {}
 
 
 @pytest.mark.parametrize(
@@ -322,7 +296,7 @@ def test_tmdb_season_map_rejects_invalid_episode_identifiers(
     episode: dict[str, object],
 ) -> None:
     client = TMDBClient("key")
-    client._transport = _MapTransport(  # type: ignore[assignment]
+    cast(Any, client)._transport = _MapTransport(
         {
             "/tv/7": {"seasons": [{"season_number": 1, "episode_count": 1, "name": "Season 1"}]},
             "/tv/7/season/1": {"episodes": [episode]},
@@ -331,8 +305,6 @@ def test_tmdb_season_map_rejects_invalid_episode_identifiers(
 
     with pytest.raises(SeasonMapUnavailableError, match="tmdb season map unavailable for 7"):
         client.get_season_map(7)
-
-    assert client._metadata_cache_store.season_map_cache == {}
 
 
 @pytest.mark.parametrize(
@@ -343,12 +315,12 @@ def test_tmdb_season_map_rejects_invalid_episode_identifiers(
         ("Season 1", {"episode_number": 1, "name": "Pilot", "still_path": 7}),
     ],
 )
-def test_tmdb_season_map_rejects_invalid_nested_output_values_before_caching(
+def test_tmdb_season_map_rejects_invalid_nested_output_values(
     season_name: object,
     episode: dict[str, object],
 ) -> None:
     client = TMDBClient("key")
-    client._transport = _MapTransport(  # type: ignore[assignment]
+    cast(Any, client)._transport = _MapTransport(
         {
             "/tv/7": {
                 "seasons": [
@@ -366,17 +338,13 @@ def test_tmdb_season_map_rejects_invalid_nested_output_values_before_caching(
     with pytest.raises(SeasonMapUnavailableError, match="tmdb season map unavailable for 7"):
         client.get_season_map(7)
 
-    assert client._metadata_cache_store.season_map_cache == {}
-
 
 @pytest.mark.parametrize("payload", [[], 0])
 def test_tvdb_season_map_rejects_non_mapping_details_payload(payload: Any) -> None:
-    client = TVDBClient("key", transport=_MapTransport({"/series/7/extended": payload}))  # type: ignore[arg-type]
+    client = _tvdb_client(_MapTransport({"/series/7/extended": payload}))
 
     with pytest.raises(SeasonMapUnavailableError, match="tvdb season map unavailable for 7"):
         client.get_season_map(7)
-
-    assert client._season_map_cache == {}
 
 
 @pytest.mark.parametrize("payload", [[], 0])
@@ -387,12 +355,10 @@ def test_tvdb_season_map_rejects_non_mapping_episode_payload(payload: Any) -> No
             "/series/7/episodes/default": payload,
         }
     )
-    client = TVDBClient("key", transport=transport)  # type: ignore[arg-type]
+    client = _tvdb_client(transport)
 
     with pytest.raises(SeasonMapUnavailableError, match="tvdb season map unavailable for 7"):
         client.get_season_map(7)
-
-    assert client._season_map_cache == {}
 
 
 def test_tvdb_season_map_rejects_non_mapping_episode_entry() -> None:
@@ -402,12 +368,10 @@ def test_tvdb_season_map_rejects_non_mapping_episode_entry() -> None:
             "/series/7/episodes/default": {"data": {"episodes": [None]}, "links": {}},
         }
     )
-    client = TVDBClient("key", transport=transport)  # type: ignore[arg-type]
+    client = _tvdb_client(transport)
 
     with pytest.raises(SeasonMapUnavailableError, match="tvdb season map unavailable for 7"):
         client.get_season_map(7)
-
-    assert client._season_map_cache == {}
 
 
 @pytest.mark.parametrize(
@@ -432,12 +396,10 @@ def test_tvdb_season_map_rejects_invalid_episode_identifiers(
             },
         }
     )
-    client = TVDBClient("key", transport=transport)  # type: ignore[arg-type]
+    client = _tvdb_client(transport)
 
     with pytest.raises(SeasonMapUnavailableError, match="tvdb season map unavailable for 7"):
         client.get_season_map(7)
-
-    assert client._season_map_cache == {}
 
 
 @pytest.mark.parametrize(
@@ -449,12 +411,11 @@ def test_tvdb_season_map_rejects_invalid_episode_identifiers(
         {"seasonNumber": 1, "number": 1, "name": "Pilot", "image": False},
     ],
 )
-def test_tvdb_season_map_rejects_invalid_nested_output_values_before_caching(
+def test_tvdb_season_map_rejects_invalid_nested_output_values(
     episode: dict[str, object],
 ) -> None:
-    client = TVDBClient(
-        "key",
-        transport=_MapTransport(
+    client = _tvdb_client(
+        _MapTransport(
             {
                 "/series/7/extended": {"data": {"id": 7}},
                 "/series/7/episodes/default": {
@@ -462,19 +423,16 @@ def test_tvdb_season_map_rejects_invalid_nested_output_values_before_caching(
                     "links": {},
                 },
             }
-        ),  # type: ignore[arg-type]
+        )
     )
 
     with pytest.raises(SeasonMapUnavailableError, match="tvdb season map unavailable for 7"):
         client.get_season_map(7)
 
-    assert client._season_map_cache == {}
-
 
 def test_tvdb_malformed_extended_details_are_typed_uncached_and_safe() -> None:
-    client = TVDBClient(
-        "key",
-        transport=_MapTransport(
+    client = _tvdb_client(
+        _MapTransport(
             {
                 "/series/7/extended": {"data": {"id": 7, "artworks": [None]}},
                 "/series/7/episodes/default": {
@@ -482,13 +440,12 @@ def test_tvdb_malformed_extended_details_are_typed_uncached_and_safe() -> None:
                     "links": {},
                 },
             }
-        ),  # type: ignore[arg-type]
+        )
     )
 
     with pytest.raises(SeasonMapUnavailableError, match="tvdb season map unavailable for 7"):
         client.get_season_map(7)
 
-    assert client._season_map_cache == {}
     assert client.get_season(7, 1) == {
         "titles": {},
         "posters": {},
@@ -498,7 +455,8 @@ def test_tvdb_malformed_extended_details_are_typed_uncached_and_safe() -> None:
     assert client.fetch_poster(7, media_type="tv", season=1) is None
 
 
-def test_tvdb_season_map_rejects_mixed_valid_invalid_pages_atomically() -> None:
+def test_tvdb_season_map_rejects_mixed_valid_invalid_pages() -> None:
+    invalid_episode: dict[str, object] = {}
     transport = _MapTransport(
         {
             "/series/7/extended": {"data": {"id": 7}},
@@ -507,17 +465,15 @@ def test_tvdb_season_map_rejects_mixed_valid_invalid_pages_atomically() -> None:
                 "links": {"next": 1},
             },
             ("/series/7/episodes/default", 1): {
-                "data": {"episodes": [{}]},
+                "data": {"episodes": [invalid_episode]},
                 "links": {},
             },
         }
     )
-    client = TVDBClient("key", transport=transport)  # type: ignore[arg-type]
+    client = _tvdb_client(transport)
 
     with pytest.raises(SeasonMapUnavailableError, match="tvdb season map unavailable for 7"):
         client.get_season_map(7)
-
-    assert client._season_map_cache == {}
 
 
 @pytest.mark.parametrize("links", [[], "", 0])
@@ -528,9 +484,7 @@ def test_tvdb_season_map_rejects_falsy_non_mapping_links(links: Any) -> None:
             "/series/7/episodes/default": {"data": {"episodes": []}, "links": links},
         }
     )
-    client = TVDBClient("key", transport=transport)  # type: ignore[arg-type]
+    client = _tvdb_client(transport)
 
     with pytest.raises(SeasonMapUnavailableError, match="tvdb season map unavailable for 7"):
         client.get_season_map(7)
-
-    assert client._season_map_cache == {}

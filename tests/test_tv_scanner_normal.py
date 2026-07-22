@@ -172,10 +172,7 @@ class _SeasonMapTMDB:
         self._seasons = seasons
 
     def get_season_map(self, show_id):
-        total = sum(
-            payload["count"] for season_num, payload in self._seasons.items() if season_num > 0
-        )
-        return self._seasons, total
+        return self._seasons, sum(v["count"] for n, v in self._seasons.items() if n > 0)
 
     def get_season(self, show_id, season_num):
         return self._seasons.get(
