@@ -97,6 +97,83 @@ def test_created_sidecars_and_remux_outputs_are_removed_before_moves(
     assert not remux.exists()
 
 
+@pytest.mark.parametrize("cross_folder", [False, True])
+def test_revert_moves_files_back_and_removes_only_empty_created_dirs(
+    tmp_path: Path, cross_folder: bool
+) -> None:
+    source = tmp_path / "library" / "Show" / "episode.mkv"
+    destination_dir = tmp_path / "output" / "Show" if cross_folder else source.parent
+    destination = destination_dir / "renamed.mkv"
+    destination.parent.mkdir(parents=True)
+    destination.write_bytes(b"video")
+    keep = destination_dir / "keep.txt"
+    keep.write_text("keep", encoding="utf-8")
+    undo = {
+        "renames": [{"new": str(destination), "old": str(source)}],
+        "created_dirs": [str(destination_dir)],
+        "removed_dirs": [],
+        "renamed_dirs": [],
+    }
+    ok, errors = revert_job(_job(tmp_path, undo=undo, output=cross_folder))
+    assert ok, errors
+    assert source.read_bytes() == b"video"
+    assert keep.exists()
+    assert destination_dir.exists()
+
+
+def test_revert_restores_nested_directory_renames_before_file_moves(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    original_root = tmp_path / "library" / "Show"
+    renamed_root = tmp_path / "library" / "Renamed Show"
+    original_season = original_root / "S1"
+    renamed_season = renamed_root / "Season 01"
+    destination = renamed_season / "renamed.mkv"
+    source = original_season / "episode.mkv"
+    destination.parent.mkdir(parents=True)
+    destination.write_bytes(b"video")
+    events: list[str] = []
+    original_rename = Path.rename
+
+    def recording_rename(path: Path, target: Path) -> Path:
+        if path.is_relative_to(tmp_path):
+            events.append(f"rename:{path.name}")
+        return original_rename(path, target)
+
+    monkeypatch.setattr(Path, "rename", recording_rename)
+    undo = {
+        "renames": [{"new": str(destination), "old": str(source)}],
+        "created_dirs": [],
+        "removed_dirs": [],
+        "renamed_dirs": [
+            {"new": str(renamed_root), "old": str(original_root)},
+            {"new": str(renamed_season), "old": str(renamed_root / "S1")},
+        ],
+    }
+
+    ok, errors = revert_job(_job(tmp_path, undo=undo, output=False))
+
+    assert ok, errors
+    assert events == ["rename:Season 01", "rename:Renamed Show", "rename:renamed.mkv"]
+    assert source.read_bytes() == b"video"
+    assert not renamed_root.exists()
+
+
+def test_revert_recreates_removed_directories(tmp_path: Path) -> None:
+    removed = tmp_path / "library" / "Show" / "Extras"
+    undo = {
+        "renames": [],
+        "created_dirs": [],
+        "removed_dirs": [str(removed)],
+        "renamed_dirs": [],
+    }
+
+    ok, errors = revert_job(_job(tmp_path, undo=undo, output=False))
+
+    assert ok, errors
+    assert removed.is_dir()
+
+
 @pytest.mark.parametrize("irreversible", [True, 1])
 def test_irreversible_undo_never_mutates_tree(tmp_path: Path, irreversible: object) -> None:
     output = tmp_path / "out" / "result.mkv"
