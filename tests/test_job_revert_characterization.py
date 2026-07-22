@@ -265,3 +265,90 @@ def test_revert_refuses_paths_outside_both_boundaries(tmp_path: Path) -> None:
     assert any("outside the source root" in error for error in errors)
     assert outside_output.read_bytes() == b"keep"
     assert not outside_source.exists()
+
+
+@pytest.mark.parametrize("outside_revert_source", [True, False])
+def test_in_place_revert_refuses_file_renames_outside_library(
+    tmp_path: Path, outside_revert_source: bool
+) -> None:
+    library = tmp_path / "library"
+    inside = library / "Show" / "inside.mkv"
+    outside = tmp_path / "outside" / "outside.mkv"
+    revert_source, revert_target = (outside, inside) if outside_revert_source else (inside, outside)
+    revert_source.parent.mkdir(parents=True, exist_ok=True)
+    revert_source.write_bytes(b"keep")
+    undo = {"renames": [{"new": str(revert_source), "old": str(revert_target)}]}
+
+    ok, errors = revert_job(_job(tmp_path, undo=undo, output=False))
+
+    assert not ok
+    assert any("outside" in error for error in errors)
+    assert revert_source.read_bytes() == b"keep"
+    assert not revert_target.exists()
+
+
+@pytest.mark.parametrize("outside_revert_source", [True, False])
+def test_in_place_revert_refuses_directory_renames_outside_library(
+    tmp_path: Path, outside_revert_source: bool
+) -> None:
+    library = tmp_path / "library"
+    inside = library / "Renamed Show"
+    outside = tmp_path / "outside" / "Renamed Show"
+    revert_source, revert_target = (outside, inside) if outside_revert_source else (inside, outside)
+    revert_source.mkdir(parents=True)
+    revert_target.parent.mkdir(parents=True, exist_ok=True)
+    marker = revert_source / "marker.txt"
+    marker.write_text("keep", encoding="utf-8")
+    undo = {"renamed_dirs": [{"new": str(revert_source), "old": str(revert_target)}]}
+
+    ok, errors = revert_job(_job(tmp_path, undo=undo, output=False))
+
+    assert not ok
+    assert any("outside" in error for error in errors)
+    assert marker.read_text(encoding="utf-8") == "keep"
+    assert not revert_target.exists()
+
+
+def test_in_place_revert_refuses_removed_directory_outside_library(tmp_path: Path) -> None:
+    outside = tmp_path / "outside" / "recreated"
+    undo = {"removed_dirs": [str(outside)]}
+
+    ok, errors = revert_job(_job(tmp_path, undo=undo, output=False))
+
+    assert not ok
+    assert any("outside" in error for error in errors)
+    assert not outside.exists()
+
+
+@pytest.mark.parametrize("undo_key", ["remux_outputs", "created_files"])
+def test_in_place_revert_refuses_created_files_outside_library(
+    tmp_path: Path, undo_key: str
+) -> None:
+    outside = tmp_path / "outside" / f"{undo_key}.mkv"
+    outside.parent.mkdir()
+    outside.write_bytes(b"keep")
+    undo = {undo_key: [str(outside)]}
+
+    ok, errors = revert_job(_job(tmp_path, undo=undo, output=False))
+
+    assert not ok
+    assert any("outside" in error for error in errors)
+    assert outside.read_bytes() == b"keep"
+
+
+def test_in_place_created_directory_cleanup_preserves_boundary_and_outside(
+    tmp_path: Path,
+) -> None:
+    library = tmp_path / "library"
+    outside = tmp_path / "outside-empty"
+    outside.mkdir()
+    sentinel = tmp_path / "sentinel.txt"
+    sentinel.write_text("keep", encoding="utf-8")
+    undo = {"created_dirs": [str(outside), str(library)]}
+
+    ok, errors = revert_job(_job(tmp_path, undo=undo, output=False))
+
+    assert ok, errors
+    assert library.is_dir()
+    assert outside.is_dir()
+    assert sentinel.read_text(encoding="utf-8") == "keep"

@@ -502,8 +502,10 @@ def revert_job(job: RenameJob) -> tuple[bool, list[str]]:
     cleanup_boundary = library_root / source_folder.parent
     errors: list[str] = []
     moved_from_paths: list[Path] = []
-    output_boundary = Path(job.output_root).resolve(strict=False) if job.output_root else None
     source_boundary = library_root.resolve(strict=False)
+    output_boundary = (
+        Path(job.output_root).resolve(strict=False) if job.output_root else source_boundary
+    )
 
     # Delete remux outputs first — a remuxed file has no "old path" to move
     # back to; undoing it means removing the generated output.
@@ -623,28 +625,11 @@ def revert_job(job: RenameJob) -> tuple[bool, list[str]]:
         )
         return len(errors) == 0, errors
 
-    # Remove created directories if empty
-    cleaned_dirs: set[str] = set()
-    for dir_path_str in undo.get("created_dirs", []):
-        dir_path = Path(dir_path_str)
-        try:
-            if dir_path.exists() and not list(dir_path.iterdir()):
-                dir_path.rmdir()
-                cleaned_dirs.add(dir_path_str)
-        except OSError:
-            pass
-
-    for dir_path_str in list(cleaned_dirs):
-        parent = Path(dir_path_str).parent
-        while parent.exists() and parent != parent.parent and parent != cleanup_boundary:
-            try:
-                if not list(parent.iterdir()):
-                    parent.rmdir()
-                    parent = parent.parent
-                else:
-                    break
-            except OSError:
-                break
+    _cleanup_empty_output_dirs(
+        output_root=cleanup_boundary,
+        created_dirs=list(undo.get("created_dirs", [])),
+        moved_from_paths=moved_from_paths,
+    )
 
     return len(errors) == 0, errors
 
