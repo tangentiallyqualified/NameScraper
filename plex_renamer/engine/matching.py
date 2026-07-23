@@ -273,7 +273,7 @@ def boost_scores_with_alt_titles(
 
     for i, (result, original_score) in enumerate(scored):
         media_id = result.get("id")
-        if i < _ALT_TITLE_CANDIDATES and isinstance(media_id, int):
+        if i < _ALT_TITLE_CANDIDATES and type(media_id) is int:
             raw_alts = tmdb.get_alternative_titles(
                 media_id,
                 media_type,
@@ -428,7 +428,7 @@ def boost_tv_scores_with_episode_evidence(
     updated: ScoredMediaInfo = []
     for index, (result, score) in enumerate(scored):
         show_id = result.get("id")
-        if index >= _ALT_TITLE_CANDIDATES or not isinstance(show_id, int):
+        if index >= _ALT_TITLE_CANDIDATES or type(show_id) is not int:
             updated.append((result, score))
             continue
 

@@ -7,21 +7,44 @@ from typing import Any
 from .metadata_types import MediaInfo
 
 
+def _text_value(record: dict, key: str) -> str:
+    value = record.get(key)
+    return value if isinstance(value, str) else ""
+
+
+def _media_id(record: dict) -> int | None:
+    value = record.get("id")
+    return value if type(value) is int else None
+
+
+def _poster_path(record: dict) -> str | None:
+    value = record.get("poster_path")
+    return value if isinstance(value, str) else None
+
+
+def _year(record: dict, date_key: str) -> str:
+    date = _text_value(record, date_key)
+    return date[:4] if len(date) >= 4 else ""
+
+
 def build_tv_search_results(data: dict | None) -> list[MediaInfo]:
     if not data:
         return []
 
     results: list[MediaInfo] = []
-    for show in data.get("results", []):
-        air_date = show.get("first_air_date") or ""
-        year = air_date[:4] if len(air_date) >= 4 else ""
+    raw_results = data.get("results")
+    if not isinstance(raw_results, list):
+        return results
+    for show in raw_results:
+        if not isinstance(show, dict):
+            continue
         results.append(
             {
-                "id": show["id"],
-                "name": show["name"],
-                "year": year,
-                "poster_path": show.get("poster_path"),
-                "overview": show.get("overview", ""),
+                "id": _media_id(show),
+                "name": _text_value(show, "name"),
+                "year": _year(show, "first_air_date"),
+                "poster_path": _poster_path(show),
+                "overview": _text_value(show, "overview"),
             }
         )
     return results
@@ -32,16 +55,19 @@ def build_movie_search_results(data: dict | None) -> list[MediaInfo]:
         return []
 
     results: list[MediaInfo] = []
-    for movie in data.get("results", []):
-        release_date = movie.get("release_date") or ""
-        year = release_date[:4] if len(release_date) >= 4 else ""
+    raw_results = data.get("results")
+    if not isinstance(raw_results, list):
+        return results
+    for movie in raw_results:
+        if not isinstance(movie, dict):
+            continue
         results.append(
             {
-                "id": movie["id"],
-                "title": movie["title"],
-                "year": year,
-                "poster_path": movie.get("poster_path"),
-                "overview": movie.get("overview", ""),
+                "id": _media_id(movie),
+                "title": _text_value(movie, "title"),
+                "year": _year(movie, "release_date"),
+                "poster_path": _poster_path(movie),
+                "overview": _text_value(movie, "overview"),
             }
         )
     return results

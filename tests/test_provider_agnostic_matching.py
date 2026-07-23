@@ -8,9 +8,15 @@ from typing import Any
 
 from PIL import Image
 
+from plex_renamer.engine._batch_tv_match_policy import (
+    episode_count_tiebreak,
+    primary_name_breaks_tie,
+)
 from plex_renamer.engine.matching import (
+    boost_tv_scores_with_episode_evidence,
     score_tv_results,
 )
+from plex_renamer.engine.models import DirectEpisodeEvidence
 from plex_renamer.metadata_types import MediaInfo, ScoredMediaInfo
 from plex_renamer.providers import MetadataProvider
 
@@ -140,3 +146,53 @@ def test_score_tv_results_skips_non_integer_media_id(tmp_path: Path) -> None:
     )
 
     assert scored[0][0] is result
+
+
+class _RejectsInvalidEpisodeEvidenceIds(FakeProvider):
+    def get_season_map(self, show_id: int) -> tuple[dict[int, dict[str, Any]], int]:
+        assert type(show_id) is int
+        return {}, 0
+
+
+def test_episode_evidence_skips_invalid_boolean_media_id() -> None:
+    result: MediaInfo = {"id": True, "name": "Show", "year": "2024"}
+    scored: ScoredMediaInfo = [(result, 0.5)]
+
+    updated = boost_tv_scores_with_episode_evidence(
+        _RejectsInvalidEpisodeEvidenceIds(),
+        scored,
+        [DirectEpisodeEvidence(1, 1, "Pilot")],
+    )
+
+    assert updated == scored
+    assert updated[0][0] is result
+
+
+class _RejectsInvalidDetailIds(FakeProvider):
+    def get_tv_details(self, show_id: int) -> dict[str, Any] | None:
+        assert type(show_id) is int
+        return super().get_tv_details(show_id)
+
+
+def test_episode_count_tiebreak_skips_invalid_boolean_media_id() -> None:
+    result: MediaInfo = {"id": False, "name": "Show", "year": "2024"}
+
+    best, score, discriminated = episode_count_tiebreak(
+        _RejectsInvalidDetailIds(),
+        [(result, 0.9)],
+        file_count=28,
+    )
+
+    assert best is result
+    assert score == 0.9
+    assert discriminated is False
+
+
+def test_primary_name_tie_policy_treats_malformed_names_as_empty() -> None:
+    malformed_best: MediaInfo = {"id": 1, "name": 42, "year": "2024"}
+    matching_runner: MediaInfo = {"id": 2, "name": "Expected Show", "year": "2024"}
+    matching_best: MediaInfo = {"id": 1, "name": "Expected Show", "year": "2024"}
+    malformed_runner: MediaInfo = {"id": 2, "name": 84, "year": "2024"}
+
+    assert primary_name_breaks_tie(malformed_best, matching_runner, "Expected Show", None) is False
+    assert primary_name_breaks_tie(matching_best, malformed_runner, "Expected Show", None) is True

@@ -77,7 +77,7 @@ def episode_count_tiebreak(
         if top_score - score > threshold:
             break
         show_id = result.get("id")
-        if not isinstance(show_id, int):
+        if type(show_id) is not int:
             continue
         details = show_details_from_tmdb(tmdb.get_tv_details(show_id))
         if details is None:
