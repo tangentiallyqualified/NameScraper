@@ -94,7 +94,7 @@ def show_details_from_tmdb(raw: Mapping[str, object] | None) -> ShowDetails | No
     """
     if raw is None:
         return None
-    first_air_date = _string_or_none(raw.get("first_air_date"))
+    first_air_date = _string_or_none(raw.get("first_air_date")) or None
     return ShowDetails(
         id=_int_or_none(raw.get("id")),
         name=_string_or_empty(raw.get("name")),

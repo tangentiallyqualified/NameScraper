@@ -65,6 +65,12 @@ class ShowDetailsNormalizationTests(unittest.TestCase):
         no_date = show_details_from_tmdb({"id": 2, "status": "Ended"})
         self.assertTrue(no_date.unaired)
 
+    def test_empty_first_air_date_normalizes_to_none(self):
+        details = show_details_from_tmdb({"first_air_date": ""})
+
+        self.assertIsNone(details.first_air_date)
+        self.assertTrue(details.unaired)
+
     def test_empty_payload_is_zeroes_not_none(self):
         details = show_details_from_tmdb({})
         self.assertIsInstance(details, ShowDetails)

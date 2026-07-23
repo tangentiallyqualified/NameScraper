@@ -512,7 +512,7 @@ class BatchTVOrchestrator:
             _log.info("ID tag %s on %s: provider unavailable", tag, source_name)
             return None
         details = show_details_from_tmdb(provider.get_tv_details(tag[1]))
-        if details is None:
+        if details is None or details.id is None:
             _log.warning("ID tag %s on %s: lookup failed", tag, source_name)
             return None
         (_candidate, _cleaned, _score_name, _folder_score_name, _year_hint, episode_evidence) = (

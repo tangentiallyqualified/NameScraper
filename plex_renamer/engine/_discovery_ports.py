@@ -4,7 +4,19 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Protocol
+from typing import Protocol, TypedDict
+
+from .models import DirectEpisodeEvidence
+
+
+class TVCandidateStateKwargs(TypedDict):
+    relative_folder: str
+    parent_relative_folder: str | None
+    discovery_reason: str
+    has_direct_season_subdirs: bool
+    direct_episode_file_count: int
+    direct_video_file_count: int
+    discovered_via_symlink: bool
 
 
 class TVDiscoveryCandidateLike(Protocol):
@@ -25,6 +37,18 @@ class MovieDiscoveryCandidateLike(Protocol):
     discovery_reason: str
     direct_video_file_count: int
     discovered_via_symlink: bool
+
+
+ShowCandidate = tuple[
+    TVDiscoveryCandidateLike,
+    str,
+    str,
+    str,
+    str | None,
+    list[DirectEpisodeEvidence],
+]
+
+MovieCandidate = tuple[MovieDiscoveryCandidateLike, str, str | None, Path | None]
 
 
 class TVLibraryDiscoverer(Protocol):
