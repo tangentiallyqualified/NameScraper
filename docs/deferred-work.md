@@ -22,7 +22,7 @@ Last reviewed: 2026-07-21 at `eb7f6df`
 
 | Priority | Meaning | Active IDs |
 | --- | --- | --- |
-| P1 | Correctness, recovery, or safety-gate gaps | `MATCH-001`, `GUI-001`, `QUAL-001` |
+| P1 | Correctness, recovery, or safety-gate gaps | `MATCH-001`, `QUAL-001` |
 | P2 | Bounded feature and maintainability work | `PARSE-001`–`PARSE-005`, `MATCH-003`–`MATCH-004`, `META-001`–`META-006`, `MUX-001`–`MUX-003`, `MUX-005`, `GUI-002`, `ARCH-001`, `ARCH-003`, `QUAL-002` |
 | P3 | Opportunistic polish and decision-covered debt | `MUX-004`, `MUX-006`, `GUI-003`, `QUAL-003`, `AUDIT-004`–`AUDIT-005` |
 
@@ -286,18 +286,6 @@ Last reviewed: 2026-07-21 at `eb7f6df`
   executor-busy downshift.
 
 ## GUI and workflow follow-ups
-
-### GUI-001 — Restore end-to-end reassign assertions
-
-- **Status:** Active deferred
-- **Priority:** P1
-- **Scope:** Episode-row Reassign action dispatch through the live Qt workspace.
-- **Outcome:** Reinstate end-to-end assertions that selection, service dispatch,
-  reprojection, and visible row state all agree after reassignment.
-- **Acceptance:** The TODO is removed and a discriminating Qt test fails when reassign
-  dispatch or refresh is disconnected.
-- **Evidence:** `tests/test_qt_media_workspace_review_actions.py` contains an explicit
-  TODO to restore these assertions once dispatch is wired.
 
 ### GUI-002 — Persist per-episode AutoMux opt-outs
 

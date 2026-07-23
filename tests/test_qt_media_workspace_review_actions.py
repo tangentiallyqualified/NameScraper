@@ -8,6 +8,7 @@ from conftest_qt import QtSmokeBase
 from PySide6.QtWidgets import QPushButton
 
 from plex_renamer.app.services.command_gating_service import CommandGatingService
+from plex_renamer.app.services.episode_mapping_service import EpisodeMappingService
 from plex_renamer.app.services.settings_service import SettingsService
 from plex_renamer.engine import CompletenessReport, PreviewItem, ScanState, SeasonCompleteness
 from plex_renamer.gui_qt.widgets._episode_expansion import EpisodeExpansionCard
@@ -183,6 +184,78 @@ class QtMediaWorkspaceReviewActionsTests(QtSmokeBase):
 
         workspace.close()
 
+    def test_media_workspace_reassign_does_not_mutate_when_dispatch_is_neutralized(self):
+        from plex_renamer.engine._episode_projection import project_preview_items
+        from plex_renamer.engine.episode_assignments import (
+            ORIGIN_AUTO,
+            EpisodeAssignmentTable,
+            EpisodeSlot,
+        )
+
+        folder = Path("C:/library/tv/Example")
+        show_info = {"id": 101, "name": "Example Show", "year": "2024"}
+        table = EpisodeAssignmentTable()
+        table.add_slot(EpisodeSlot(season=1, episode=1, title="Pilot"))
+        table.add_slot(EpisodeSlot(season=1, episode=2, title="Second"))
+        entry = table.add_file(folder / "Season 01" / "Example.S01E01.mkv")
+        table.assign(entry.file_id, 1, [1], origin=ORIGIN_AUTO, confidence=0.5)
+        state = ScanState(
+            folder=folder,
+            media_info=show_info,
+            scanned=True,
+            checked=False,
+            confidence=1.0,
+        )
+        state.assignments = table
+        state.preview_items = project_preview_items(
+            table,
+            show_info=show_info,
+            root=folder,
+            media_fields={"media_id": 101, "media_name": "Example Show"},
+        )
+        workspace = MediaWorkspace(media_type="tv", media_controller=_FakeMediaController(state))
+        workspace.show()
+        workspace.show_ready()
+        self._app.processEvents()
+
+        panel = self._panel(workspace)
+        card_row = panel.model.row_for_preview_index(0)
+        self.assertGreaterEqual(card_row, 0)
+        card = _open_card(panel, card_row)
+        button = _card_action_button(card, "reassign")
+        assert button is not None
+
+        with (
+            patch.object(
+                EpisodeAssignDialog,
+                "pick_episodes",
+                return_value=[(1, 2)],
+            ),
+            patch.object(
+                EpisodeMappingService,
+                "assign_file",
+                autospec=True,
+                return_value=None,
+            ),
+        ):
+            button.click()
+            self._app.processEvents()
+
+        review_item = next(item for item in state.preview_items if item.file_id == entry.file_id)
+        self.assertEqual(review_item.season, 1)
+        self.assertEqual(review_item.episodes, [1])
+
+        updated_row = panel.model.row_for_preview_index(0)
+        self.assertGreaterEqual(updated_row, 0)
+        updated_data = panel.model.row_data_at(updated_row)
+        assert updated_data is not None
+        self.assertIn("S01E01", updated_data.title)
+        self.assertNotIn("S01E02", updated_data.title)
+        self.assertIn("S01E01", updated_data.target)
+        self.assertNotIn("S01E02", updated_data.target)
+
+        workspace.close()
+
     def test_media_workspace_review_episode_fix_button_replaced_by_actions_menu(self):
         from plex_renamer.engine._episode_projection import project_preview_items
         from plex_renamer.engine.episode_assignments import (
@@ -234,15 +307,24 @@ class QtMediaWorkspaceReviewActionsTests(QtSmokeBase):
         messages: list[tuple[str, int]] = []
         workspace.status_message.connect(lambda text, timeout: messages.append((text, timeout)))
         button = _card_action_button(card, "reassign")
-        self.assertIsNotNone(button)
+        assert button is not None
 
-        with patch.object(
-            EpisodeAssignDialog,
-            "pick_episodes",
-            return_value=[(1, 2)],
-        ) as pick:
+        with (
+            patch.object(
+                EpisodeAssignDialog,
+                "pick_episodes",
+                return_value=[(1, 2)],
+            ) as pick,
+            patch.object(
+                EpisodeMappingService,
+                "assign_file",
+                autospec=True,
+                wraps=EpisodeMappingService.assign_file,
+            ) as assign,
+        ):
             button.click()
             self._app.processEvents()
+        assign.assert_called_once()
 
         pick.assert_called_once()
         review_item = next(item for item in state.preview_items if item.file_id == entry.file_id)
@@ -253,7 +335,7 @@ class QtMediaWorkspaceReviewActionsTests(QtSmokeBase):
         updated_row = panel.model.row_for_preview_index(0)
         self.assertGreaterEqual(updated_row, 0)
         updated_data = panel.model.row_data_at(updated_row)
-        self.assertIsNotNone(updated_data)
+        assert updated_data is not None
         self.assertIn("S01E02", updated_data.title)
         self.assertNotIn("S01E01", updated_data.title)
         self.assertIn("S01E02", updated_data.target)
