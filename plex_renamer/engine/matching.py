@@ -178,7 +178,7 @@ def pick_alternate_matches(
     return alternates
 
 
-def _country_from_language(language_tag: str) -> str | None:
+def country_from_language(language_tag: str) -> str | None:
     """Extract the ISO 3166-1 country code from a TMDB language tag.
 
     ``"fr-FR"`` → ``"FR"``, ``"en-US"`` → ``"US"``, ``"ja"`` → ``"JP"``.
@@ -340,7 +340,7 @@ def boost_scores_with_alt_titles(
     return updated
 
 
-def _best_episode_title_similarity(
+def best_episode_title_similarity(
     raw_title: str | None,
     season_titles: dict[int, str],
 ) -> float:
@@ -366,7 +366,7 @@ def _best_episode_title_similarity(
     return best
 
 
-def _tv_episode_evidence_adjustment(
+def tv_episode_evidence_adjustment(
     tmdb: MetadataProvider,
     show_id: int,
     evidence: list[DirectEpisodeEvidence],
@@ -392,7 +392,7 @@ def _tv_episode_evidence_adjustment(
             season_titles = season_data.get("titles", {})
             if item.episode_num in season_titles:
                 exact_episode_hits += 1
-            title_scores.append(_best_episode_title_similarity(item.raw_title, season_titles))
+            title_scores.append(best_episode_title_similarity(item.raw_title, season_titles))
             continue
         # The hinted season is missing from TMDB (consolidated shows): match
         # the title evidence against every season instead of skipping, so
@@ -402,7 +402,7 @@ def _tv_episode_evidence_adjustment(
             for data in tmdb_seasons.values():
                 for title in data.get("titles", {}).values():
                     merged_titles[len(merged_titles)] = title
-        title_scores.append(_best_episode_title_similarity(item.raw_title, merged_titles))
+        title_scores.append(best_episode_title_similarity(item.raw_title, merged_titles))
 
     if limited_evidence:
         adjustment += min(exact_episode_hits / len(limited_evidence), 1.0) * 0.10
@@ -432,7 +432,7 @@ def boost_tv_scores_with_episode_evidence(
             updated.append((result, score))
             continue
 
-        adjustment = _tv_episode_evidence_adjustment(tmdb, show_id, evidence)
+        adjustment = tv_episode_evidence_adjustment(tmdb, show_id, evidence)
         updated.append((result, score + adjustment))
 
     updated.sort(key=lambda item: item[1], reverse=True)
@@ -648,7 +648,12 @@ def score_tv_results(
         tmdb,
         title_key="name",
         media_type="tv",
-        preferred_country=_country_from_language(tmdb.language),
+        preferred_country=country_from_language(tmdb.language),
         force=bool(direct_evidence),
     )
     return _safe_boost(tmdb, scored, direct_evidence, boost_tv_scores_with_episode_evidence)
+
+
+_country_from_language = country_from_language
+_best_episode_title_similarity = best_episode_title_similarity
+_tv_episode_evidence_adjustment = tv_episode_evidence_adjustment

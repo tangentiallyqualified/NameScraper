@@ -27,24 +27,30 @@ class ShowDetailsNormalizationTests(unittest.TestCase):
         details = show_details_from_tmdb(
             {
                 "id": 1396,
+                "name": "Breaking Bad",
+                "overview": "A chemistry teacher turns to crime.",
+                "poster_path": "/poster.jpg",
                 "number_of_episodes": 62,
                 "number_of_seasons": 5,
                 "first_air_date": "2008-01-20",
                 "status": "Ended",
                 "seasons": [
-                    {"season_number": 0, "episode_count": 9},
-                    {"season_number": 1, "episode_count": 7},
+                    {"season_number": 0, "episode_count": 9, "name": "Specials"},
+                    {"season_number": 1, "episode_count": 7, "name": "Season 1"},
                 ],
             }
         )
         self.assertEqual(details.id, 1396)
+        self.assertEqual(details.name, "Breaking Bad")
+        self.assertEqual(details.overview, "A chemistry teacher turns to crime.")
+        self.assertEqual(details.poster_path, "/poster.jpg")
         self.assertEqual(details.number_of_episodes, 62)
         self.assertEqual(details.number_of_seasons, 5)
         self.assertEqual(details.first_air_date, "2008-01-20")
         self.assertFalse(details.unaired)
         self.assertEqual(
             details.seasons,
-            (SeasonSummary(0, 9), SeasonSummary(1, 7)),
+            (SeasonSummary(0, 9, "Specials"), SeasonSummary(1, 7, "Season 1")),
         )
 
     def test_unaired_mapping(self):
@@ -62,8 +68,46 @@ class ShowDetailsNormalizationTests(unittest.TestCase):
     def test_empty_payload_is_zeroes_not_none(self):
         details = show_details_from_tmdb({})
         self.assertIsInstance(details, ShowDetails)
+        self.assertIsNone(details.id)
+        self.assertEqual(details.name, "")
+        self.assertEqual(details.overview, "")
+        self.assertIsNone(details.poster_path)
+        self.assertIsNone(details.first_air_date)
         self.assertEqual(details.number_of_episodes, 0)
         self.assertTrue(details.unaired)
+
+    def test_wrong_scalar_types_default_and_malformed_seasons_are_ignored(self):
+        details = show_details_from_tmdb(
+            {
+                "id": "1396",
+                "name": 1396,
+                "overview": ["not", "text"],
+                "poster_path": 123,
+                "number_of_episodes": "62",
+                "number_of_seasons": False,
+                "first_air_date": 2008,
+                "status": ["Ended"],
+                "seasons": [
+                    None,
+                    "Season 1",
+                    {"season_number": 1, "episode_count": 7, "name": 1},
+                    {"season_number": 2, "episode_count": 8},
+                ],
+            }
+        )
+
+        self.assertIsNone(details.id)
+        self.assertEqual(details.name, "")
+        self.assertEqual(details.overview, "")
+        self.assertIsNone(details.poster_path)
+        self.assertEqual(details.number_of_episodes, 0)
+        self.assertEqual(details.number_of_seasons, 0)
+        self.assertIsNone(details.first_air_date)
+        self.assertTrue(details.unaired)
+        self.assertEqual(
+            details.seasons,
+            (SeasonSummary(1, 7, ""), SeasonSummary(2, 8, "")),
+        )
 
 
 class _StubTMDB:

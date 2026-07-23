@@ -75,13 +75,15 @@ def test_provider_pool_without_fallback_still_resolves_primary(tmp_path: Path) -
 
 def test_season_names_use_attributed_provider(tmp_path: Path) -> None:
     orch, primary, fallback = _orchestrator(tmp_path)
-    orch._season_names_for_match({"id": 7}, provider=fallback)
+    details = orch._show_details_for_match({"id": 7}, provider=fallback)
+    orch._season_names_for_match(details)
     assert "get_tv_details:7" in fallback.calls
     assert primary.calls == []
 
 
 def test_season_names_default_to_primary(tmp_path: Path) -> None:
     orch, primary, fallback = _orchestrator(tmp_path)
-    orch._season_names_for_match({"id": 7})
+    details = orch._show_details_for_match({"id": 7})
+    orch._season_names_for_match(details)
     assert "get_tv_details:7" in primary.calls
     assert fallback.calls == []
