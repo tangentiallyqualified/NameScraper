@@ -221,8 +221,8 @@ class MovieScanner:
                     for file_path, _number in group:
                         skip_set.add(file_path)
 
-        remaining = []
-        skipped = []
+        remaining: list[Path] = []
+        skipped: list[PreviewItem] = []
         for file_path in files:
             if file_path in skip_set:
                 skipped.append(
