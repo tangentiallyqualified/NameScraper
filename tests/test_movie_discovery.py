@@ -1,15 +1,43 @@
 from __future__ import annotations
 
 import unittest
+from collections.abc import Callable
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import assert_type
 
 from plex_renamer.app.models import MovieDirectoryRole
 from plex_renamer.app.services import MovieLibraryDiscoveryService
-from plex_renamer.engine._movie_scanner import MovieScanner
+from plex_renamer.engine import CANCEL_SCAN
+from plex_renamer.engine._movie_scanner import MovieScanner, build_movie_preview_item
 from plex_renamer.metadata_types import MediaInfo
 from plex_renamer.tmdb import TMDBClient
+
+
+class _SingleMovieTMDB(TMDBClient):
+    def __init__(self, results: list[MediaInfo]) -> None:
+        super().__init__("key")
+        self.results = results
+
+    def search_movie(self, query: str, year: str | None = None) -> list[MediaInfo]:
+        return self.results
+
+    def search_movies_batch(
+        self,
+        queries: list[tuple[str, str | None]],
+        max_workers: int = 8,
+        progress_callback: Callable[..., object] | None = None,
+    ) -> list[list[MediaInfo]]:
+        return [self.results for _query in queries]
+
+    def search_with_fallback(
+        self,
+        query: str,
+        search_fn: Callable[..., list[MediaInfo]],
+        min_words: int = 1,
+        **kwargs: object,
+    ) -> list[MediaInfo]:
+        return self.results
 
 
 class MovieDiscoveryTests(unittest.TestCase):
@@ -34,6 +62,79 @@ class MovieDiscoveryTests(unittest.TestCase):
             assert_type(scanner.get_search_results(movie_file), list[MediaInfo])
             self.assertEqual(scanner.movie_info[movie_file], info)
             self.assertEqual(hydrated_results, [info])
+
+    def test_movie_preview_rejects_wrong_scalar_field_kinds(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            movie_file = root / "Malformed.mkv"
+            malformed: MediaInfo = {
+                "id": "not-an-id",
+                "title": 42,
+                "year": 2024.0,
+                "poster_path": None,
+                "overview": "",
+            }
+
+            item = build_movie_preview_item(movie_file, malformed, root)
+
+            self.assertEqual(item.new_name, ".mkv")
+            self.assertIsNone(item.media_id)
+            self.assertIsNone(item.media_name)
+
+    def test_movie_scanner_rejects_invalid_callback_selection_before_caching(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp) / "Movies"
+            root.mkdir()
+            movie_file = root / "Inception.2010.mkv"
+            movie_file.write_text("x")
+            result: MediaInfo = {"id": 27205, "title": "Inception", "year": "2010"}
+            scanner = MovieScanner(_SingleMovieTMDB([result]), root, files=[movie_file])
+
+            def invalid_selection(_results: list[MediaInfo], _filename: str) -> object:
+                return {"id": [], "title": ["Inception"]}
+
+            items = scanner.scan(pick_movie_callback=invalid_selection)
+
+            self.assertEqual(scanner.movie_info, {})
+            self.assertEqual(items[0].status, "SKIP: no movie selected")
+
+    def test_movie_scanner_preserves_cancel_callback_result(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp) / "Movies"
+            root.mkdir()
+            movie_file = root / "Inception.2010.mkv"
+            movie_file.write_text("x")
+            result: MediaInfo = {"id": 27205, "title": "Inception", "year": "2010"}
+            scanner = MovieScanner(_SingleMovieTMDB([result]), root, files=[movie_file])
+
+            def cancel_selection(_results: list[MediaInfo], _filename: str) -> object:
+                return CANCEL_SCAN
+
+            self.assertEqual(scanner.scan(pick_movie_callback=cancel_selection), [])
+            self.assertEqual(scanner.movie_info, {})
+
+    def test_movie_scanner_normalizes_contract_valid_malformed_batch_results(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp) / "Movies"
+            root.mkdir()
+            files = [root / f"Malformed {index}.mkv" for index in range(3)]
+            for movie_file in files:
+                movie_file.write_text("x")
+            malformed: MediaInfo = {
+                "id": "not-an-id",
+                "title": 42,
+                "year": 2024.0,
+                "poster_path": None,
+                "overview": "",
+            }
+            scanner = MovieScanner(_SingleMovieTMDB([malformed]), root, files=files)
+
+            items = scanner.scan()
+
+            self.assertEqual(len(items), 3)
+            self.assertTrue(all(item.new_name == ".mkv" for item in items))
+            self.assertTrue(all(item.media_id is None for item in items))
+            self.assertTrue(all(item.media_name is None for item in items))
 
     def test_flat_movie_library_with_title_year_folders(self):
         """Flat layout: each movie in its own Title (Year) folder."""

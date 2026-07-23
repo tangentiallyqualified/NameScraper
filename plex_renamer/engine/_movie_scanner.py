@@ -7,9 +7,16 @@ import threading
 from collections import defaultdict
 from collections.abc import Callable
 from pathlib import Path
+from typing import cast
 
 from ..constants import VIDEO_EXTENSIONS, YEAR_MAX, YEAR_MIN, MediaType
-from ..metadata_types import MediaInfo
+from ..metadata_types import (
+    MediaInfo,
+    is_media_info,
+    media_info_int,
+    media_info_optional_str,
+    media_info_str,
+)
 from ..parsing import (
     build_movie_name,
     clean_folder_name,
@@ -20,15 +27,18 @@ from ..parsing import (
 )
 from ..tmdb import TMDBClient
 from ._discovery_ports import TVLibraryDiscoverer
-from ._scan_runtime import CANCEL_SCAN, _raise_if_cancelled
+from ._scan_runtime import CANCEL_SCAN, raise_if_cancelled
 from ._state import get_auto_accept_threshold
 from .matching import (
-    _country_from_language,
     apply_movie_confidence_adjustments,
     boost_scores_with_alt_titles,
+    country_from_language,
     score_results,
 )
 from .models import CompanionFile, PreviewItem
+
+MoviePickCallback = Callable[[list[MediaInfo], str], object]
+MovieProgressCallback = Callable[[int, int, str, str], object]
 
 
 def build_subtitle_companions(
@@ -69,8 +79,10 @@ def build_movie_preview_item(
     root_folder: Path,
 ) -> PreviewItem:
     """Build a PreviewItem from a chosen TMDB movie match."""
-    new_name = build_movie_name(chosen["title"], chosen["year"], file_path.suffix)
-    folder_name = build_movie_name(chosen["title"], chosen["year"], "")
+    title = media_info_str(chosen, "title")
+    year = media_info_str(chosen, "year")
+    new_name = build_movie_name(title, year, file_path.suffix)
+    folder_name = build_movie_name(title, year, "")
 
     target_dir = root_folder / folder_name
     if file_path.parent == target_dir:
@@ -84,8 +96,8 @@ def build_movie_preview_item(
         episodes=[],
         status="OK",
         media_type=MediaType.MOVIE,
-        media_id=chosen.get("id"),
-        media_name=chosen.get("title"),
+        media_id=media_info_int(chosen, "id"),
+        media_name=media_info_optional_str(chosen, "title"),
     )
 
 
@@ -231,13 +243,13 @@ class MovieScanner:
 
     def scan(
         self,
-        pick_movie_callback: Callable | None = None,
-        progress_callback: Callable | None = None,
+        pick_movie_callback: MoviePickCallback | None = None,
+        progress_callback: MovieProgressCallback | None = None,
         cancel_event: threading.Event | None = None,
     ) -> list[PreviewItem]:
         """Scan files and build preview items with automatic TMDB matching."""
         items: list[PreviewItem] = []
-        _raise_if_cancelled(cancel_event)
+        raise_if_cancelled(cancel_event)
 
         all_video_files = self._get_video_files()
         all_video_files, tv_root_skipped = self._filter_tv_show_root_files(all_video_files)
@@ -245,7 +257,7 @@ class MovieScanner:
         video_files: list[Path] = []
 
         for file_path in all_video_files:
-            _raise_if_cancelled(cancel_event)
+            raise_if_cancelled(cancel_event)
             if is_sample_file(file_path):
                 items.append(
                     PreviewItem(
@@ -276,7 +288,7 @@ class MovieScanner:
         if len(video_files) >= 3:
             video_files, batch_skipped = self._filter_sequential_batches(video_files)
             items.extend(batch_skipped)
-        _raise_if_cancelled(cancel_event)
+        raise_if_cancelled(cancel_event)
 
         if not video_files:
             return items
@@ -286,8 +298,8 @@ class MovieScanner:
 
         prepared = [prepare_movie_query(file_path.stem) for file_path in video_files]
 
-        def _progress(done, total, current_item=""):
-            _raise_if_cancelled(cancel_event)
+        def _progress(done: int, total: int, current_item: str = "") -> None:
+            raise_if_cancelled(cancel_event)
             if progress_callback:
                 progress_callback(done, total, "Searching TMDB...", current_item)
 
@@ -304,7 +316,7 @@ class MovieScanner:
             zip(video_files, prepared, all_results, strict=False),
             start=1,
         ):
-            _raise_if_cancelled(cancel_event)
+            raise_if_cancelled(cancel_event)
             self._search_cache[file_path] = results
 
             if not results:
@@ -328,20 +340,24 @@ class MovieScanner:
 
             chosen, raw_confidence = self._best_match(results, raw_name, year_hint)
             self.movie_info[file_path] = chosen
+            chosen_title = media_info_str(chosen, "title")
 
             confidence = apply_movie_confidence_adjustments(
                 raw_confidence=raw_confidence,
                 file_path=file_path,
-                tmdb_title=chosen.get("title", ""),
-                tmdb_year=chosen.get("year"),
+                tmdb_title=chosen_title,
+                tmdb_year=media_info_optional_str(chosen, "year"),
             )
 
             item = build_movie_preview_item(file_path, chosen, self.root)
             item.episode_confidence = confidence
-            item.companions = build_subtitle_companions(file_path, item.new_name)
+            item.companions = build_subtitle_companions(
+                file_path,
+                cast(str, item.new_name),
+            )
             if confidence < get_auto_accept_threshold():
                 item.status = (
-                    f'REVIEW: best match "{chosen["title"]}" '
+                    f'REVIEW: best match "{chosen_title}" '
                     f"(confidence {confidence:.0%}) — click to verify"
                 )
             items.append(item)
@@ -355,7 +371,7 @@ class MovieScanner:
     def _scan_single(
         self,
         file_path: Path,
-        pick_movie_callback: Callable | None,
+        pick_movie_callback: MoviePickCallback | None,
     ) -> list[PreviewItem]:
         """Handle single-file scan with confirmation dialog."""
         search_query, year_hint, _raw_name = prepare_movie_query(file_path.stem)
@@ -372,10 +388,12 @@ class MovieScanner:
             )
         self._search_cache[file_path] = results
 
+        chosen: MediaInfo | None
         if pick_movie_callback:
-            chosen = pick_movie_callback(results or [], file_path.name)
-            if chosen is CANCEL_SCAN:
+            selected = pick_movie_callback(results or [], file_path.name)
+            if selected is CANCEL_SCAN:
                 return []
+            chosen = selected if is_media_info(selected) else None
         else:
             chosen = results[0] if results else None
 
@@ -399,7 +417,10 @@ class MovieScanner:
         item = build_movie_preview_item(file_path, chosen, self.root)
         # Manual single-file selection: user picked from the dialog, treat as 1.0.
         item.episode_confidence = 1.0
-        item.companions = build_subtitle_companions(file_path, item.new_name)
+        item.companions = build_subtitle_companions(
+            file_path,
+            cast(str, item.new_name),
+        )
         return [item]
 
     def rematch_file(
@@ -442,6 +463,6 @@ class MovieScanner:
             self.tmdb,
             title_key="title",
             media_type="movie",
-            preferred_country=_country_from_language(self.tmdb.language),
+            preferred_country=country_from_language(self.tmdb.language),
         )
         return scored[0]

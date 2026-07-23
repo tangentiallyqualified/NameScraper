@@ -9,6 +9,7 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path, PurePosixPath
 from typing import cast
 
+from .. import metadata_types as _metadata
 from ..constants import SCORE_TIE_MARGIN, VIDEO_EXTENSIONS
 from ..metadata_types import MediaInfo, ScoredMediaInfo
 from ..parsing import (
@@ -398,7 +399,7 @@ class BatchTVOrchestrator:
 
         alternates = pick_alternate_matches(
             scored,
-            selected_id=best_id if type(best_id := best.get("id")) is int else None,
+            selected_id=_metadata.media_info_int(best, "id"),
             limit=3,
         )
 
@@ -477,7 +478,7 @@ class BatchTVOrchestrator:
             season_assignment=infer_explicit_season_assignment(
                 folder,
                 episode_evidence,
-                show_name=best_name if isinstance(best_name := best.get("name"), str) else None,
+                show_name=_metadata.media_info_optional_str(best, "name"),
             ),
             **self._candidate_state_kwargs(candidate),
         )
@@ -763,7 +764,7 @@ class BatchTVOrchestrator:
             state.season_assignment = infer_explicit_season_assignment(
                 candidate.folder,
                 evidence,
-                show_name=best_name if isinstance(best_name := best.get("name"), str) else None,
+                show_name=_metadata.media_info_optional_str(best, "name"),
             )
 
     def merge_rematched_state(self, state: ScanState) -> ScanState:
@@ -1061,7 +1062,7 @@ class BatchTVOrchestrator:
         # lets the helper collect direct S##E## evidence from disk itself.
         state.season_assignment = infer_explicit_season_assignment(
             state.folder,
-            show_name=best_name if isinstance(best_name := best.get("name"), str) else None,
+            show_name=_metadata.media_info_optional_str(best, "name"),
         )
         state.reset_scan()
         merged = self.merge_rematched_state(state)
@@ -1262,8 +1263,8 @@ class BatchMovieOrchestrator:
             best_score = apply_movie_confidence_adjustments(
                 raw_confidence=pre_adjust_best,
                 file_path=evidence_path,
-                tmdb_title=title if isinstance(title := best.get("title"), str) else "",
-                tmdb_year=year if isinstance(year := best.get("year"), str) else None,
+                tmdb_title=_metadata.media_info_str(best, "title"),
+                tmdb_year=_metadata.media_info_optional_str(best, "year"),
             )
 
             state = ScanState(
