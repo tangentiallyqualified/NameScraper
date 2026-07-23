@@ -1,7 +1,8 @@
-"""Shared context and boundary validation for per-job rollback."""
+"""Per-job rollback orchestration and filesystem helpers."""
 
 from __future__ import annotations
 
+import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -41,6 +42,15 @@ def destination_path_errors(
         errors.append(f"Revert target is outside the source root: {old_path}")
 
     return errors
+
+
+def remap_after_directory_revert(path: Path, mapping: dict[Path, Path]) -> Path:
+    for renamed_new, renamed_old in mapping.items():
+        try:
+            return renamed_old / path.relative_to(renamed_new)
+        except ValueError:
+            continue
+    return path
 
 
 def _remove_paths(
@@ -114,3 +124,130 @@ def restore_directories(context: RevertContext) -> None:
             dir_path.mkdir(parents=True, exist_ok=True)
         except OSError as e:
             context.errors.append(f"Could not recreate folder {dir_path.name}: {e}")
+
+
+def restore_files(context: RevertContext) -> None:
+    for entry in reversed(context.undo.get("renames", [])):
+        new_path = Path(entry["new"])
+        old_path = Path(entry["old"])
+
+        for renamed_new, renamed_old in context.dir_rename_map.items():
+            mapping = {renamed_new: renamed_old}
+            new_path = remap_after_directory_revert(new_path, mapping)
+            old_path = remap_after_directory_revert(old_path, mapping)
+
+        if context.output_boundary is not None:
+            path_errors = destination_path_errors(
+                new_path=new_path,
+                old_path=old_path,
+                output_boundary=context.output_boundary,
+                source_boundary=context.source_boundary,
+            )
+            if path_errors:
+                context.errors.extend(path_errors)
+                continue
+
+        try:
+            old_path.parent.mkdir(parents=True, exist_ok=True)
+            if new_path.exists():
+                if new_path.parent != old_path.parent:
+                    shutil.move(str(new_path), str(old_path))
+                else:
+                    new_path.rename(old_path)
+                context.moved_from_paths.append(new_path)
+            else:
+                context.errors.append(f"File not found: {new_path.name}")
+        except (OSError, shutil.Error) as e:
+            context.errors.append(f"{new_path.name}: {e}")
+
+
+def _cleanup_empty_output_dirs(
+    *,
+    output_root: Path,
+    created_dirs: list[str],
+    moved_from_paths: list[Path],
+) -> None:
+    boundary = output_root.resolve()
+    candidates = {Path(path) for path in created_dirs}
+    candidates.update(path.parent for path in moved_from_paths)
+
+    for candidate in sorted(
+        candidates,
+        key=lambda path: len(path.parts),
+        reverse=True,
+    ):
+        _remove_empty_directory_chain(candidate, boundary)
+
+
+def _remove_empty_directory_chain(candidate: Path, boundary: Path) -> None:
+    current = candidate
+    while True:
+        try:
+            resolved = current.resolve()
+        except OSError:
+            break
+        if resolved == boundary:
+            break
+        if not resolved.is_relative_to(boundary):
+            break
+        try:
+            if current.exists() and not any(current.iterdir()):
+                current.rmdir()
+                current = current.parent
+                continue
+        except OSError:
+            pass
+        break
+
+
+def cleanup_reverted_tree(context: RevertContext) -> None:
+    if context.job.output_root:
+        _cleanup_empty_output_dirs(
+            output_root=Path(context.job.output_root),
+            created_dirs=list(context.undo.get("created_dirs", [])),
+            moved_from_paths=context.moved_from_paths,
+        )
+        return
+
+    _cleanup_empty_output_dirs(
+        output_root=context.cleanup_boundary,
+        created_dirs=list(context.undo.get("created_dirs", [])),
+        moved_from_paths=context.moved_from_paths,
+    )
+
+
+def revert_job(job: RenameJob) -> tuple[bool, list[str]]:
+    """Revert a single completed job using its stored undo data."""
+    if not job.undo_data:
+        return False, ["No undo data stored for this job."]
+
+    if job.undo_data.get("irreversible"):
+        return False, ["This job replaced its source files (No Fear mode) and cannot be reverted."]
+
+    undo = job.undo_data
+    library_root = Path(job.library_root)
+    source_folder = Path(job.source_folder)
+    source_boundary = library_root.resolve(strict=False)
+    try:
+        cleanup_boundary = (library_root / source_folder.parent).resolve(strict=False)
+        cleanup_boundary.relative_to(source_boundary)
+    except (OSError, ValueError):
+        cleanup_boundary = source_boundary
+    output_boundary = (
+        Path(job.output_root).resolve(strict=False) if job.output_root else source_boundary
+    )
+    context = RevertContext(
+        job=job,
+        undo=undo,
+        library_root=library_root,
+        source_boundary=source_boundary,
+        output_boundary=output_boundary,
+        cleanup_boundary=cleanup_boundary,
+    )
+
+    remove_generated_outputs(context)
+    restore_directories(context)
+    restore_files(context)
+    cleanup_reverted_tree(context)
+
+    return len(context.errors) == 0, context.errors
