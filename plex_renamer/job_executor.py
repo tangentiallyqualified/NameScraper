@@ -24,11 +24,10 @@ from __future__ import annotations
 import dataclasses
 import logging
 import os
-import shutil
 import threading
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from ._job_execution_filesystem import (
     UNMATCHED_FILES_DIR,
@@ -41,6 +40,7 @@ from ._job_execution_filesystem import (
 )
 from ._job_execution_metadata import execute_metadata_plan, materialized_extras
 from ._job_execution_remux import execute_remux_op
+from ._job_revert import revert_job as revert_job
 from .constants import JobKind, JobStatus, MediaType
 from .engine import RenameResult
 from .job_store import JobStore, RenameJob
@@ -405,7 +405,7 @@ def _execute_remux(
             execute_remux_op(
                 op,
                 source_root=Path(job.library_root),
-                output_root=Path(job.output_root),
+                output_root=Path(cast(str, job.output_root)),
                 result=result,
                 on_percent=_on_percent,
                 set_active_temp=set_active_temp,
@@ -421,221 +421,6 @@ _EXECUTORS: dict[str, Callable[..., RenameResult]] = {
     JobKind.RENAME: _execute_rename,
     JobKind.REMUX: _execute_remux,
 }
-
-
-# ─── Per-job revert ──────────────────────────────────────────────────────────
-
-
-def _cleanup_empty_output_dirs(
-    *,
-    output_root: Path,
-    created_dirs: list[str],
-    moved_from_paths: list[Path],
-) -> None:
-    boundary = output_root.resolve()
-    candidates = {Path(path) for path in created_dirs}
-    candidates.update(path.parent for path in moved_from_paths)
-
-    for candidate in sorted(
-        candidates,
-        key=lambda path: len(path.parts),
-        reverse=True,
-    ):
-        current = candidate
-        while True:
-            try:
-                resolved = current.resolve()
-            except OSError:
-                break
-            if resolved == boundary:
-                break
-            try:
-                resolved.relative_to(boundary)
-            except ValueError:
-                break
-            try:
-                if current.exists() and not any(current.iterdir()):
-                    current.rmdir()
-                    current = current.parent
-                    continue
-            except OSError:
-                pass
-            break
-
-
-def _destination_revert_path_errors(
-    *,
-    new_path: Path,
-    old_path: Path,
-    output_boundary: Path,
-    source_boundary: Path,
-) -> list[str]:
-    errors: list[str] = []
-    try:
-        new_path.resolve(strict=False).relative_to(output_boundary)
-    except (OSError, ValueError):
-        errors.append(f"Revert source is outside the output root: {new_path}")
-
-    try:
-        old_path.resolve(strict=False).relative_to(source_boundary)
-    except (OSError, ValueError):
-        errors.append(f"Revert target is outside the source root: {old_path}")
-
-    return errors
-
-
-def revert_job(job: RenameJob) -> tuple[bool, list[str]]:
-    """
-    Revert a single completed job using its stored undo data.
-
-    Returns (success, errors).
-    """
-    if not job.undo_data:
-        return False, ["No undo data stored for this job."]
-
-    if job.undo_data.get("irreversible"):
-        return False, ["This job replaced its source files (No Fear mode) and cannot be reverted."]
-
-    undo = job.undo_data
-    library_root = Path(job.library_root)
-    source_folder = Path(job.source_folder)
-    errors: list[str] = []
-    moved_from_paths: list[Path] = []
-    source_boundary = library_root.resolve(strict=False)
-    try:
-        cleanup_boundary = (library_root / source_folder.parent).resolve(strict=False)
-        cleanup_boundary.relative_to(source_boundary)
-    except (OSError, ValueError):
-        cleanup_boundary = source_boundary
-    output_boundary = (
-        Path(job.output_root).resolve(strict=False) if job.output_root else source_boundary
-    )
-
-    # Delete remux outputs first — a remuxed file has no "old path" to move
-    # back to; undoing it means removing the generated output.
-    for output_str in undo.get("remux_outputs", []):
-        output_path = Path(output_str)
-        if output_boundary is not None:
-            try:
-                output_path.resolve(strict=False).relative_to(output_boundary)
-            except (OSError, ValueError):
-                errors.append(f"Remux output is outside the output root: {output_path}")
-                continue
-        try:
-            if output_path.exists():
-                output_path.unlink()
-                moved_from_paths.append(output_path)
-        except OSError as e:
-            errors.append(f"Could not remove remux output {output_path.name}: {e}")
-
-    # Delete metadata sidecars created by the decorate phase.
-    for created_str in undo.get("created_files", []):
-        created_path = Path(created_str)
-        if output_boundary is not None:
-            try:
-                created_path.resolve(strict=False).relative_to(output_boundary)
-            except (OSError, ValueError):
-                errors.append(f"Created file is outside the output root: {created_path}")
-                continue
-        try:
-            if created_path.exists():
-                created_path.unlink()
-                moved_from_paths.append(created_path)
-        except OSError as e:
-            errors.append(f"Could not remove metadata file {created_path.name}: {e}")
-
-    # Revert folder renames (in reverse order)
-    dir_rename_map: dict[Path, Path] = {}
-    for entry in reversed(undo.get("renamed_dirs", [])):
-        new_dir = Path(entry["new"])
-        old_dir = Path(entry["old"])
-        if output_boundary is not None:
-            path_errors = _destination_revert_path_errors(
-                new_path=new_dir,
-                old_path=old_dir,
-                output_boundary=output_boundary,
-                source_boundary=source_boundary,
-            )
-            if path_errors:
-                errors.extend(path_errors)
-                continue
-        try:
-            if new_dir.exists():
-                new_dir.rename(old_dir)
-                dir_rename_map[new_dir] = old_dir
-        except OSError as e:
-            errors.append(f"Could not revert folder {new_dir.name}: {e}")
-
-    # Recreate removed directories
-    for dir_path_str in undo.get("removed_dirs", []):
-        dir_path = Path(dir_path_str)
-        if output_boundary is not None:
-            try:
-                dir_path.resolve(strict=False).relative_to(source_boundary)
-            except (OSError, ValueError):
-                errors.append(f"Removed directory is outside the source root: {dir_path}")
-                continue
-        try:
-            dir_path.mkdir(parents=True, exist_ok=True)
-        except OSError as e:
-            errors.append(f"Could not recreate folder {dir_path.name}: {e}")
-
-    # Move files back
-    for entry in reversed(undo.get("renames", [])):
-        new_path = Path(entry["new"])
-        old_path = Path(entry["old"])
-
-        for renamed_new, renamed_old in dir_rename_map.items():
-            try:
-                rel = new_path.relative_to(renamed_new)
-                new_path = renamed_old / rel
-            except ValueError:
-                pass
-            try:
-                rel = old_path.relative_to(renamed_new)
-                old_path = renamed_old / rel
-            except ValueError:
-                pass
-
-        if output_boundary is not None:
-            path_errors = _destination_revert_path_errors(
-                new_path=new_path,
-                old_path=old_path,
-                output_boundary=output_boundary,
-                source_boundary=source_boundary,
-            )
-            if path_errors:
-                errors.extend(path_errors)
-                continue
-
-        try:
-            old_path.parent.mkdir(parents=True, exist_ok=True)
-            if new_path.exists():
-                if new_path.parent != old_path.parent:
-                    shutil.move(str(new_path), str(old_path))
-                else:
-                    new_path.rename(old_path)
-                moved_from_paths.append(new_path)
-            else:
-                errors.append(f"File not found: {new_path.name}")
-        except (OSError, shutil.Error) as e:
-            errors.append(f"{new_path.name}: {e}")
-
-    if job.output_root:
-        _cleanup_empty_output_dirs(
-            output_root=Path(job.output_root),
-            created_dirs=list(undo.get("created_dirs", [])),
-            moved_from_paths=moved_from_paths,
-        )
-        return len(errors) == 0, errors
-
-    _cleanup_empty_output_dirs(
-        output_root=cleanup_boundary,
-        created_dirs=list(undo.get("created_dirs", [])),
-        moved_from_paths=moved_from_paths,
-    )
-
-    return len(errors) == 0, errors
 
 
 # ─── Queue executor ──────────────────────────────────────────────────────────

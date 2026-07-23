@@ -23,7 +23,7 @@ Last reviewed: 2026-07-21 at `eb7f6df`
 | Priority | Meaning | Active IDs |
 | --- | --- | --- |
 | P1 | Correctness, recovery, or safety-gate gaps | `MATCH-001`, `GUI-001`, `QUAL-001` |
-| P2 | Bounded feature and maintainability work | `PARSE-001`–`PARSE-005`, `MATCH-003`–`MATCH-004`, `META-001`–`META-006`, `MUX-001`–`MUX-003`, `MUX-005`, `GUI-002`, `ARCH-001`–`ARCH-003`, `QUAL-002` |
+| P2 | Bounded feature and maintainability work | `PARSE-001`–`PARSE-005`, `MATCH-003`–`MATCH-004`, `META-001`–`META-006`, `MUX-001`–`MUX-003`, `MUX-005`, `GUI-002`, `ARCH-001`, `ARCH-003`, `QUAL-002` |
 | P3 | Opportunistic polish and decision-covered debt | `MUX-004`, `MUX-006`, `GUI-003`, `QUAL-003`, `AUDIT-004`–`AUDIT-005` |
 
 ## Matching and parsing
@@ -341,18 +341,6 @@ Last reviewed: 2026-07-21 at `eb7f6df`
 - **Evidence:** The current `scripts/audit/quality-baseline.json` records a 2,037-LOC
   ceiling for `_episode_resolution.py` and complexity 49 for
   `apply_confidence_adjustments`.
-
-### ARCH-002 — Extract `revert_job` filesystem seams
-
-- **Status:** Active deferred
-- **Priority:** P2
-- **Scope:** `plex_renamer/job_executor.py:revert_job` recovery paths.
-- **Outcome:** Characterize rollback ordering and partial failures, then separate
-  operation-specific undo handlers from orchestration.
-- **Acceptance:** Tests cover each job kind, missing files, partial rollback, and
-  boundary safety; `revert_job` complexity falls without changing recovery results.
-- **Evidence:** The current `scripts/audit/quality-baseline.json` records complexity
-  43 for `revert_job` and an 891-LOC ceiling for `job_executor.py`.
 
 ### ARCH-003 — Extract episode-row action dispatch seams
 

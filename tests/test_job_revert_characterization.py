@@ -6,11 +6,46 @@ from pathlib import Path
 
 import pytest
 
+import plex_renamer._job_revert as job_revert
+from plex_renamer._job_revert import destination_path_errors
 from plex_renamer.constants import JobKind
 from plex_renamer.job_executor import revert_job
 from plex_renamer.job_store import RenameJob
 
 CopyFunction = Callable[[str, str], str]
+
+
+def test_destination_path_errors_reports_both_boundaries(tmp_path: Path) -> None:
+    errors = destination_path_errors(
+        new_path=tmp_path / "outside-new",
+        old_path=tmp_path / "outside-old",
+        output_boundary=tmp_path / "out",
+        source_boundary=tmp_path / "lib",
+    )
+
+    assert errors == [
+        f"Revert source is outside the output root: {tmp_path / 'outside-new'}",
+        f"Revert target is outside the source root: {tmp_path / 'outside-old'}",
+    ]
+
+
+def test_remap_after_directory_revert_leaves_unmatched_path_unchanged(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "library" / "Other Show" / "episode.mkv"
+    mapping = {tmp_path / "library" / "Renamed Show": tmp_path / "library" / "Show"}
+
+    assert job_revert.remap_after_directory_revert(path, mapping) == path
+
+
+def test_remap_after_directory_revert_maps_nested_path(tmp_path: Path) -> None:
+    renamed_root = tmp_path / "library" / "Renamed Show"
+    original_root = tmp_path / "library" / "Show"
+    path = renamed_root / "Season 01" / "episode.mkv"
+
+    assert job_revert.remap_after_directory_revert(path, {renamed_root: original_root}) == (
+        original_root / "Season 01" / "episode.mkv"
+    )
 
 
 def _job(
