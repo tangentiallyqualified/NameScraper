@@ -4,7 +4,6 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
-from _scanner_fakes import MetadataScannerFake
 from conftest_qt import QtSmokeBase
 from PySide6.QtWidgets import QPushButton
 
@@ -13,6 +12,7 @@ from plex_renamer.app.services.settings_service import SettingsService
 from plex_renamer.engine import CompletenessReport, PreviewItem, ScanState, SeasonCompleteness
 from plex_renamer.gui_qt.widgets._episode_expansion import EpisodeExpansionCard
 from plex_renamer.gui_qt.widgets._work_panel import MediaWorkPanel
+from plex_renamer.gui_qt.widgets.episode_assign_dialog import EpisodeAssignDialog
 from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
 
 
@@ -184,32 +184,36 @@ class QtMediaWorkspaceReviewActionsTests(QtSmokeBase):
         workspace.close()
 
     def test_media_workspace_review_episode_fix_button_replaced_by_actions_menu(self):
-        # TODO(Task 12): restore end-to-end reassign assertions once dispatch is wired.
+        from plex_renamer.engine._episode_projection import project_preview_items
+        from plex_renamer.engine.episode_assignments import (
+            ORIGIN_AUTO,
+            EpisodeAssignmentTable,
+            EpisodeSlot,
+        )
         from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
 
-        review_item = PreviewItem(
-            original=Path("C:/library/tv/Example/Season 01/Example.S01E01.mkv"),
-            new_name="Example Show (2024) - S01E01 - Pilot.mkv",
-            target_dir=Path("C:/library/tv/Example Show (2024)/Season 01"),
-            season=1,
-            episodes=[1],
-            status="REVIEW: episode confidence below threshold",
-            episode_confidence=0.5,
-        )
+        folder = Path("C:/library/tv/Example")
+        show_info = {"id": 101, "name": "Example Show", "year": "2024"}
+        table = EpisodeAssignmentTable()
+        table.add_slot(EpisodeSlot(season=1, episode=1, title="Pilot"))
+        table.add_slot(EpisodeSlot(season=1, episode=2, title="Second"))
+        entry = table.add_file(folder / "Season 01" / "Example.S01E01.mkv")
+        table.assign(entry.file_id, 1, [1], origin=ORIGIN_AUTO, confidence=0.5)
         state = ScanState(
-            folder=Path("C:/library/tv/Example"),
-            media_info={"id": 101, "name": "Example Show", "year": "2024"},
-            scanner=MetadataScannerFake(
-                {
-                    (1, 1): {"name": "Pilot"},
-                    (1, 2): {"name": "Second"},
-                }
-            ),
-            preview_items=[review_item],
+            folder=folder,
+            media_info=show_info,
             scanned=True,
             checked=False,
             confidence=1.0,
         )
+        state.assignments = table
+        state.preview_items = project_preview_items(
+            table,
+            show_info=show_info,
+            root=folder,
+            media_fields={"media_id": 101, "media_name": "Example Show"},
+        )
+        review_item = state.preview_items[0]
         workspace = MediaWorkspace(media_type="tv", media_controller=_FakeMediaController(state))
         workspace.show()
         workspace.show_ready()
@@ -226,6 +230,34 @@ class QtMediaWorkspaceReviewActionsTests(QtSmokeBase):
             button.text() for button in card.header_action_buttons() + card.action_buttons()
         ]
         self.assertIn("Reassign...", card_labels)
+
+        messages: list[tuple[str, int]] = []
+        workspace.status_message.connect(lambda text, timeout: messages.append((text, timeout)))
+        button = _card_action_button(card, "reassign")
+        self.assertIsNotNone(button)
+
+        with patch.object(
+            EpisodeAssignDialog,
+            "pick_episodes",
+            return_value=[(1, 2)],
+        ) as pick:
+            button.click()
+            self._app.processEvents()
+
+        pick.assert_called_once()
+        review_item = next(item for item in state.preview_items if item.file_id == entry.file_id)
+        self.assertEqual(review_item.season, 1)
+        self.assertEqual(review_item.episodes, [2])
+        self.assertIn(("Episode mapping updated.", 3000), messages)
+
+        updated_row = panel.model.row_for_preview_index(0)
+        self.assertGreaterEqual(updated_row, 0)
+        updated_data = panel.model.row_data_at(updated_row)
+        self.assertIsNotNone(updated_data)
+        self.assertIn("S01E02", updated_data.title)
+        self.assertNotIn("S01E01", updated_data.title)
+        self.assertIn("S01E02", updated_data.target)
+        self.assertNotIn("S01E01", updated_data.target)
 
         workspace.close()
 
