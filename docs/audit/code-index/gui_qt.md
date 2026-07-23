@@ -1,4 +1,4 @@
-<!-- Generated from audit input 9dcbae6d2ec4; do not edit. regenerate: scripts\audit.cmd --fast -->
+<!-- Generated from audit input dae3d14c745f; do not edit. regenerate: scripts\audit.cmd --fast -->
 
 
 # Package detail: gui_qt
@@ -94,7 +94,7 @@
 ### `plex_renamer/gui_qt/widgets/_episode_expansion.py` — EpisodeExpansionCard — persistent-editor detail card for an expanded
 - `episode_row_actions(row) -> list[tuple[str, str]]` — Action ids + labels available for one episode-guide row.
 - `EpisodeExpansionCard` — (no docstring) (used by: plex_renamer.gui_qt.widgets._media_workspace_state)
-- Tests: tests/test_episode_expansion.py, tests/test_episode_expansion_confidence.py, tests/test_episode_table_delegate.py, tests/test_qt_media_workspace_review_actions.py, tests/test_qt_workspace_widgets.py, tests/test_workspace_automux.py, tests/test_workspace_expansion.py
+- Tests: tests/test_episode_expansion.py, tests/test_episode_expansion_confidence.py, tests/test_episode_table_delegate.py, tests/test_qt_media_workspace_reassign_contract.py, tests/test_qt_media_workspace_review_actions.py, tests/test_qt_workspace_widgets.py, tests/test_workspace_automux.py, tests/test_workspace_expansion.py
 
 ### `plex_renamer/gui_qt/widgets/_episode_table_delegate.py` — Painted episode-table rows: EpisodeTableDelegate + EpisodeTableView (GUI V4 Plan 3).
 - `EpisodeTableDelegate` — (no docstring) (used by: plex_renamer.gui_qt.widgets._work_panel)
@@ -334,7 +334,7 @@
 
 ### `plex_renamer/gui_qt/widgets/_work_panel.py` — MediaWorkPanel — header / season strip / toolbar / episode table
 - `MediaWorkPanel` — (no docstring) (used by: plex_renamer.gui_qt.widgets._media_workspace_ui)
-- Tests: tests/test_qt_async_guide.py, tests/test_qt_media_workspace_review_actions.py, tests/test_work_panel.py, tests/test_workspace_automux.py, tests/test_workspace_expansion.py
+- Tests: tests/test_qt_async_guide.py, tests/test_qt_media_workspace_reassign_contract.py, tests/test_qt_media_workspace_review_actions.py, tests/test_work_panel.py, tests/test_workspace_automux.py, tests/test_workspace_expansion.py
 
 ### `plex_renamer/gui_qt/widgets/_workspace_widget_primitives.py` — Primitive widgets shared by media workspace roster and preview rows.
 - `paint_check_indicator(painter, rect, state) -> None` — Paint the rounded indicator shared by MasterCheckBox and the roster delegate. (used by: plex_renamer.gui_qt.widgets._roster_delegate)
@@ -355,7 +355,7 @@
 
 ### `plex_renamer/gui_qt/widgets/episode_assign_dialog.py` — Episode assignment dialog: multi-select slots or pick a file.
 - `EpisodeAssignDialog` — Season-grouped, collapsible multi-select episode picker. (used by: plex_renamer.gui_qt.widgets._media_workspace_actions)
-- Tests: tests/test_qt_media_workspace.py
+- Tests: tests/test_qt_media_workspace.py, tests/test_qt_media_workspace_reassign_contract.py
 
 ### `plex_renamer/gui_qt/widgets/history_tab.py` — History tab — controller-backed history view for Phase 4.
 - `HistoryTab` — History tab backed by QueueController. (used by: plex_renamer.gui_qt._main_window_tabs)
@@ -371,7 +371,7 @@
 
 ### `plex_renamer/gui_qt/widgets/media_workspace.py` — Media workspace widget for TV Shows and Movies tabs.
 - `MediaWorkspace` — TV or Movie tab workspace with state-driven content switching. (used by: plex_renamer.gui_qt._main_window_tabs)
-- Tests: tests/test_qt_media_workspace.py, tests/test_qt_media_workspace_review_actions.py, tests/test_qt_queue_submission_async.py, tests/test_workspace_expansion.py
+- Tests: tests/test_qt_media_workspace.py, tests/test_qt_media_workspace_reassign_contract.py, tests/test_qt_media_workspace_review_actions.py, tests/test_qt_queue_submission_async.py, tests/test_workspace_expansion.py
 
 ### `plex_renamer/gui_qt/widgets/queue_tab.py` — Queue tab — controller-backed queue view for Phase 4.
 - `QueueTab` — Queue tab backed by QueueController. (used by: plex_renamer.gui_qt._main_window_tabs)

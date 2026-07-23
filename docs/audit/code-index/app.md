@@ -1,4 +1,4 @@
-<!-- Generated from audit input 9dcbae6d2ec4; do not edit. regenerate: scripts\audit.cmd --fast -->
+<!-- Generated from audit input dae3d14c745f; do not edit. regenerate: scripts\audit.cmd --fast -->
 
 
 # Package detail: app
@@ -177,11 +177,11 @@
 
 ### `plex_renamer/app/services/command_gating_service.py` — Queue command gating extracted from widget click handlers.
 - `CommandGatingService` — Compute queue eligibility independently of any GUI toolkit. (used by: plex_renamer.app, plex_renamer.app.controllers._movie_state_helpers, plex_renamer.app.controllers._queue_submission_helpers, plex_renamer.app.controllers.media_controller, plex_renamer.app.controllers.queue_controller, plex_renamer.app.services, plex_renamer.gui_qt.main_window, plex_renamer.gui_qt.widgets._media_helpers, plex_renamer.gui_qt.widgets._media_workspace_actions, plex_renamer.gui_qt.widgets._media_workspace_refresh, plex_renamer.gui_qt.widgets._media_workspace_sync)
-- Tests: tests/test_batch_provider_failures.py, tests/test_command_gating_service.py, tests/test_conflict_queue_protection.py, tests/test_manual_assign_queueable.py, tests/test_media_controller.py, tests/test_qt_media_workspace.py, tests/test_qt_media_workspace_review_actions.py, tests/test_qt_queue_submission_async.py, tests/test_queue_controller.py, tests/test_queue_submission_automux.py, tests/test_tv_provider_selection.py, tests/test_workspace_expansion.py
+- Tests: tests/test_batch_provider_failures.py, tests/test_command_gating_service.py, tests/test_conflict_queue_protection.py, tests/test_manual_assign_queueable.py, tests/test_media_controller.py, tests/test_qt_media_workspace.py, tests/test_qt_media_workspace_reassign_contract.py, tests/test_qt_media_workspace_review_actions.py, tests/test_qt_queue_submission_async.py, tests/test_queue_controller.py, tests/test_queue_submission_automux.py, tests/test_tv_provider_selection.py, tests/test_workspace_expansion.py
 
 ### `plex_renamer/app/services/episode_mapping_service.py` — Build TV episode-guide projections.
 - `EpisodeMappingService` — Project raw scan preview state into episode-guide workflow state. (used by: plex_renamer.app.controllers._controller_event_helpers, plex_renamer.app.services, plex_renamer.app.services.episode_projection_cache, plex_renamer.gui_qt.widgets._episode_table_model, plex_renamer.gui_qt.widgets._media_workspace_actions)
-- Tests: tests/test_bulk_assign_panel.py, tests/test_conflict_queue_protection.py, tests/test_episode_mapping_projection.py, tests/test_episode_metadata_ownership.py, tests/test_episode_projection_cache.py, tests/test_manual_assign_queueable.py, tests/test_merge_service_actions.py, tests/test_qt_async_guide.py, tests/test_qt_media_workspace.py, tests/test_qt_perf_guards.py, tests/test_scan_state_scanner.py
+- Tests: tests/test_bulk_assign_panel.py, tests/test_conflict_queue_protection.py, tests/test_episode_mapping_projection.py, tests/test_episode_metadata_ownership.py, tests/test_episode_projection_cache.py, tests/test_manual_assign_queueable.py, tests/test_merge_service_actions.py, tests/test_qt_async_guide.py, tests/test_qt_media_workspace.py, tests/test_qt_media_workspace_reassign_contract.py, tests/test_qt_perf_guards.py, tests/test_scan_state_scanner.py
 
 ### `plex_renamer/app/services/episode_projection_cache.py` — Cache scan-time TV episode-guide projections for batch UI rendering.
 - `EpisodeProjectionCacheService` — (no docstring) (used by: plex_renamer.app.controllers.media_controller)

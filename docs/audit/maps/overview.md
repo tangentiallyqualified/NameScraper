@@ -47,7 +47,7 @@ graph LR
 
 | Status | Source | Input digest | Detail |
 |---|---|---|---|
-| matched | coverage.py | 9dcbae6d2ec4 | - |
+| matched | coverage.py | dae3d14c745f | - |
 
 ## Least-covered modules
 
@@ -259,5 +259,5 @@ _None._
 - [x] `plex_renamer/gui_qt/widgets/busy_overlay.py:90` plex_renamer.gui_qt.widgets.busy_overlay.BusyOverlay.paintEvent#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved; allowlist: Qt invokes this QWidget paintEvent override to render the busy overlay.)
 - [x] `plex_renamer/gui_qt/widgets/scan_progress.py:164` plex_renamer.gui_qt.widgets.scan_progress._ConveyorAnimation.paintEvent#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved; allowlist: Qt invokes this QWidget paintEvent override to render the conveyor animation.)
 
-_Generated from audit input 9dcbae6d2ec4 by scripts\audit.cmd._
+_Generated from audit input dae3d14c745f by scripts\audit.cmd._
 <!-- audit:generated:end overview -->
