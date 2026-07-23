@@ -12,7 +12,7 @@
 - `plex_renamer/_provider_errors.py` — fan-in 4, fan-out 0, LOC 5
 - `plex_renamer/_tmdb_transport.py` — fan-in 5, fan-out 0, LOC 166
 - `plex_renamer/constants.py` — fan-in 49, fan-out 0, LOC 117
-- `plex_renamer/job_store.py` — fan-in 17, fan-out 5, LOC 652
+- `plex_renamer/job_store.py` — fan-in 18, fan-out 5, LOC 652
 - `plex_renamer/keys.py` — fan-in 5, fan-out 1, LOC 78
 - `plex_renamer/parsing.py` — fan-in 23, fan-out 7, LOC 63
 - `plex_renamer/providers.py` — fan-in 13, fan-out 3, LOC 160
@@ -25,6 +25,7 @@
 - `plex_renamer/_job_execution_metadata.py` — fan-in 1, fan-out 4, LOC 277
 - `plex_renamer/_job_execution_remux.py` — fan-in 1, fan-out 5, LOC 190
 - `plex_renamer/_job_path_propagation.py` — fan-in 1, fan-out 0, LOC 84
+- `plex_renamer/_job_revert.py` — fan-in 1, fan-out 1, LOC 252
 - `plex_renamer/_job_store_codec.py` — fan-in 1, fan-out 0, LOC 70
 - `plex_renamer/_job_store_db.py` — fan-in 1, fan-out 1, LOC 106
 - `plex_renamer/_job_store_ordering.py` — fan-in 1, fan-out 0, LOC 114
@@ -46,8 +47,8 @@
 - `plex_renamer/_tmdb_snapshot_validation.py` — fan-in 1, fan-out 0, LOC 122
 - `plex_renamer/_tvdb_payloads.py` — fan-in 1, fan-out 3, LOC 230
 - `plex_renamer/_tvdb_transport.py` — fan-in 2, fan-out 1, LOC 131
-- `plex_renamer/job_executor.py` — fan-in 2, fan-out 6, LOC 880
+- `plex_renamer/job_executor.py` — fan-in 2, fan-out 7, LOC 665
 - `plex_renamer/tvdb.py` — fan-in 1, fan-out 7, LOC 479
 
-_Generated from audit input 887de33f7e98 by scripts\audit.cmd._
+_Generated from audit input 9dcbae6d2ec4 by scripts\audit.cmd._
 <!-- audit:generated:end map-root -->

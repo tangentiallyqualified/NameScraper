@@ -1,4 +1,4 @@
-<!-- Generated from audit input 887de33f7e98; do not edit. regenerate: scripts\audit.cmd --fast -->
+<!-- Generated from audit input 9dcbae6d2ec4; do not edit. regenerate: scripts\audit.cmd --fast -->
 
 
 # Code Index
@@ -174,6 +174,7 @@ One line per module. Detail tiers: code-index/app.md, code-index/engine.md, code
 - `plex_renamer/_job_execution_metadata.py` — Decorate phase: write metadata sidecars and embed titles after a [pub 3 | in 1 | out 4] [⚠ complexity]
 - `plex_renamer/_job_execution_remux.py` — mkvmerge execution for REMUX job ops (spec §7). [pub 2 | in 1 | out 5] [⚠ complexity]
 - `plex_renamer/_job_path_propagation.py` — Helpers for rewriting queued job paths after directory renames. [pub 2 | in 1 | out 0]
+- `plex_renamer/_job_revert.py` — Per-job rollback orchestration and filesystem helpers. [pub 8 | in 1 | out 1]
 - `plex_renamer/_job_store_codec.py` — Row-mapping and JSON serialization helpers for the job store. [pub 6 | in 1 | out 0]
 - `plex_renamer/_job_store_db.py` — SQLite connection and schema helpers for the persistent job queue. [pub 3 | in 1 | out 1] [⚠ complexity | † dead protected/ambiguous x1]
 - `plex_renamer/_job_store_ordering.py` — Queue ordering helpers for the persistent job store. [pub 4 | in 1 | out 0] [⚠ complexity]
@@ -203,8 +204,8 @@ One line per module. Detail tiers: code-index/app.md, code-index/engine.md, code
 - `plex_renamer/_tvdb_payloads.py` — Typed validation and strict fetching for untrusted TVDB payloads. [pub 5 | in 1 | out 3]
 - `plex_renamer/_tvdb_transport.py` — HTTP transport for TheTVDB v4 API: bearer auth, JSON GETs, image bytes. [pub 1 | in 2 | out 1]
 - `plex_renamer/constants.py` — Shared constants and configuration for NameScraper. [pub 4 | in 49 | out 0] [† dead protected/ambiguous x1]
-- `plex_renamer/job_executor.py` — Job queue executor — processes jobs from the queue. [pub 2 | in 2 | out 6] [⚠ complexity]
-- `plex_renamer/job_store.py` — Persistent job queue backed by SQLite. [pub 4 | in 17 | out 5] [† dead protected/ambiguous x1]
+- `plex_renamer/job_executor.py` — Job queue executor — processes jobs from the queue. [pub 1 | in 2 | out 7] [⚠ complexity]
+- `plex_renamer/job_store.py` — Persistent job queue backed by SQLite. [pub 4 | in 18 | out 5] [† dead protected/ambiguous x1]
 - `plex_renamer/keys.py` — API key storage with OS keyring preference and local fallback. [pub 2 | in 5 | out 1]
 - `plex_renamer/parsing.py` — Filename parsing and name-building utilities. [pub 0 | in 23 | out 7]
 - `plex_renamer/providers.py` — Metadata-provider protocol and registry. [pub 4 | in 13 | out 3]

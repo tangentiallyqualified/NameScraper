@@ -35,8 +35,8 @@ graph LR
 
 | Metric | Value |
 |---|---|
-| Modules | 194 |
-| Total LOC | 43533 |
+| Modules | 195 |
+| Total LOC | 43570 |
 | Statement coverage | 89.6% |
 | Module-average coverage | 90.3% |
 | Import cycles | 0 |
@@ -47,7 +47,7 @@ graph LR
 
 | Status | Source | Input digest | Detail |
 |---|---|---|---|
-| matched | coverage.py | 887de33f7e98 | - |
+| matched | coverage.py | 9dcbae6d2ec4 | - |
 
 ## Least-covered modules
 
@@ -72,10 +72,10 @@ graph LR
 | `plex_renamer/engine/_batch_orchestrators.py` | 1394 |
 | `plex_renamer/gui_qt/widgets/_work_panel.py` | 923 |
 | `plex_renamer/gui_qt/widgets/_episode_table_model.py` | 922 |
-| `plex_renamer/job_executor.py` | 880 |
 | `plex_renamer/gui_qt/widgets/_bulk_assign_panel.py` | 758 |
 | `plex_renamer/gui_qt/widgets/_episode_table_delegate.py` | 730 |
 | `plex_renamer/engine/_tv_scanner_consolidated.py` | 720 |
+| `plex_renamer/job_executor.py` | 665 |
 | `plex_renamer/job_store.py` | 652 |
 | `plex_renamer/engine/matching.py` | 641 |
 
@@ -104,7 +104,7 @@ graph LR
 | `plex_renamer/gui_qt/_scale.py` | 25 |
 | `plex_renamer/app/models/__init__.py` | 23 |
 | `plex_renamer/parsing.py` | 23 |
-| `plex_renamer/job_store.py` | 17 |
+| `plex_renamer/job_store.py` | 18 |
 | `plex_renamer/gui_qt/theme.py` | 14 |
 | `plex_renamer/providers.py` | 13 |
 | `plex_renamer/thread_pool.py` | 13 |
@@ -125,6 +125,7 @@ _No violations._
 | `plex_renamer/_job_execution_filesystem.py` | file-delete, file-move, file-write |
 | `plex_renamer/_job_execution_metadata.py` | file-delete, file-move, file-write, subprocess |
 | `plex_renamer/_job_execution_remux.py` | file-delete, file-move, file-write, subprocess |
+| `plex_renamer/_job_revert.py` | file-delete, file-move, file-write |
 | `plex_renamer/_mkv_locate.py` | env |
 | `plex_renamer/_mkv_probe.py` | subprocess |
 | `plex_renamer/_tmdb_transport.py` | network |
@@ -133,7 +134,7 @@ _No violations._
 | `plex_renamer/constants.py` | file-write |
 | `plex_renamer/gui_qt/app.py` | env |
 | `plex_renamer/gui_qt/widgets/_settings_tab_actions.py` | network |
-| `plex_renamer/job_executor.py` | file-delete, file-move, file-write |
+| `plex_renamer/job_executor.py` | file-move |
 | `plex_renamer/job_store.py` | file-delete |
 | `plex_renamer/keys.py` | file-write |
 
@@ -258,5 +259,5 @@ _None._
 - [x] `plex_renamer/gui_qt/widgets/busy_overlay.py:90` plex_renamer.gui_qt.widgets.busy_overlay.BusyOverlay.paintEvent#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved; allowlist: Qt invokes this QWidget paintEvent override to render the busy overlay.)
 - [x] `plex_renamer/gui_qt/widgets/scan_progress.py:164` plex_renamer.gui_qt.widgets.scan_progress._ConveyorAnimation.paintEvent#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved; allowlist: Qt invokes this QWidget paintEvent override to render the conveyor animation.)
 
-_Generated from audit input 887de33f7e98 by scripts\audit.cmd._
+_Generated from audit input 9dcbae6d2ec4 by scripts\audit.cmd._
 <!-- audit:generated:end overview -->
