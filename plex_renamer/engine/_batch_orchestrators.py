@@ -5,9 +5,8 @@ from __future__ import annotations
 import logging
 import threading
 from collections import defaultdict
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from pathlib import Path, PurePosixPath
-from typing import cast
 
 from ..constants import SCORE_TIE_MARGIN, VIDEO_EXTENSIONS
 from ..parsing import (
@@ -69,6 +68,16 @@ from .models import (
 from .show_details import show_details_from_tmdb
 
 _log = logging.getLogger(__name__)
+
+
+ShowCandidate = tuple[
+    TVDiscoveryCandidateLike,
+    str,
+    str,
+    str,
+    str | None,
+    list[DirectEpisodeEvidence],
+]
 
 
 def _emit_scan_progress(
@@ -218,10 +227,10 @@ class BatchTVOrchestrator:
 
     def _build_show_candidates(
         self,
-        discovered: list[object],
+        discovered: Sequence[TVDiscoveryCandidateLike],
         cancel_event: threading.Event | None = None,
-    ) -> list[tuple[object, str, str, str, str | None, list[DirectEpisodeEvidence]]]:
-        candidates: list[tuple[object, str, str, str, str | None, list[DirectEpisodeEvidence]]] = []
+    ) -> list[ShowCandidate]:
+        candidates: list[ShowCandidate] = []
         for candidate in discovered:
             _raise_if_cancelled(cancel_event)
             # A candidate named only with a season/collection label
@@ -268,13 +277,8 @@ class BatchTVOrchestrator:
         return candidates
 
     @staticmethod
-    def _candidate_state_kwargs(candidate) -> dict:
-        """ScanState fields copied verbatim from a discovery candidate.
-
-        Shared by every path that builds a ``ScanState`` from a
-        ``TVDiscoveryCandidateLike`` (unmatched, TMDB-matched, id-tag
-        routed) so the field list lives in exactly one place.
-        """
+    def _candidate_state_kwargs(candidate: TVDiscoveryCandidateLike) -> dict[str, object]:
+        """Return the ``ScanState`` fields copied from a discovery candidate."""
         return {
             "relative_folder": candidate.relative_folder,
             "parent_relative_folder": candidate.parent_relative_folder,
@@ -288,7 +292,7 @@ class BatchTVOrchestrator:
     @classmethod
     def _build_unmatched_show_state(
         cls,
-        candidate,
+        candidate: TVDiscoveryCandidateLike,
         folder: Path,
         year_hint: str | None,
         results: list[dict],
@@ -310,7 +314,13 @@ class BatchTVOrchestrator:
             alternate_matches=[],
             checked=False,
             season_assignment=infer_explicit_season_assignment(folder, episode_evidence),
-            **cls._candidate_state_kwargs(candidate),
+            relative_folder=candidate.relative_folder,
+            parent_relative_folder=candidate.parent_relative_folder,
+            discovery_reason=candidate.discovery_reason,
+            has_direct_season_subdirs=candidate.has_direct_season_subdirs,
+            direct_episode_file_count=candidate.direct_episode_file_count,
+            direct_video_file_count=candidate.direct_video_file_count,
+            discovered_via_symlink=candidate.discovered_via_symlink,
         )
 
     def _season_names_for_match(
@@ -335,7 +345,7 @@ class BatchTVOrchestrator:
 
     def _select_best_show_match(
         self,
-        candidate,
+        candidate: TVDiscoveryCandidateLike,
         folder: Path,
         score_name: str,
         folder_score_name: str,
@@ -433,7 +443,7 @@ class BatchTVOrchestrator:
 
     def _build_discovered_show_state(
         self,
-        candidate,
+        candidate: TVDiscoveryCandidateLike,
         score_name: str,
         folder_score_name: str,
         year_hint: str | None,
@@ -480,13 +490,19 @@ class BatchTVOrchestrator:
                 episode_evidence,
                 show_name=best.get("name"),
             ),
-            **self._candidate_state_kwargs(candidate),
+            relative_folder=candidate.relative_folder,
+            parent_relative_folder=candidate.parent_relative_folder,
+            discovery_reason=candidate.discovery_reason,
+            has_direct_season_subdirs=candidate.has_direct_season_subdirs,
+            direct_episode_file_count=candidate.direct_episode_file_count,
+            direct_video_file_count=candidate.direct_video_file_count,
+            discovered_via_symlink=candidate.discovered_via_symlink,
         )
 
     def _try_id_tag_state(
         self,
-        candidate,
-        entry: tuple[object, str, str, str, str | None, list[DirectEpisodeEvidence]],
+        candidate: TVDiscoveryCandidateLike,
+        entry: ShowCandidate,
     ) -> ScanState | None:
         """Resolve a bracketed provider-ID tag on *candidate* to a state.
 
@@ -540,7 +556,13 @@ class BatchTVOrchestrator:
             season_assignment=infer_explicit_season_assignment(
                 candidate.folder, episode_evidence, show_name=media_info["name"]
             ),
-            **self._candidate_state_kwargs(candidate),
+            relative_folder=candidate.relative_folder,
+            parent_relative_folder=candidate.parent_relative_folder,
+            discovery_reason=candidate.discovery_reason,
+            has_direct_season_subdirs=candidate.has_direct_season_subdirs,
+            direct_episode_file_count=candidate.direct_episode_file_count,
+            direct_video_file_count=candidate.direct_video_file_count,
+            discovered_via_symlink=candidate.discovered_via_symlink,
         )
         state.season_names = self._season_names_for_match(media_info, provider=provider)
         return state
@@ -587,7 +609,7 @@ class BatchTVOrchestrator:
         pinned_indices: set[int] = set()
         search_groups: dict[str, list[int]] = defaultdict(list)
         for candidate_index, entry in enumerate(candidates):
-            candidate = cast(TVDiscoveryCandidateLike, entry[0])
+            candidate = entry[0]
             pinned_provider = self._pinned_provider(candidate.folder)
             if pinned_provider is not None:
                 provider_by_index[candidate_index] = pinned_provider
@@ -673,7 +695,7 @@ class BatchTVOrchestrator:
 
     def _apply_fallback_matches(
         self,
-        candidates: list[tuple[object, str, str, str, str | None, list[DirectEpisodeEvidence]]],
+        candidates: list[ShowCandidate],
         states: list[ScanState],
         pinned_indices: set[int] | None = None,
         progress_callback: Callable[..., object] | None = None,
