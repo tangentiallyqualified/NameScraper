@@ -5,7 +5,7 @@ from __future__ import annotations
 import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from .job_store import RenameJob
 
@@ -18,9 +18,9 @@ class RevertContext:
     source_boundary: Path
     output_boundary: Path | None
     cleanup_boundary: Path
-    errors: list[str] = field(default_factory=list)
-    moved_from_paths: list[Path] = field(default_factory=list)
-    dir_rename_map: dict[Path, Path] = field(default_factory=dict)
+    errors: list[str] = field(default_factory=list[str])
+    moved_from_paths: list[Path] = field(default_factory=list[Path])
+    dir_rename_map: dict[Path, Path] = field(default_factory=dict[Path, Path])
 
 
 def destination_path_errors(
@@ -218,13 +218,13 @@ def cleanup_reverted_tree(context: RevertContext) -> None:
 
 def revert_job(job: RenameJob) -> tuple[bool, list[str]]:
     """Revert a single completed job using its stored undo data."""
-    if not job.undo_data:
+    undo = cast(dict[str, Any] | None, cast(Any, job).undo_data)
+    if not undo:
         return False, ["No undo data stored for this job."]
 
-    if job.undo_data.get("irreversible"):
+    if undo.get("irreversible"):
         return False, ["This job replaced its source files (No Fear mode) and cannot be reverted."]
 
-    undo = job.undo_data
     library_root = Path(job.library_root)
     source_folder = Path(job.source_folder)
     source_boundary = library_root.resolve(strict=False)
@@ -233,9 +233,8 @@ def revert_job(job: RenameJob) -> tuple[bool, list[str]]:
         cleanup_boundary.relative_to(source_boundary)
     except (OSError, ValueError):
         cleanup_boundary = source_boundary
-    output_boundary = (
-        Path(job.output_root).resolve(strict=False) if job.output_root else source_boundary
-    )
+    output_path = job.output_path
+    output_boundary = output_path.resolve(strict=False) if output_path else source_boundary
     context = RevertContext(
         job=job,
         undo=undo,
