@@ -103,7 +103,7 @@
    "loc": 5826
   },
   "tests/test_qt_media_workspace_review_actions.py": {
-   "loc": 596
+   "loc": 549
   },
   "tests/test_qt_queue_history.py": {
    "loc": 868

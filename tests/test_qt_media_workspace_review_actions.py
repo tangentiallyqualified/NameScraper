@@ -4,7 +4,6 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
-from _scanner_fakes import MetadataScannerFake
 from conftest_qt import QtSmokeBase
 from PySide6.QtWidgets import QPushButton
 
@@ -180,52 +179,6 @@ class QtMediaWorkspaceReviewActionsTests(QtSmokeBase):
         ]
         self.assertIn("Reassign...", card_labels)
         self.assertIn("Unassign", card_labels)
-
-        workspace.close()
-
-    def test_media_workspace_review_episode_fix_button_replaced_by_actions_menu(self):
-        # TODO(Task 12): restore end-to-end reassign assertions once dispatch is wired.
-        from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
-
-        review_item = PreviewItem(
-            original=Path("C:/library/tv/Example/Season 01/Example.S01E01.mkv"),
-            new_name="Example Show (2024) - S01E01 - Pilot.mkv",
-            target_dir=Path("C:/library/tv/Example Show (2024)/Season 01"),
-            season=1,
-            episodes=[1],
-            status="REVIEW: episode confidence below threshold",
-            episode_confidence=0.5,
-        )
-        state = ScanState(
-            folder=Path("C:/library/tv/Example"),
-            media_info={"id": 101, "name": "Example Show", "year": "2024"},
-            scanner=MetadataScannerFake(
-                {
-                    (1, 1): {"name": "Pilot"},
-                    (1, 2): {"name": "Second"},
-                }
-            ),
-            preview_items=[review_item],
-            scanned=True,
-            checked=False,
-            confidence=1.0,
-        )
-        workspace = MediaWorkspace(media_type="tv", media_controller=_FakeMediaController(state))
-        workspace.show()
-        workspace.show_ready()
-        self._app.processEvents()
-
-        panel = self._panel(workspace)
-        card_row = panel.model.row_for_preview_index(0)
-        self.assertGreaterEqual(card_row, 0)
-        card = _open_card(panel, card_row)
-
-        # New API: no per-row Fix button; reassign is an expansion-card action
-        # (round5 §4a hosts it in the header parity strip for Review rows).
-        card_labels = [
-            button.text() for button in card.header_action_buttons() + card.action_buttons()
-        ]
-        self.assertIn("Reassign...", card_labels)
 
         workspace.close()
 

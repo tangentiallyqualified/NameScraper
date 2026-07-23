@@ -2,7 +2,7 @@
  "coverage": {
   "available": true,
   "failed": false,
-  "input_digest": "9dcbae6d2ec4216790e7066cc675716516f1ab14d9c987d9e2b3b07370464d52",
+  "input_digest": "dae3d14c745fe5570c13af14e57c8f3ca9126831b8a32ebc934708f8bb1800a4",
   "module_count": 195,
   "partial": false,
   "reason": null,
@@ -102,7 +102,7 @@
   "statement_coverage": 89.6,
   "total_loc": 43570
  },
- "input_digest": "9dcbae6d2ec4216790e7066cc675716516f1ab14d9c987d9e2b3b07370464d52",
+ "input_digest": "dae3d14c745fe5570c13af14e57c8f3ca9126831b8a32ebc934708f8bb1800a4",
  "modules": {
   "plex_renamer/__init__.py": {
    "coverage_percent": 100.0,
@@ -5437,8 +5437,8 @@
   "coverage": {
    "available": true,
    "failed": false,
-   "input_digest": "887de33f7e98ccc7c928032a95d072efa0226dc589b3fd67b5449953d9c6688d",
-   "module_count": 194,
+   "input_digest": "6394fdf2bc128eec98f104963f3295ed3ac3357486a5cc091ef264d4825ce4dc",
+   "module_count": 195,
    "partial": false,
    "reason": null,
    "scope": {
@@ -5531,13 +5531,13 @@
     "protected-or-ambiguous": 99,
     "test-referenced": 3
    },
-   "files": 194,
+   "files": 195,
    "module_avg_coverage": 90.3,
    "modules_over_complexity": 67,
    "statement_coverage": 89.6,
-   "total_loc": 43533
+   "total_loc": 43570
   },
-  "input_digest": "887de33f7e98ccc7c928032a95d072efa0226dc589b3fd67b5449953d9c6688d",
+  "input_digest": "6394fdf2bc128eec98f104963f3295ed3ac3357486a5cc091ef264d4825ce4dc",
   "modules": {
    "plex_renamer/__init__.py": {
     "coverage_percent": 100.0,
@@ -5706,6 +5706,30 @@
     "loc": 84,
     "max_complexity": 7,
     "sha256": "e6bc4c412687e0d8"
+   },
+   "plex_renamer/_job_revert.py": {
+    "coverage_percent": 94.2,
+    "dead_allowlisted": 0,
+    "dead_candidates": 0,
+    "dead_evidence_usable": true,
+    "dead_exact_low_confidence": 0,
+    "dead_high_confidence": 0,
+    "dead_low_confidence": 0,
+    "dead_medium_confidence": 0,
+    "dead_protected_ambiguous": 0,
+    "dead_symbols": [],
+    "dead_test_referenced": 0,
+    "dead_tiers": {
+     "allowlisted": 0,
+     "high-confidence": 0,
+     "low-confidence": 0,
+     "medium-confidence": 0,
+     "protected-or-ambiguous": 0,
+     "test-referenced": 0
+    },
+    "loc": 252,
+    "max_complexity": 10,
+    "sha256": "ecbb0ca281df4d41"
    },
    "plex_renamer/_job_store_codec.py": {
     "coverage_percent": 100.0,
@@ -10645,7 +10669,7 @@
     "sha256": "c82d356649b5daaa"
    },
    "plex_renamer/job_executor.py": {
-    "coverage_percent": 81.4,
+    "coverage_percent": 77.4,
     "dead_allowlisted": 0,
     "dead_candidates": 0,
     "dead_evidence_usable": true,
@@ -10664,12 +10688,12 @@
      "protected-or-ambiguous": 0,
      "test-referenced": 0
     },
-    "loc": 880,
-    "max_complexity": 34,
-    "sha256": "0cba212302c7adc4"
+    "loc": 665,
+    "max_complexity": 26,
+    "sha256": "c6c64eabac6aa099"
    },
    "plex_renamer/job_store.py": {
-    "coverage_percent": 91.1,
+    "coverage_percent": 91.4,
     "dead_allowlisted": 0,
     "dead_candidates": 1,
     "dead_evidence_usable": true,
