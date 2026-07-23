@@ -115,14 +115,14 @@ def test_failed_id_lookup_falls_through(tmp_path: Path) -> None:
 @pytest.mark.parametrize("details_payload", [{}, {"name": "Show"}])
 def test_id_lookup_without_normalized_id_falls_through(
     tmp_path: Path,
-    details_payload: dict[str, Any],
+    details_payload: dict[str, object],
 ) -> None:
     show = tmp_path / "Breaking Bad (2008) {tvdb-81189}"
     show.mkdir()
     (show / "Breaking.Bad.S01E01.mkv").touch()
 
     class _MissingIdProvider(RecordingProvider):
-        def get_tv_details(self, show_id: int) -> dict[str, Any] | None:
+        def get_tv_details(self, show_id: int) -> dict[str, object] | None:
             self.calls.append(f"get_tv_details:{show_id}")
             return details_payload
 
