@@ -41,7 +41,12 @@ from ._job_execution_filesystem import (
 )
 from ._job_execution_metadata import execute_metadata_plan, materialized_extras
 from ._job_execution_remux import execute_remux_op
-from ._job_revert import RevertContext, destination_path_errors
+from ._job_revert import (
+    RevertContext,
+    destination_path_errors,
+    remove_generated_outputs,
+    restore_directories,
+)
 from .constants import JobKind, JobStatus, MediaType
 from .engine import RenameResult
 from .job_store import JobStore, RenameJob
@@ -499,74 +504,11 @@ def revert_job(job: RenameJob) -> tuple[bool, list[str]]:
     errors = context.errors
     moved_from_paths = context.moved_from_paths
 
-    # Delete remux outputs first — a remuxed file has no "old path" to move
-    # back to; undoing it means removing the generated output.
-    for output_str in undo.get("remux_outputs", []):
-        output_path = Path(output_str)
-        if output_boundary is not None:
-            try:
-                output_path.resolve(strict=False).relative_to(output_boundary)
-            except (OSError, ValueError):
-                errors.append(f"Remux output is outside the output root: {output_path}")
-                continue
-        try:
-            if output_path.exists():
-                output_path.unlink()
-                moved_from_paths.append(output_path)
-        except OSError as e:
-            errors.append(f"Could not remove remux output {output_path.name}: {e}")
+    # Delete generated outputs before restoring directory names.
+    remove_generated_outputs(context)
 
-    # Delete metadata sidecars created by the decorate phase.
-    for created_str in undo.get("created_files", []):
-        created_path = Path(created_str)
-        if output_boundary is not None:
-            try:
-                created_path.resolve(strict=False).relative_to(output_boundary)
-            except (OSError, ValueError):
-                errors.append(f"Created file is outside the output root: {created_path}")
-                continue
-        try:
-            if created_path.exists():
-                created_path.unlink()
-                moved_from_paths.append(created_path)
-        except OSError as e:
-            errors.append(f"Could not remove metadata file {created_path.name}: {e}")
-
-    # Revert folder renames (in reverse order)
+    restore_directories(context)
     dir_rename_map = context.dir_rename_map
-    for entry in reversed(undo.get("renamed_dirs", [])):
-        new_dir = Path(entry["new"])
-        old_dir = Path(entry["old"])
-        if output_boundary is not None:
-            path_errors = destination_path_errors(
-                new_path=new_dir,
-                old_path=old_dir,
-                output_boundary=output_boundary,
-                source_boundary=source_boundary,
-            )
-            if path_errors:
-                errors.extend(path_errors)
-                continue
-        try:
-            if new_dir.exists():
-                new_dir.rename(old_dir)
-                dir_rename_map[new_dir] = old_dir
-        except OSError as e:
-            errors.append(f"Could not revert folder {new_dir.name}: {e}")
-
-    # Recreate removed directories
-    for dir_path_str in undo.get("removed_dirs", []):
-        dir_path = Path(dir_path_str)
-        if output_boundary is not None:
-            try:
-                dir_path.resolve(strict=False).relative_to(source_boundary)
-            except (OSError, ValueError):
-                errors.append(f"Removed directory is outside the source root: {dir_path}")
-                continue
-        try:
-            dir_path.mkdir(parents=True, exist_ok=True)
-        except OSError as e:
-            errors.append(f"Could not recreate folder {dir_path.name}: {e}")
 
     # Move files back
     for entry in reversed(undo.get("renames", [])):
