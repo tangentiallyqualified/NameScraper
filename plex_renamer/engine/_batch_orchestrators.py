@@ -42,7 +42,12 @@ from ._batch_tv_season_merge import (
     resolve_season_folder as _resolve_tv_season_folder,
     season_merge_priority as _season_merge_priority,
 )
-from ._discovery_ports import MovieLibraryDiscoverer, TVDiscoveryCandidateLike, TVLibraryDiscoverer
+from ._discovery_ports import (
+    MovieDiscoveryCandidateLike,
+    MovieLibraryDiscoverer,
+    TVDiscoveryCandidateLike,
+    TVLibraryDiscoverer,
+)
 from ._provider_scan_guard import guard_season_map_scan
 from ._rename_execution import check_duplicates
 from ._scan_runtime import ScanCancelledError, _raise_if_cancelled, fail_scan_state
@@ -78,6 +83,8 @@ ShowCandidate = tuple[
     str | None,
     list[DirectEpisodeEvidence],
 ]
+
+MovieCandidate = tuple[MovieDiscoveryCandidateLike, str, str | None, Path | None]
 
 
 def _emit_scan_progress(
@@ -1185,7 +1192,7 @@ class BatchMovieOrchestrator:
 
         discovered = self.discovery_service.discover_movie_roots(self.root)
 
-        entries: list[tuple[object, str, str | None, Path | None]] = []
+        entries: list[MovieCandidate] = []
         for candidate in discovered:
             if candidate.discovery_reason == "multiple_direct_video_files":
                 video_files = sorted(
@@ -1368,6 +1375,8 @@ class BatchMovieOrchestrator:
             items: list[PreviewItem] = []
             for file in video_files:
                 item = _build_movie_preview_item(file, chosen, self.root)
+                if item.new_name is None:
+                    raise ValueError(f"movie preview has no target name: {file.name}")
                 item.companions = _build_subtitle_companions(file, item.new_name)
                 if state.confidence < get_auto_accept_threshold():
                     item.status = (
