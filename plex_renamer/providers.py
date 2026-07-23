@@ -22,6 +22,7 @@ from typing import Any, Protocol, cast, runtime_checkable
 from PIL import Image
 
 from ._provider_errors import SeasonMapUnavailableError as SeasonMapUnavailableError
+from .metadata_types import MediaInfo
 
 
 @runtime_checkable
@@ -31,7 +32,7 @@ class MetadataProvider(Protocol):
     provider_name: str
     language: str
 
-    def search_tv(self, query: str, year: str | None = None) -> list[dict[str, Any]]:
+    def search_tv(self, query: str, year: str | None = None) -> list[MediaInfo]:
         """[{"id": int, "name": str, "year": str, "poster_path": str|None,
         "overview": str}, ...] — best matches first."""
         ...
@@ -41,7 +42,7 @@ class MetadataProvider(Protocol):
         queries: list[tuple[str, str | None]],
         max_workers: int = 8,
         progress_callback: Callable[..., Any] | None = None,
-    ) -> list[list[dict[str, Any]]]:
+    ) -> list[list[MediaInfo]]:
         """One search_tv result list per (query, year_hint) input, same order."""
         ...
 

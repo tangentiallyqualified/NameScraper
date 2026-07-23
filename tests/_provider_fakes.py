@@ -14,6 +14,8 @@ from typing import Any
 
 from PIL import Image
 
+from plex_renamer.metadata_types import MediaInfo
+
 
 class RecordingProvider:
     def __init__(self, name: str) -> None:
@@ -21,7 +23,7 @@ class RecordingProvider:
         self.language = "en-US"
         self.calls: list[str] = []
 
-    def search_tv(self, query: str, year: str | None = None) -> list[dict[str, Any]]:
+    def search_tv(self, query: str, year: str | None = None) -> list[MediaInfo]:
         self.calls.append(f"search_tv:{query}")
         return []
 
@@ -30,7 +32,7 @@ class RecordingProvider:
         queries: list[tuple[str, str | None]],
         max_workers: int = 8,
         progress_callback: Callable[..., Any] | None = None,
-    ) -> list[list[dict[str, Any]]]:
+    ) -> list[list[MediaInfo]]:
         self.calls.append("search_tv_batch")
         return [[] for _ in queries]
 

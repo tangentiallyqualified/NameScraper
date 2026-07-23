@@ -9,9 +9,10 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Protocol, TypeAlias
+from typing import TYPE_CHECKING, Any, Protocol
 
 from ..constants import VIDEO_EXTENSIONS, MediaType
+from ..metadata_types import MediaInfo, MediaInfoValue as MediaInfoValue
 from ..parsing import (
     clean_folder_name,
     extract_episode,
@@ -27,9 +28,6 @@ if TYPE_CHECKING:
 
 EPISODE_REVIEW_STATUS_PREFIX = "REVIEW: episode confidence below threshold"
 SeasonFolderEntry = Path | tuple[Path, ...]
-MediaInfoValue: TypeAlias = str | int | float | None
-
-
 def iter_season_folder_paths(entry: SeasonFolderEntry) -> tuple[Path, ...]:
     if isinstance(entry, Path):
         return (entry,)
@@ -199,9 +197,9 @@ class TVScannerOperations(TVScanStateScanner, Protocol):
 class MovieScanStateScanner(Protocol):
     """Movie scanner capabilities retained by a shared ``ScanState``."""
 
-    def rematch_file(self, item: PreviewItem, chosen: dict) -> PreviewItem: ...
+    def rematch_file(self, item: PreviewItem, chosen: MediaInfo) -> PreviewItem: ...
 
-    def get_search_results(self, file_path: Path) -> list[dict]: ...
+    def get_search_results(self, file_path: Path) -> list[MediaInfo]: ...
 
 
 ScanStateScanner = TVScanStateScanner | MovieScanStateScanner
@@ -212,7 +210,7 @@ class ScanState:
     """Per-show scan state — decouples show-level data from the GUI."""
 
     folder: Path
-    media_info: dict[str, MediaInfoValue]
+    media_info: MediaInfo
     scanner: ScanStateScanner | None = None
     source_file: Path | None = None
     preview_items: list[PreviewItem] = field(default_factory=list)
@@ -223,8 +221,8 @@ class ScanState:
     confidence: float = 0.0
     match_origin: str = "auto"
     provider_name: str = "tmdb"
-    alternate_matches: list[dict] = field(default_factory=list)
-    search_results: list[dict] = field(default_factory=list)
+    alternate_matches: list[MediaInfo] = field(default_factory=list)
+    search_results: list[MediaInfo] = field(default_factory=list)
     relative_folder: str = ""
     output_root: Path | None = None
     parent_relative_folder: str | None = None
