@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import threading
 from collections import defaultdict
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
 from pathlib import Path, PurePosixPath
 from typing import cast
 
@@ -22,7 +22,7 @@ from ..parsing import (
 )
 from ..providers import MetadataProvider
 from ..tmdb import TMDBClient
-from . import _discovery_ports as _ports
+from . import _batch_types as _types, _discovery_ports as _ports
 from ._batch_tv_duplicates import (
     apply_duplicate_labels as _apply_tv_duplicate_labels,
     normalized_relative_folder as _normalized_tv_relative_folder,
@@ -74,7 +74,7 @@ _log = logging.getLogger(__name__)
 
 
 def _emit_scan_progress(
-    progress_callback: Callable[..., object] | None,
+    progress_callback: _types.ProgressCallback | None,
     done: int,
     total: int,
     current_item: str,
@@ -125,13 +125,13 @@ class BatchTVOrchestrator:
         discovery_service: _ports.TVLibraryDiscoverer,
         *,
         fallback_provider: MetadataProvider | None = None,
-        provider_overrides: dict | None = None,
+        provider_overrides: _types.ProviderOverrides | None = None,
         id_tag_routing: bool = True,
         fallback_matching: bool = True,
     ):
         self.tmdb = tmdb
         self.fallback_provider = fallback_provider
-        self.provider_overrides = dict(provider_overrides or {})
+        self.provider_overrides: dict[str, _types.ProviderOverride] = dict(provider_overrides or {})
         self.id_tag_routing = id_tag_routing
         # Gates ONLY the second-opinion PASS in _apply_fallback_matches —
         # independent of whether fallback_provider is pooled at all. Pin
@@ -222,8 +222,8 @@ class BatchTVOrchestrator:
         self,
         discovered: Sequence[_ports.TVDiscoveryCandidateLike],
         cancel_event: threading.Event | None = None,
-    ) -> list[_ports.ShowCandidate]:
-        candidates: list[_ports.ShowCandidate] = []
+    ) -> list[_types.ShowCandidate]:
+        candidates: list[_types.ShowCandidate] = []
         for candidate in discovered:
             raise_if_cancelled(cancel_event)
             # A candidate named only with a season/collection label
@@ -272,7 +272,7 @@ class BatchTVOrchestrator:
     @staticmethod
     def _candidate_state_kwargs(
         candidate: _ports.TVDiscoveryCandidateLike,
-    ) -> _ports.TVCandidateStateKwargs:
+    ) -> _types.TVCandidateStateKwargs:
         """Return the ``ScanState`` fields copied from a discovery candidate."""
         return {
             "relative_folder": candidate.relative_folder,
@@ -485,7 +485,7 @@ class BatchTVOrchestrator:
     def _try_id_tag_state(
         self,
         candidate: _ports.TVDiscoveryCandidateLike,
-        entry: _ports.ShowCandidate,
+        entry: _types.ShowCandidate,
     ) -> ScanState | None:
         """Resolve a bracketed provider-ID tag on *candidate* to a state.
 
@@ -560,7 +560,7 @@ class BatchTVOrchestrator:
 
     def discover_shows(
         self,
-        progress_callback: Callable[..., object] | None = None,
+        progress_callback: _types.ProgressCallback | None = None,
         cancel_event: threading.Event | None = None,
     ) -> list[ScanState]:
         """Phase 1: Find show folders and match to TMDB."""
@@ -670,10 +670,10 @@ class BatchTVOrchestrator:
 
     def _apply_fallback_matches(
         self,
-        candidates: list[_ports.ShowCandidate],
+        candidates: list[_types.ShowCandidate],
         states: list[ScanState],
         pinned_indices: set[int] | None = None,
-        progress_callback: Callable[..., object] | None = None,
+        progress_callback: _types.ProgressCallback | None = None,
         cancel_event: threading.Event | None = None,
     ) -> None:
         """Second-opinion pass: weak primary matches retry on the fallback
@@ -836,7 +836,7 @@ class BatchTVOrchestrator:
     def scan_show(
         self,
         state: ScanState,
-        progress_callback: Callable[..., object] | None = None,
+        progress_callback: _types.ProgressCallback | None = None,
         cancel_event: threading.Event | None = None,
     ) -> None:
         """Phase 2: Run TVScanner for a single show and populate its ScanState."""
@@ -911,7 +911,7 @@ class BatchTVOrchestrator:
 
     def scan_all(
         self,
-        progress_callback: Callable[..., object] | None = None,
+        progress_callback: _types.ProgressCallback | None = None,
         cancel_event: threading.Event | None = None,
     ) -> None:
         """Phase 2 bulk: Scan all shows that have a TMDB match."""
@@ -1154,14 +1154,14 @@ class BatchMovieOrchestrator:
 
     def discover_movies(
         self,
-        progress_callback: Callable[..., object] | None = None,
+        progress_callback: _types.ProgressCallback | None = None,
     ) -> list[ScanState]:
         """Phase 1: Find movie folders and match to TMDB."""
         from ._movie_scanner import _prepare_movie_query
 
         discovered = self.discovery_service.discover_movie_roots(self.root)
 
-        entries: list[_ports.MovieCandidate] = []
+        entries: list[_types.MovieCandidate] = []
         for candidate in discovered:
             if candidate.discovery_reason == "multiple_direct_video_files":
                 video_files = sorted(
@@ -1309,7 +1309,7 @@ class BatchMovieOrchestrator:
     def scan_movie(
         self,
         state: ScanState,
-        progress_callback: Callable[..., object] | None = None,
+        progress_callback: _types.ProgressCallback | None = None,
     ) -> None:
         """Phase 2: Build preview items for a single movie ScanState."""
         if state.scanned or state.scanning:
@@ -1374,7 +1374,7 @@ class BatchMovieOrchestrator:
 
     def scan_all(
         self,
-        progress_callback: Callable[..., object] | None = None,
+        progress_callback: _types.ProgressCallback | None = None,
     ) -> None:
         """Phase 2 bulk: Scan all movies that have a TMDB match."""
         to_scan = [

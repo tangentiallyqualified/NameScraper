@@ -22,6 +22,7 @@ from _provider_fakes import RecordingProvider
 
 from plex_renamer.app.services import TVLibraryDiscoveryService
 from plex_renamer.engine._batch_orchestrators import BatchTVOrchestrator
+from plex_renamer.engine._batch_types import ProviderOverrides
 from plex_renamer.engine._state import get_auto_accept_threshold, set_auto_accept_threshold
 from plex_renamer.engine.models import ScanState, show_pin_key
 
@@ -198,13 +199,13 @@ def test_pin_routes_discovery_search(tmp_path: Path) -> None:
     primary = _FixedBatchProvider("tmdb", {"widget falls": [_result(1, "Widget Falls", "1999")]})
     fallback = _FixedBatchProvider("tvdb", {"widget falls": [_result(2, "Widget Falls", "2023")]})
 
-    pin_key = show_pin_key(folder)
+    overrides: ProviderOverrides = {show_pin_key(folder): {"provider": "tvdb", "show_id": 5}}
     orch = BatchTVOrchestrator(
         primary,
         tmp_path,
         TVLibraryDiscoveryService(),
         fallback_provider=fallback,
-        provider_overrides={pin_key: {"provider": "tvdb", "show_id": 5}},
+        provider_overrides=overrides,
     )
     states = orch.discover_shows()
 
