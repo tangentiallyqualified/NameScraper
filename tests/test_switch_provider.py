@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any
 
 import pytest
@@ -213,6 +214,35 @@ def test_pin_routes_discovery_search(tmp_path: Path) -> None:
     assert states[0].provider_name == "tvdb"
     assert states[0].media_info.get("id") == 2
     # Only the pinned (fallback) provider was searched for this candidate.
+    assert "search_tv_batch" in fallback.calls
+    assert primary.calls == []
+
+
+def test_mapping_pin_routes_discovery_search(tmp_path: Path) -> None:
+    folder = _make_show(tmp_path, "Widget Falls", "Widget.Falls.S01E01.mkv")
+
+    primary = _FixedBatchProvider("tmdb", {"widget falls": [_result(1, "Widget Falls", "1999")]})
+    fallback = _FixedBatchProvider("tvdb", {"widget falls": [_result(2, "Widget Falls", "2023")]})
+    overrides: ProviderOverrides = MappingProxyType(
+        {
+            show_pin_key(folder): MappingProxyType(
+                {"provider": "tvdb", "show_id": 5},
+            ),
+        }
+    )
+
+    orch = BatchTVOrchestrator(
+        primary,
+        tmp_path,
+        TVLibraryDiscoveryService(),
+        fallback_provider=fallback,
+        provider_overrides=overrides,
+    )
+    states = orch.discover_shows()
+
+    assert len(states) == 1
+    assert states[0].provider_name == "tvdb"
+    assert states[0].media_info.get("id") == 2
     assert "search_tv_batch" in fallback.calls
     assert primary.calls == []
 

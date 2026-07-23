@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import threading
 from collections import defaultdict
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path, PurePosixPath
 from typing import cast
 
@@ -170,7 +170,7 @@ class BatchTVOrchestrator:
         ``provider_overrides`` (Task 9's pin-write helper), not here.
         """
         pin = self.provider_overrides.get(show_pin_key(folder))
-        if not isinstance(pin, dict):
+        if not isinstance(pin, Mapping):
             return None
         provider_name = pin.get("provider")
         if not isinstance(provider_name, str):
