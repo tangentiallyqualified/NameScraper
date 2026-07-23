@@ -6,26 +6,26 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from typing import Any, TypeAlias
+from typing import TypeAlias
 
+from ..metadata_types import ScoredMediaInfo
 from ..providers import MetadataProvider, SeasonMapUnavailableError
 from .models import DirectEpisodeEvidence
 
 _log = logging.getLogger(__name__)
 
-ScoredResults: TypeAlias = list[tuple[dict[str, Any], float]]
 EpisodeBoost: TypeAlias = Callable[
-    [MetadataProvider, ScoredResults, list[DirectEpisodeEvidence]],
-    ScoredResults,
+    [MetadataProvider, ScoredMediaInfo, list[DirectEpisodeEvidence]],
+    ScoredMediaInfo,
 ]
 
 
 def boost_tv_scores_or_keep(
     provider: MetadataProvider,
-    scored: ScoredResults,
+    scored: ScoredMediaInfo,
     evidence: list[DirectEpisodeEvidence],
     boost: EpisodeBoost,
-) -> ScoredResults:
+) -> ScoredMediaInfo:
     """Keep title-only scores when optional episode metadata is unavailable."""
     try:
         return boost(provider, scored, evidence)

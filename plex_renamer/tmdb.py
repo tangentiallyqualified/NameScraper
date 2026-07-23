@@ -49,6 +49,7 @@ from ._tmdb_transport import (
     TMDBRateLimitError as TMDBRateLimitError,
     TMDBTransport,
 )
+from .metadata_types import MediaInfo
 
 IMAGE_BASE_URL = "https://image.tmdb.org/t/p/w500"
 API_BASE = "https://api.themoviedb.org/3"
@@ -133,7 +134,7 @@ class TMDBClient:
 
     # ─── TV Series ────────────────────────────────────────────────────
 
-    def search_tv(self, query: str, year: str | None = None) -> list[dict]:
+    def search_tv(self, query: str, year: str | None = None) -> list[MediaInfo]:
         """
         Search TMDB for TV series matching *query*.
 
@@ -215,7 +216,7 @@ class TMDBClient:
 
     # ─── Movies ───────────────────────────────────────────────────────
 
-    def search_movie(self, query: str, year: str | None = None) -> list[dict]:
+    def search_movie(self, query: str, year: str | None = None) -> list[MediaInfo]:
         """
         Search TMDB for movies matching *query*.
 
@@ -291,8 +292,8 @@ class TMDBClient:
         self,
         queries: list[tuple[str, str | None]],
         max_workers: int = 8,
-        progress_callback: Callable | None = None,
-    ) -> list[list[dict]]:
+        progress_callback: Callable[..., object] | None = None,
+    ) -> list[list[MediaInfo]]:
         """
         Search TMDB for multiple movies in parallel.
 
@@ -323,8 +324,8 @@ class TMDBClient:
         self,
         queries: list[tuple[str, str | None]],
         max_workers: int = 8,
-        progress_callback: Callable | None = None,
-    ) -> list[list[dict]]:
+        progress_callback: Callable[..., object] | None = None,
+    ) -> list[list[MediaInfo]]:
         """
         Search TMDB for multiple TV shows in parallel.
 
@@ -355,10 +356,10 @@ class TMDBClient:
     def search_with_fallback(
         self,
         query: str,
-        search_fn: Callable,
+        search_fn: Callable[..., list[MediaInfo]],
         min_words: int = 1,
-        **kwargs,
-    ) -> list[dict]:
+        **kwargs: object,
+    ) -> list[MediaInfo]:
         """
         Search TMDB with progressive query trimming.
 
@@ -422,7 +423,7 @@ class TMDBClient:
         try:
             scale = target_width / source.width
             new_h = int(source.height * scale)
-            img = source.resize((target_width, new_h), Image.LANCZOS)
+            img = source.resize((target_width, new_h), Image.Resampling.LANCZOS)
             self._image_cache_store.store_image(image_path, target_width, img)
             return img
         except (OSError, ValueError) as e:

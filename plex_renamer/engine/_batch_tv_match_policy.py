@@ -4,9 +4,19 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from ..metadata_types import MediaInfo, MediaInfoValue, ScoredMediaInfo
 from ..parsing import clean_folder_name, get_season, normalize_for_match
 from ..providers import MetadataProvider
 from .show_details import ShowDetails, show_details_from_tmdb
+
+
+def _number_value(result: MediaInfo, key: str) -> str | int | float | None:
+    value: MediaInfoValue = result.get(key)
+    return value if isinstance(value, (str, int, float)) else None
+
+
+def _season_numbers(explicit_seasons: set[int] | None) -> set[int]:
+    return explicit_seasons if explicit_seasons is not None else set()
 
 
 def count_season_subdirs(folder: Path) -> int:
@@ -38,12 +48,12 @@ def _season_episode_count(details: ShowDetails, explicit_seasons: set[int]) -> i
 
 def episode_count_tiebreak(
     tmdb: MetadataProvider,
-    scored: list[tuple[dict, float]],
+    scored: ScoredMediaInfo,
     file_count: int,
     threshold: float = 0.10,
     compare_seasons: bool = False,
     explicit_seasons: set[int] | None = None,
-) -> tuple[dict, float, bool]:
+) -> tuple[MediaInfo, float, bool]:
     """Re-rank near-tied TMDB candidates by episode/season count proximity.
 
     When *explicit_seasons* is supplied (and we are comparing episode counts,
@@ -58,15 +68,16 @@ def episode_count_tiebreak(
     contender's — real identity evidence that should also break a same-name
     tie (RC38), not just reorder it.
     """
-    use_season_subset = bool(explicit_seasons) and not compare_seasons
+    season_numbers = _season_numbers(explicit_seasons)
+    use_season_subset = bool(season_numbers) and not compare_seasons
     top_score = scored[0][1]
-    contenders: list[tuple[dict, float, int, bool]] = []
+    contenders: list[tuple[MediaInfo, float, int, bool]] = []
 
     for result, score in scored:
         if top_score - score > threshold:
             break
         show_id = result.get("id")
-        if show_id is None:
+        if not isinstance(show_id, int):
             continue
         details = show_details_from_tmdb(tmdb.get_tv_details(show_id))
         if details is None:
@@ -76,7 +87,7 @@ def episode_count_tiebreak(
             return scored[0][0], scored[0][1], False
         count = details.number_of_seasons if compare_seasons else details.number_of_episodes
         if use_season_subset:
-            season_count = _season_episode_count(details, explicit_seasons)
+            season_count = _season_episode_count(details, season_numbers)
             if season_count is not None:
                 count = season_count
         contenders.append((result, score, count, details.unaired))
@@ -98,8 +109,8 @@ def episode_count_tiebreak(
 
 
 def primary_name_breaks_tie(
-    best: dict,
-    runner_up: dict,
+    best: MediaInfo,
+    runner_up: MediaInfo,
     query_name: str,
     year_hint: str | None,
 ) -> bool:
@@ -116,14 +127,20 @@ def primary_name_breaks_tie(
     )
     if not query_norm:
         return False
-    best_exact = normalize_for_match(best.get("name") or "") == query_norm
-    runner_exact = normalize_for_match(runner_up.get("name") or "") == query_norm
+    best_name = best.get("name")
+    runner_name = runner_up.get("name")
+    best_exact = normalize_for_match(best_name if isinstance(best_name, str) else "") == query_norm
+    runner_exact = (
+        normalize_for_match(runner_name if isinstance(runner_name, str) else "") == query_norm
+    )
     if not best_exact or runner_exact:
         return False
-    if year_hint and best.get("year") and runner_up.get("year"):
+    best_year = _number_value(best, "year")
+    runner_year = _number_value(runner_up, "year")
+    if year_hint and best_year and runner_year:
         try:
-            best_diff = abs(int(best["year"]) - int(year_hint))
-            runner_diff = abs(int(runner_up["year"]) - int(year_hint))
+            best_diff = abs(int(best_year) - int(year_hint))
+            runner_diff = abs(int(runner_year) - int(year_hint))
         except (ValueError, TypeError):
             return True
         return best_diff <= runner_diff
@@ -131,8 +148,8 @@ def primary_name_breaks_tie(
 
 
 def year_hint_breaks_tie(
-    best: dict,
-    runner_up: dict,
+    best: MediaInfo,
+    runner_up: MediaInfo,
     year_hint: str | None,
 ) -> bool:
     """True when the folder's year hint matches exactly one candidate.
@@ -143,10 +160,12 @@ def year_hint_breaks_tie(
     """
     if not year_hint:
         return False
+    best_year_value = _number_value(best, "year")
+    runner_year_value = _number_value(runner_up, "year")
     try:
         hint = int(year_hint)
-        best_year = int(best.get("year") or 0)
-        runner_year = int(runner_up.get("year") or 0)
+        best_year = int(best_year_value or 0)
+        runner_year = int(runner_year_value or 0)
     except (ValueError, TypeError):
         return False
     if not best_year or not runner_year:

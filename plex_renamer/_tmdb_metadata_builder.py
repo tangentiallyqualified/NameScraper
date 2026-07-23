@@ -4,40 +4,46 @@ from __future__ import annotations
 
 from typing import Any
 
+from .metadata_types import MediaInfo
 
-def build_tv_search_results(data: dict | None) -> list[dict]:
+
+def build_tv_search_results(data: dict | None) -> list[MediaInfo]:
     if not data:
         return []
 
-    results: list[dict] = []
+    results: list[MediaInfo] = []
     for show in data.get("results", []):
         air_date = show.get("first_air_date") or ""
         year = air_date[:4] if len(air_date) >= 4 else ""
-        results.append({
-            "id": show["id"],
-            "name": show["name"],
-            "year": year,
-            "poster_path": show.get("poster_path"),
-            "overview": show.get("overview", ""),
-        })
+        results.append(
+            {
+                "id": show["id"],
+                "name": show["name"],
+                "year": year,
+                "poster_path": show.get("poster_path"),
+                "overview": show.get("overview", ""),
+            }
+        )
     return results
 
 
-def build_movie_search_results(data: dict | None) -> list[dict]:
+def build_movie_search_results(data: dict | None) -> list[MediaInfo]:
     if not data:
         return []
 
-    results: list[dict] = []
+    results: list[MediaInfo] = []
     for movie in data.get("results", []):
         release_date = movie.get("release_date") or ""
         year = release_date[:4] if len(release_date) >= 4 else ""
-        results.append({
-            "id": movie["id"],
-            "title": movie["title"],
-            "year": year,
-            "poster_path": movie.get("poster_path"),
-            "overview": movie.get("overview", ""),
-        })
+        results.append(
+            {
+                "id": movie["id"],
+                "title": movie["title"],
+                "year": year,
+                "poster_path": movie.get("poster_path"),
+                "overview": movie.get("overview", ""),
+            }
+        )
     return results
 
 
@@ -113,10 +119,7 @@ def select_logo_path(details: dict | None, language: str) -> str | None:
     # TMDB serves some logos as .svg; those would be written into a
     # clearlogo.png file unrenderable by Plex/media players, so only
     # PNG candidates are eligible before scoring.
-    logos = [
-        logo for logo in logos
-        if str(logo.get("file_path") or "").lower().endswith(".png")
-    ]
+    logos = [logo for logo in logos if str(logo.get("file_path") or "").lower().endswith(".png")]
     lang2 = (language or "en-US").split("-")[0]
 
     def score(logo: dict) -> tuple[float, int]:
@@ -126,10 +129,7 @@ def select_logo_path(details: dict | None, language: str) -> str | None:
         )
 
     for wanted in (lang2, None):
-        pool = [
-            logo for logo in logos
-            if logo.get("iso_639_1") == wanted and logo.get("file_path")
-        ]
+        pool = [logo for logo in logos if logo.get("iso_639_1") == wanted and logo.get("file_path")]
         if pool:
             return max(pool, key=score)["file_path"]
     return None

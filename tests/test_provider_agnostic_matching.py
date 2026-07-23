@@ -9,8 +9,9 @@ from typing import Any
 from PIL import Image
 
 from plex_renamer.engine.matching import (
-    score_tv_results,  # pyright: ignore[reportUnknownVariableType]
+    score_tv_results,
 )
+from plex_renamer.metadata_types import MediaInfo, ScoredMediaInfo
 from plex_renamer.providers import MetadataProvider
 
 
@@ -18,7 +19,7 @@ class FakeProvider:
     provider_name = "fake"
     language = "en-US"
 
-    def search_tv(self, query: str, year: str | None = None) -> list[dict[str, Any]]:
+    def search_tv(self, query: str, year: str | None = None) -> list[MediaInfo]:
         return []
 
     def search_tv_batch(
@@ -26,18 +27,17 @@ class FakeProvider:
         queries: list[tuple[str, str | None]],
         max_workers: int = 8,
         progress_callback: Callable[..., Any] | None = None,
-    ) -> list[list[dict[str, Any]]]:
+    ) -> list[list[MediaInfo]]:
         return [[] for _ in queries]
 
     def search_with_fallback(
         self,
         query: str,
-        search_fn: Callable[..., Any],
+        search_fn: Callable[..., list[MediaInfo]],
         min_words: int = 1,
         **kwargs: Any,
-    ) -> list[dict[str, Any]]:
-        result: list[dict[str, Any]] = search_fn(query, **kwargs)
-        return result
+    ) -> list[MediaInfo]:
+        return search_fn(query, **kwargs)
 
     def get_tv_details(self, show_id: int) -> dict[str, Any] | None:
         return {
@@ -89,7 +89,7 @@ def test_fake_provider_satisfies_protocol() -> None:
 
 
 def test_score_tv_results_accepts_any_provider(tmp_path: Path) -> None:
-    results: list[dict[str, Any]] = [
+    results: list[MediaInfo] = [
         {
             "id": 1,
             "name": "Frieren: Beyond Journey's End",
@@ -105,10 +105,38 @@ def test_score_tv_results_accepts_any_provider(tmp_path: Path) -> None:
             "overview": "",
         },
     ]
-    scored: list[tuple[dict[str, Any], float]] = score_tv_results(  # pyright: ignore[reportUnknownVariableType]
+    scored: ScoredMediaInfo = score_tv_results(
         results, "Frieren", "2023", FakeProvider(), folder=tmp_path
     )
     assert len(scored) == 2
     scored_ids = {result["id"] for result, _score in scored}
     assert scored_ids == {1, 2}
     assert scored[0][0]["id"] == 1
+
+
+class _RejectsNonIntegerAltTitleIds(FakeProvider):
+    def get_alternative_titles(
+        self, media_id: int, media_type: str = "movie"
+    ) -> list[tuple[str, str]]:
+        assert isinstance(media_id, int)
+        return []
+
+
+def test_score_tv_results_skips_non_integer_media_id(tmp_path: Path) -> None:
+    result: MediaInfo = {
+        "id": "invalid",
+        "name": "Unrelated Show",
+        "year": "1999",
+        "poster_path": None,
+        "overview": "",
+    }
+
+    scored = score_tv_results(
+        [result],
+        "Expected Show",
+        "2024",
+        _RejectsNonIntegerAltTitleIds(),
+        folder=tmp_path,
+    )
+
+    assert scored[0][0] is result
