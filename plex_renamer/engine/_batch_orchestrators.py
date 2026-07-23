@@ -10,7 +10,7 @@ from pathlib import Path, PurePosixPath
 from typing import cast
 
 from ..constants import SCORE_TIE_MARGIN, VIDEO_EXTENSIONS
-from ..metadata_types import MediaInfo
+from ..metadata_types import MediaInfo, ScoredMediaInfo
 from ..parsing import (
     best_tv_match_title,
     clean_folder_name,
@@ -182,13 +182,13 @@ class BatchTVOrchestrator:
 
     def _episode_count_tiebreak(
         self,
-        scored: list[tuple[dict, float]],
+        scored: ScoredMediaInfo,
         file_count: int,
         threshold: float = 0.10,
         compare_seasons: bool = False,
         explicit_seasons: set[int] | None = None,
         provider: MetadataProvider | None = None,
-    ) -> tuple[dict, float, bool]:
+    ) -> tuple[MediaInfo, float, bool]:
         return _episode_count_tiebreak(
             provider or self.tmdb,
             scored,
@@ -290,7 +290,7 @@ class BatchTVOrchestrator:
         candidate: _ports.TVDiscoveryCandidateLike,
         folder: Path,
         year_hint: str | None,
-        results: list[dict],
+        results: list[MediaInfo],
         episode_evidence: list[DirectEpisodeEvidence],
         provider_name: str = "tmdb",
     ) -> ScanState:
@@ -340,10 +340,10 @@ class BatchTVOrchestrator:
         folder_score_name: str,
         year_hint: str | None,
         episode_evidence: list[DirectEpisodeEvidence],
-        results: list[dict],
+        results: list[MediaInfo],
         cancel_event: threading.Event | None = None,
         provider: MetadataProvider | None = None,
-    ) -> tuple[dict, float, list[dict], bool, dict[int, str]]:
+    ) -> tuple[MediaInfo, float, list[MediaInfo], bool, dict[int, str]]:
         provider = provider or self.tmdb
         scored = score_tv_results(
             results,
@@ -398,7 +398,7 @@ class BatchTVOrchestrator:
 
         alternates = pick_alternate_matches(
             scored,
-            selected_id=best.get("id"),
+            selected_id=best_id if type(best_id := best.get("id")) is int else None,
             limit=3,
         )
 
@@ -437,7 +437,7 @@ class BatchTVOrchestrator:
         folder_score_name: str,
         year_hint: str | None,
         episode_evidence: list[DirectEpisodeEvidence],
-        results: list[dict],
+        results: list[MediaInfo],
         cancel_event: threading.Event | None = None,
         provider: MetadataProvider | None = None,
     ) -> ScanState:
@@ -477,7 +477,7 @@ class BatchTVOrchestrator:
             season_assignment=infer_explicit_season_assignment(
                 folder,
                 episode_evidence,
-                show_name=best.get("name"),
+                show_name=best_name if isinstance(best_name := best.get("name"), str) else None,
             ),
             **self._candidate_state_kwargs(candidate),
         )
@@ -598,7 +598,7 @@ class BatchTVOrchestrator:
                 provider_by_index[candidate_index] = self.tmdb
                 search_groups[self.tmdb.provider_name].append(candidate_index)
 
-        results_by_index: dict[int, list[dict]] = {}
+        results_by_index: dict[int, list[MediaInfo]] = {}
         for indices in search_groups.values():
             provider = provider_by_index[indices[0]]
             queries = [(candidates[i][1], candidates[i][4]) for i in indices]
@@ -763,7 +763,7 @@ class BatchTVOrchestrator:
             state.season_assignment = infer_explicit_season_assignment(
                 candidate.folder,
                 evidence,
-                show_name=best.get("name"),
+                show_name=best_name if isinstance(best_name := best.get("name"), str) else None,
             )
 
     def merge_rematched_state(self, state: ScanState) -> ScanState:
@@ -1014,7 +1014,7 @@ class BatchTVOrchestrator:
                         fail_scan_state(reconciled, error),
                     )
 
-    def rematch_show(self, state: ScanState, new_match: dict) -> ScanState:
+    def rematch_show(self, state: ScanState, new_match: MediaInfo) -> ScanState:
         """Swap a show's TMDB match and invalidate its scan data."""
         state.media_info = new_match
         raw_name = best_tv_match_title(state.folder)
@@ -1049,9 +1049,7 @@ class BatchTVOrchestrator:
         state.match_origin = "manual"
         state.provider_name = provider_name
         state.search_results = results
-        state.alternate_matches = pick_alternate_matches(
-            scored, selected_id=best.get("id"), limit=3
-        )
+        state.alternate_matches = pick_alternate_matches(scored, selected_id=state.show_id, limit=3)
         state.tie_detected = False
         details = self._show_details_for_match(best, provider)
         state.season_names = self._season_names_for_match(details)
@@ -1062,7 +1060,8 @@ class BatchTVOrchestrator:
         # discover_shows/_apply_fallback_matches) — passing evidence=None
         # lets the helper collect direct S##E## evidence from disk itself.
         state.season_assignment = infer_explicit_season_assignment(
-            state.folder, show_name=best.get("name")
+            state.folder,
+            show_name=best_name if isinstance(best_name := best.get("name"), str) else None,
         )
         state.reset_scan()
         merged = self.merge_rematched_state(state)
@@ -1157,7 +1156,7 @@ class BatchMovieOrchestrator:
         progress_callback: _types.ProgressCallback | None = None,
     ) -> list[ScanState]:
         """Phase 1: Find movie folders and match to TMDB."""
-        from ._movie_scanner import _prepare_movie_query
+        from ._movie_scanner import prepare_movie_query
 
         discovered = self.discovery_service.discover_movie_roots(self.root)
 
@@ -1173,7 +1172,7 @@ class BatchMovieOrchestrator:
                     and not is_sample_file(file)
                 )
                 for video_file in video_files:
-                    query, year, _raw = _prepare_movie_query(video_file.stem)
+                    query, year, _raw = prepare_movie_query(video_file.stem)
                     entries.append((candidate, query, year, video_file))
             else:
                 cleaned = clean_folder_name(candidate.folder.name, include_year=False)
@@ -1263,8 +1262,8 @@ class BatchMovieOrchestrator:
             best_score = apply_movie_confidence_adjustments(
                 raw_confidence=pre_adjust_best,
                 file_path=evidence_path,
-                tmdb_title=best.get("title", ""),
-                tmdb_year=best.get("year"),
+                tmdb_title=title if isinstance(title := best.get("title"), str) else "",
+                tmdb_year=year if isinstance(year := best.get("year"), str) else None,
             )
 
             state = ScanState(
@@ -1284,7 +1283,7 @@ class BatchMovieOrchestrator:
             )
             states.append(state)
 
-        def _sort_key(state: ScanState) -> tuple:
+        def _sort_key(state: ScanState) -> tuple[int, str, str]:
             if state.duplicate_of is not None:
                 group = 3
             elif state.show_id is None:
@@ -1320,8 +1319,8 @@ class BatchMovieOrchestrator:
 
         from ._movie_scanner import (
             MovieScanner,
-            _build_movie_preview_item,
-            _build_subtitle_companions,
+            build_movie_preview_item,
+            build_subtitle_companions,
         )
 
         state.scanning = True
@@ -1343,9 +1342,9 @@ class BatchMovieOrchestrator:
 
             items: list[PreviewItem] = []
             for file in video_files:
-                item = _build_movie_preview_item(file, chosen, self.root)
+                item = build_movie_preview_item(file, chosen, self.root)
                 new_name = cast(str, item.new_name)
-                item.companions = _build_subtitle_companions(file, new_name)
+                item.companions = build_subtitle_companions(file, new_name)
                 if state.confidence < get_auto_accept_threshold():
                     item.status = (
                         f'REVIEW: best match "{chosen.get("title", "")}" '

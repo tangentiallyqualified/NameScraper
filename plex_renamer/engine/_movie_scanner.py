@@ -9,6 +9,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from ..constants import VIDEO_EXTENSIONS, YEAR_MAX, YEAR_MIN, MediaType
+from ..metadata_types import MediaInfo
 from ..parsing import (
     build_movie_name,
     clean_folder_name,
@@ -30,7 +31,7 @@ from .matching import (
 from .models import CompanionFile, PreviewItem
 
 
-def _build_subtitle_companions(
+def build_subtitle_companions(
     video_path: Path,
     video_new_name: str,
 ) -> list[CompanionFile]:
@@ -54,7 +55,7 @@ def _build_subtitle_companions(
     ]
 
 
-def _prepare_movie_query(stem: str) -> tuple[str, str | None, str]:
+def prepare_movie_query(stem: str) -> tuple[str, str | None, str]:
     """Clean a filename stem into a TMDB search query and year hint."""
     raw_name = clean_folder_name(stem)
     search_query = clean_folder_name(stem, include_year=False)
@@ -62,9 +63,9 @@ def _prepare_movie_query(stem: str) -> tuple[str, str | None, str]:
     return search_query, year_hint, raw_name
 
 
-def _build_movie_preview_item(
+def build_movie_preview_item(
     file_path: Path,
-    chosen: dict,
+    chosen: MediaInfo,
     root_folder: Path,
 ) -> PreviewItem:
     """Build a PreviewItem from a chosen TMDB movie match."""
@@ -88,6 +89,11 @@ def _build_movie_preview_item(
     )
 
 
+_build_subtitle_companions = build_subtitle_companions
+_prepare_movie_query = prepare_movie_query
+_build_movie_preview_item = build_movie_preview_item
+
+
 class MovieScanner:
     """Scan movie files and build PreviewItems using TMDB data."""
 
@@ -103,8 +109,8 @@ class MovieScanner:
         self.root = root_folder
         self._explicit_files = files
         self._tv_discovery_service = tv_discovery_service
-        self.movie_info: dict[Path, dict] = {}
-        self._search_cache: dict[Path, list[dict]] = {}
+        self.movie_info: dict[Path, MediaInfo] = {}
+        self._search_cache: dict[Path, list[MediaInfo]] = {}
 
     @property
     def explicit_files(self) -> list[Path] | None:
@@ -278,7 +284,7 @@ class MovieScanner:
         if len(video_files) == 1:
             return items + self._scan_single(video_files[0], pick_movie_callback)
 
-        prepared = [_prepare_movie_query(file_path.stem) for file_path in video_files]
+        prepared = [prepare_movie_query(file_path.stem) for file_path in video_files]
 
         def _progress(done, total, current_item=""):
             _raise_if_cancelled(cancel_event)
@@ -330,9 +336,9 @@ class MovieScanner:
                 tmdb_year=chosen.get("year"),
             )
 
-            item = _build_movie_preview_item(file_path, chosen, self.root)
+            item = build_movie_preview_item(file_path, chosen, self.root)
             item.episode_confidence = confidence
-            item.companions = _build_subtitle_companions(file_path, item.new_name)
+            item.companions = build_subtitle_companions(file_path, item.new_name)
             if confidence < get_auto_accept_threshold():
                 item.status = (
                     f'REVIEW: best match "{chosen["title"]}" '
@@ -352,7 +358,7 @@ class MovieScanner:
         pick_movie_callback: Callable | None,
     ) -> list[PreviewItem]:
         """Handle single-file scan with confirmation dialog."""
-        search_query, year_hint, _raw_name = _prepare_movie_query(file_path.stem)
+        search_query, year_hint, _raw_name = prepare_movie_query(file_path.stem)
 
         results = self.tmdb.search_with_fallback(
             search_query,
@@ -390,41 +396,41 @@ class MovieScanner:
             ]
 
         self.movie_info[file_path] = chosen
-        item = _build_movie_preview_item(file_path, chosen, self.root)
+        item = build_movie_preview_item(file_path, chosen, self.root)
         # Manual single-file selection: user picked from the dialog, treat as 1.0.
         item.episode_confidence = 1.0
-        item.companions = _build_subtitle_companions(file_path, item.new_name)
+        item.companions = build_subtitle_companions(file_path, item.new_name)
         return [item]
 
     def rematch_file(
         self,
         item: PreviewItem,
-        chosen: dict,
+        chosen: MediaInfo,
     ) -> PreviewItem:
         """Re-match a single file to a different TMDB movie."""
         self.movie_info[item.original] = chosen
-        new_item = _build_movie_preview_item(item.original, chosen, self.root)
+        new_item = build_movie_preview_item(item.original, chosen, self.root)
         new_item.episode_confidence = 1.0
         return new_item
 
-    def set_movie_info(self, file_path: Path, info: dict) -> None:
+    def set_movie_info(self, file_path: Path, info: MediaInfo) -> None:
         """Hydrate cached movie metadata for a file during session restore."""
         self.movie_info[file_path] = dict(info)
 
-    def set_search_results(self, file_path: Path, results: list[dict]) -> None:
+    def set_search_results(self, file_path: Path, results: list[MediaInfo]) -> None:
         """Hydrate cached TMDB search results for a file during session restore."""
         self._search_cache[file_path] = list(results)
 
-    def get_search_results(self, file_path: Path) -> list[dict]:
+    def get_search_results(self, file_path: Path) -> list[MediaInfo]:
         """Return cached TMDB search results for a file."""
         return self._search_cache.get(file_path, [])
 
     def _best_match(
         self,
-        results: list[dict],
+        results: list[MediaInfo],
         raw_name: str,
         year_hint: str | None,
-    ) -> tuple[dict, float]:
+    ) -> tuple[MediaInfo, float]:
         """Pick the best TMDB result using title similarity and year matching."""
         scored = score_results(results, raw_name, year_hint, title_key="title")
         if not scored:

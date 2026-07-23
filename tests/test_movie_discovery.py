@@ -3,12 +3,38 @@ from __future__ import annotations
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import assert_type
 
 from plex_renamer.app.models import MovieDirectoryRole
 from plex_renamer.app.services import MovieLibraryDiscoveryService
+from plex_renamer.engine._movie_scanner import MovieScanner
+from plex_renamer.metadata_types import MediaInfo
+from plex_renamer.tmdb import TMDBClient
 
 
 class MovieDiscoveryTests(unittest.TestCase):
+    def test_movie_scanner_hydrates_typed_metadata_caches(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            movie_file = root / "Inception.mkv"
+            info: MediaInfo = {
+                "id": 27205,
+                "title": "Inception",
+                "year": "2010",
+                "poster_path": None,
+                "overview": "A dream within a dream.",
+            }
+            scanner = MovieScanner(TMDBClient("key"), root)
+
+            scanner.set_movie_info(movie_file, info)
+            scanner.set_search_results(movie_file, [info])
+            hydrated_results: list[MediaInfo] = scanner.get_search_results(movie_file)
+
+            assert_type(scanner.movie_info, dict[Path, MediaInfo])
+            assert_type(scanner.get_search_results(movie_file), list[MediaInfo])
+            self.assertEqual(scanner.movie_info[movie_file], info)
+            self.assertEqual(hydrated_results, [info])
+
     def test_flat_movie_library_with_title_year_folders(self):
         """Flat layout: each movie in its own Title (Year) folder."""
         with TemporaryDirectory() as tmp:
