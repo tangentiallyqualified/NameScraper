@@ -230,16 +230,18 @@ class QtMediaWorkspaceReviewActionsTests(QtSmokeBase):
                 EpisodeAssignDialog,
                 "pick_episodes",
                 return_value=[(1, 2)],
-            ),
+            ) as pick,
             patch.object(
                 EpisodeMappingService,
                 "assign_file",
                 autospec=True,
                 return_value=None,
-            ),
+            ) as assign,
         ):
             button.click()
             self._app.processEvents()
+        pick.assert_called_once()
+        assign.assert_called_once()
 
         review_item = next(item for item in state.preview_items if item.file_id == entry.file_id)
         self.assertEqual(review_item.season, 1)
