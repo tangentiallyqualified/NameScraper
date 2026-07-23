@@ -41,6 +41,7 @@ from ._job_execution_filesystem import (
 )
 from ._job_execution_metadata import execute_metadata_plan, materialized_extras
 from ._job_execution_remux import execute_remux_op
+from ._job_revert import RevertContext, destination_path_errors
 from .constants import JobKind, JobStatus, MediaType
 from .engine import RenameResult
 from .job_store import JobStore, RenameJob
@@ -463,27 +464,6 @@ def _cleanup_empty_output_dirs(
             break
 
 
-def _destination_revert_path_errors(
-    *,
-    new_path: Path,
-    old_path: Path,
-    output_boundary: Path,
-    source_boundary: Path,
-) -> list[str]:
-    errors: list[str] = []
-    try:
-        new_path.resolve(strict=False).relative_to(output_boundary)
-    except (OSError, ValueError):
-        errors.append(f"Revert source is outside the output root: {new_path}")
-
-    try:
-        old_path.resolve(strict=False).relative_to(source_boundary)
-    except (OSError, ValueError):
-        errors.append(f"Revert target is outside the source root: {old_path}")
-
-    return errors
-
-
 def revert_job(job: RenameJob) -> tuple[bool, list[str]]:
     """
     Revert a single completed job using its stored undo data.
@@ -499,8 +479,6 @@ def revert_job(job: RenameJob) -> tuple[bool, list[str]]:
     undo = job.undo_data
     library_root = Path(job.library_root)
     source_folder = Path(job.source_folder)
-    errors: list[str] = []
-    moved_from_paths: list[Path] = []
     source_boundary = library_root.resolve(strict=False)
     try:
         cleanup_boundary = (library_root / source_folder.parent).resolve(strict=False)
@@ -510,6 +488,16 @@ def revert_job(job: RenameJob) -> tuple[bool, list[str]]:
     output_boundary = (
         Path(job.output_root).resolve(strict=False) if job.output_root else source_boundary
     )
+    context = RevertContext(
+        job=job,
+        undo=undo,
+        library_root=library_root,
+        source_boundary=source_boundary,
+        output_boundary=output_boundary,
+        cleanup_boundary=cleanup_boundary,
+    )
+    errors = context.errors
+    moved_from_paths = context.moved_from_paths
 
     # Delete remux outputs first — a remuxed file has no "old path" to move
     # back to; undoing it means removing the generated output.
@@ -545,12 +533,12 @@ def revert_job(job: RenameJob) -> tuple[bool, list[str]]:
             errors.append(f"Could not remove metadata file {created_path.name}: {e}")
 
     # Revert folder renames (in reverse order)
-    dir_rename_map: dict[Path, Path] = {}
+    dir_rename_map = context.dir_rename_map
     for entry in reversed(undo.get("renamed_dirs", [])):
         new_dir = Path(entry["new"])
         old_dir = Path(entry["old"])
         if output_boundary is not None:
-            path_errors = _destination_revert_path_errors(
+            path_errors = destination_path_errors(
                 new_path=new_dir,
                 old_path=old_dir,
                 output_boundary=output_boundary,
@@ -598,7 +586,7 @@ def revert_job(job: RenameJob) -> tuple[bool, list[str]]:
                 pass
 
         if output_boundary is not None:
-            path_errors = _destination_revert_path_errors(
+            path_errors = destination_path_errors(
                 new_path=new_path,
                 old_path=old_path,
                 output_boundary=output_boundary,
