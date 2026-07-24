@@ -52,13 +52,11 @@ from ._scan_runtime import ScanCancelledError, fail_scan_state, raise_if_cancell
 from ._state import get_auto_accept_threshold
 from .matching import (
     apply_movie_confidence_adjustments,
-    best_episode_title_similarity,
     boost_scores_with_alt_titles,
     country_from_language,
     pick_alternate_matches,
     score_results,
     score_tv_results,
-    tv_episode_evidence_adjustment,
 )
 from .models import (
     DirectEpisodeEvidence,
@@ -203,21 +201,6 @@ class BatchTVOrchestrator:
     def _collect_direct_episode_evidence(folder: Path) -> list[DirectEpisodeEvidence]:
         """Collect explicit ``S##E##`` evidence from direct child video files."""
         return collect_direct_episode_evidence(folder)
-
-    @staticmethod
-    def _best_episode_title_similarity(
-        raw_title: str | None,
-        season_titles: dict[int, str],
-    ) -> float:
-        return best_episode_title_similarity(raw_title, season_titles)
-
-    def _tv_episode_evidence_adjustment(
-        self,
-        show_id: int,
-        evidence: list[DirectEpisodeEvidence],
-        provider: MetadataProvider | None = None,
-    ) -> float:
-        return tv_episode_evidence_adjustment(provider or self.tmdb, show_id, evidence)
 
     def _build_show_candidates(
         self,

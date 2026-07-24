@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import TypeAlias, TypeGuard
 
 MediaInfoValue: TypeAlias = str | int | float | None
@@ -27,9 +28,14 @@ def media_info_int(info: MediaInfo, key: str) -> int | None:
     return value if type(value) is int else None
 
 
+def _is_object_mapping(value: object) -> TypeGuard[Mapping[object, object]]:
+    """Narrow a runtime mapping to a fully typed validation boundary."""
+    return isinstance(value, Mapping)
+
+
 def is_media_info(value: object) -> TypeGuard[MediaInfo]:
     """Return whether *value* is a mutable scalar metadata record."""
-    if not isinstance(value, dict):
+    if not _is_object_mapping(value) or not isinstance(value, dict):
         return False
     return all(
         isinstance(key, str) and (item is None or isinstance(item, (str, int, float)))

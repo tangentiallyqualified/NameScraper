@@ -1,5 +1,4 @@
-"""
-TMDB (The Movie Database) API client.
+"""TMDB (The Movie Database) API client.
 
 Handles searching, metadata fetching, and image retrieval for both
 TV series and movies.  No GUI dependency — returns plain data structures.

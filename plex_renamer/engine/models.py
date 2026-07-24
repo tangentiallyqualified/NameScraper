@@ -28,6 +28,8 @@ if TYPE_CHECKING:
 
 EPISODE_REVIEW_STATUS_PREFIX = "REVIEW: episode confidence below threshold"
 SeasonFolderEntry = Path | tuple[Path, ...]
+
+
 def iter_season_folder_paths(entry: SeasonFolderEntry) -> tuple[Path, ...]:
     if isinstance(entry, Path):
         return (entry,)

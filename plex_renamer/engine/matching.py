@@ -1,10 +1,4 @@
-"""Title scoring and TMDB match ranking.
-
-Pure functions that turn a TMDB search result list into a ranked
-``(result, score)`` list.  Callers in ``_core`` delegate here so the
-engine's orchestrators and scanners stay focused on file discovery
-and preview generation instead of scoring math.
-"""
+"""Pure title scoring and TMDB match ranking functions."""
 
 from __future__ import annotations
 
@@ -16,6 +10,7 @@ from pathlib import Path
 from ..metadata_types import MediaInfo, MediaInfoValue, ScoredMediaInfo
 from ..parsing import clean_folder_name, extract_year, normalize_for_match
 from ..providers import MetadataProvider
+from ._season_map_validation import SeasonMap
 from ._state import get_auto_accept_threshold
 from ._tv_score_fallback import boost_tv_scores_or_keep as _safe_boost
 from .models import DirectEpisodeEvidence, collect_direct_episode_evidence
@@ -223,28 +218,7 @@ def boost_scores_with_alt_titles(
     preferred_country: str | None = None,
     force: bool = False,
 ) -> ScoredMediaInfo:
-    """
-    Re-score top candidates using TMDB alternative titles.
-
-    When the best match scores below the auto-accept threshold, fetches
-    alternative titles for the top candidates and re-scores each using the
-    best-matching alternative.  Returns the full list re-sorted by the
-    (potentially boosted) scores.
-
-    Matching priority (fallback chain):
-
-    1. Primary title from the TMDB search result (already scored).
-    2. Alternative titles in the user's preferred language/country.
-    3. English alternative titles (US / GB) as a universal fallback.
-    4. All remaining alternative titles from other languages.
-
-    If no alternative title pushes the score above the auto-accept
-    threshold, the original (low) score is preserved and the item will
-    be flagged for manual review.
-
-    This is a no-op when the top result already exceeds the threshold or
-    when there are no results.
-    """
+    """Re-score top candidates using preferred, English, then other alternative titles."""
     if not scored:
         return scored
 
@@ -366,6 +340,33 @@ def best_episode_title_similarity(
     return best
 
 
+def _merged_episode_titles(tmdb_seasons: SeasonMap) -> dict[int, str]:
+    all_titles = (
+        title for data in tmdb_seasons.values() for title in data.get("titles", {}).values()
+    )
+    return dict(enumerate(all_titles))
+
+
+def _episode_title_evidence(
+    tmdb_seasons: SeasonMap,
+    evidence: list[DirectEpisodeEvidence],
+) -> tuple[int, list[float]]:
+    merged_titles: dict[int, str] | None = None
+    exact_episode_hits = 0
+    title_scores: list[float] = []
+    for item in evidence:
+        season_data = tmdb_seasons.get(item.season_num)
+        if season_data:
+            season_titles = season_data.get("titles", {})
+        else:
+            if merged_titles is None:
+                merged_titles = _merged_episode_titles(tmdb_seasons)
+            season_titles = merged_titles
+        exact_episode_hits += int(bool(season_data) and item.episode_num in season_titles)
+        title_scores.append(best_episode_title_similarity(item.raw_title, season_titles))
+    return exact_episode_hits, title_scores
+
+
 def tv_episode_evidence_adjustment(
     tmdb: MetadataProvider,
     show_id: int,
@@ -375,37 +376,17 @@ def tv_episode_evidence_adjustment(
     if not tmdb_seasons:
         return 0.0
 
-    adjustment = 0.0
     explicit_seasons = {item.season_num for item in evidence}
+    adjustment = 0.0
     if explicit_seasons:
         tmdb_known_seasons = {int(sn) for sn in tmdb_seasons}
         coverage = len(explicit_seasons & tmdb_known_seasons) / len(explicit_seasons)
         adjustment += (coverage - 0.5) * 0.24
 
-    exact_episode_hits = 0
-    title_scores: list[float] = []
-    merged_titles: dict[int, str] | None = None
     limited_evidence = evidence[:8]
-    for item in limited_evidence:
-        season_data = tmdb_seasons.get(item.season_num)
-        if season_data:
-            season_titles = season_data.get("titles", {})
-            if item.episode_num in season_titles:
-                exact_episode_hits += 1
-            title_scores.append(best_episode_title_similarity(item.raw_title, season_titles))
-            continue
-        # The hinted season is missing from TMDB (consolidated shows): match
-        # the title evidence against every season instead of skipping, so
-        # real episode titles still corroborate the show (RC16).
-        if merged_titles is None:
-            merged_titles = {}
-            for data in tmdb_seasons.values():
-                for title in data.get("titles", {}).values():
-                    merged_titles[len(merged_titles)] = title
-        title_scores.append(best_episode_title_similarity(item.raw_title, merged_titles))
-
-    if limited_evidence:
-        adjustment += min(exact_episode_hits / len(limited_evidence), 1.0) * 0.10
+    exact_episode_hits, title_scores = _episode_title_evidence(tmdb_seasons, limited_evidence)
+    evidence_count = max(len(limited_evidence), 1)
+    adjustment += min(exact_episode_hits / evidence_count, 1.0) * 0.10
 
     title_scores = [score for score in title_scores if score > 0.0]
     if title_scores:
@@ -413,7 +394,6 @@ def tv_episode_evidence_adjustment(
         adjustment += average_title_score * 0.24
         if len(title_scores) >= 2 and average_title_score < 0.35:
             adjustment -= 0.12
-
     return adjustment
 
 

@@ -40,6 +40,7 @@ class ShowDetailsNormalizationTests(unittest.TestCase):
                 ],
             }
         )
+        assert details is not None
         self.assertEqual(details.id, 1396)
         self.assertEqual(details.name, "Breaking Bad")
         self.assertEqual(details.overview, "A chemistry teacher turns to crime.")
@@ -61,18 +62,22 @@ class ShowDetailsNormalizationTests(unittest.TestCase):
                 "status": "Planned",
             }
         )
+        assert planned is not None
         self.assertTrue(planned.unaired)
         no_date = show_details_from_tmdb({"id": 2, "status": "Ended"})
+        assert no_date is not None
         self.assertTrue(no_date.unaired)
 
     def test_empty_first_air_date_normalizes_to_none(self):
         details = show_details_from_tmdb({"first_air_date": ""})
+        assert details is not None
 
         self.assertIsNone(details.first_air_date)
         self.assertTrue(details.unaired)
 
     def test_empty_payload_is_zeroes_not_none(self):
         details = show_details_from_tmdb({})
+        assert details is not None
         self.assertIsInstance(details, ShowDetails)
         self.assertIsNone(details.id)
         self.assertEqual(details.name, "")
@@ -101,6 +106,7 @@ class ShowDetailsNormalizationTests(unittest.TestCase):
                 ],
             }
         )
+        assert details is not None
 
         self.assertIsNone(details.id)
         self.assertEqual(details.name, "")
