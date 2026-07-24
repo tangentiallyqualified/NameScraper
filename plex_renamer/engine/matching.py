@@ -1,10 +1,4 @@
-"""Title scoring and TMDB match ranking.
-
-Pure functions that turn a TMDB search result list into a ranked
-``(result, score)`` list.  Callers in ``_core`` delegate here so the
-engine's orchestrators and scanners stay focused on file discovery
-and preview generation instead of scoring math.
-"""
+"""Pure title scoring and TMDB match ranking functions."""
 
 from __future__ import annotations
 
@@ -12,10 +6,11 @@ import logging
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
+from ..metadata_types import MediaInfo, MediaInfoValue, ScoredMediaInfo
 from ..parsing import clean_folder_name, extract_year, normalize_for_match
 from ..providers import MetadataProvider
+from ._season_map_validation import SeasonMap
 from ._state import get_auto_accept_threshold
 from ._tv_score_fallback import boost_tv_scores_or_keep as _safe_boost
 from .models import DirectEpisodeEvidence, collect_direct_episode_evidence
@@ -25,6 +20,16 @@ _log = logging.getLogger(__name__)
 
 # Number of top candidates to fetch alternative titles for
 _ALT_TITLE_CANDIDATES = 5
+
+
+def _string_value(result: MediaInfo, key: str, default: str = "") -> str:
+    value = result.get(key, default)
+    return value if isinstance(value, str) else default
+
+
+def _number_value(result: MediaInfo, key: str) -> str | int | float | None:
+    value: MediaInfoValue = result.get(key)
+    return value if isinstance(value, (str, int, float)) else None
 
 
 def _token_subset_score(a: str, b: str) -> float | None:
@@ -97,11 +102,11 @@ def title_similarity(a: str, b: str) -> float:
 
 
 def score_results(
-    results: list[dict[str, Any]],
+    results: list[MediaInfo],
     raw_name: str,
     year_hint: str | None,
     title_key: str = "title",
-) -> list[tuple[dict[str, Any], float]]:
+) -> ScoredMediaInfo:
     """
     Score a list of TMDB search results against a cleaned name.
 
@@ -114,18 +119,19 @@ def score_results(
     Returns a list of (result, score) tuples sorted by score descending.
     """
     query_norm = normalize_for_match(raw_name)
-    scored: list[tuple[dict[str, Any], float]] = []
+    scored: ScoredMediaInfo = []
 
     for r in results:
-        title = r.get(title_key, "")
+        title = _string_value(r, title_key)
         title_norm = normalize_for_match(title)
 
         t_score = title_similarity(query_norm, title_norm)
 
         year_score = 0.0
-        if year_hint and r.get("year"):
+        year_value = _number_value(r, "year")
+        if year_hint and year_value:
             try:
-                diff = abs(int(year_hint) - int(r["year"]))
+                diff = abs(int(year_hint) - int(year_value))
                 if diff == 0:
                     year_score = 1.0
                 elif diff == 1:
@@ -151,13 +157,13 @@ def score_results(
 
 
 def pick_alternate_matches(
-    scored: list[tuple[dict[str, Any], float]],
+    scored: ScoredMediaInfo,
     *,
     selected_id: int | None,
     limit: int = 3,
-) -> list[dict[str, Any]]:
+) -> list[MediaInfo]:
     """Return the highest-ranked alternate matches excluding the selected id."""
-    alternates: list[dict[str, Any]] = []
+    alternates: list[MediaInfo] = []
     for result, _score in scored:
         if result.get("id") == selected_id:
             continue
@@ -167,7 +173,7 @@ def pick_alternate_matches(
     return alternates
 
 
-def _country_from_language(language_tag: str) -> str | None:
+def country_from_language(language_tag: str) -> str | None:
     """Extract the ISO 3166-1 country code from a TMDB language tag.
 
     ``"fr-FR"`` → ``"FR"``, ``"en-US"`` → ``"US"``, ``"ja"`` → ``"JP"``.
@@ -203,7 +209,7 @@ def _country_from_language(language_tag: str) -> str | None:
 
 
 def boost_scores_with_alt_titles(
-    scored: list[tuple[dict[str, Any], float]],
+    scored: ScoredMediaInfo,
     raw_name: str,
     year_hint: str | None,
     tmdb: MetadataProvider,
@@ -211,29 +217,8 @@ def boost_scores_with_alt_titles(
     media_type: str = "movie",
     preferred_country: str | None = None,
     force: bool = False,
-) -> list[tuple[dict[str, Any], float]]:
-    """
-    Re-score top candidates using TMDB alternative titles.
-
-    When the best match scores below the auto-accept threshold, fetches
-    alternative titles for the top candidates and re-scores each using the
-    best-matching alternative.  Returns the full list re-sorted by the
-    (potentially boosted) scores.
-
-    Matching priority (fallback chain):
-
-    1. Primary title from the TMDB search result (already scored).
-    2. Alternative titles in the user's preferred language/country.
-    3. English alternative titles (US / GB) as a universal fallback.
-    4. All remaining alternative titles from other languages.
-
-    If no alternative title pushes the score above the auto-accept
-    threshold, the original (low) score is preserved and the item will
-    be flagged for manual review.
-
-    This is a no-op when the top result already exceeds the threshold or
-    when there are no results.
-    """
+) -> ScoredMediaInfo:
+    """Re-score top candidates using preferred, English, then other alternative titles."""
     if not scored:
         return scored
 
@@ -258,19 +243,20 @@ def boost_scores_with_alt_titles(
 
     query_norm = normalize_for_match(raw_name)
     english_countries = {"US", "GB"}
-    updated: list[tuple[dict[str, Any], float]] = []
+    updated: ScoredMediaInfo = []
 
     for i, (result, original_score) in enumerate(scored):
-        if i < _ALT_TITLE_CANDIDATES and result.get("id") is not None:
+        media_id = result.get("id")
+        if i < _ALT_TITLE_CANDIDATES and type(media_id) is int:
             raw_alts = tmdb.get_alternative_titles(
-                result["id"],
+                media_id,
                 media_type,
             )
             _log.debug(
                 "  [%s] id=%s %r: %d alt titles fetched",
                 media_type,
-                result["id"],
-                result.get(title_key, "?"),
+                media_id,
+                _string_value(result, title_key, "?"),
                 len(raw_alts),
             )
 
@@ -293,9 +279,10 @@ def boost_scores_with_alt_titles(
                 t_score = title_similarity(query_norm, alt_norm)
 
                 year_score = 0.0
-                if year_hint and result.get("year"):
+                year_value = _number_value(result, "year")
+                if year_hint and year_value:
                     try:
-                        diff = abs(int(year_hint) - int(result["year"]))
+                        diff = abs(int(year_hint) - int(year_value))
                         if diff == 0:
                             year_score = 1.0
                         elif diff == 1:
@@ -314,7 +301,7 @@ def boost_scores_with_alt_titles(
             if best_alt_title:
                 _log.info(
                     "  Boosted id=%s from %.2f → %.2f via alt title %r",
-                    result["id"],
+                    media_id,
                     original_score,
                     best_alt_score,
                     best_alt_title,
@@ -327,7 +314,7 @@ def boost_scores_with_alt_titles(
     return updated
 
 
-def _best_episode_title_similarity(
+def best_episode_title_similarity(
     raw_title: str | None,
     season_titles: dict[int, str],
 ) -> float:
@@ -353,7 +340,34 @@ def _best_episode_title_similarity(
     return best
 
 
-def _tv_episode_evidence_adjustment(
+def _merged_episode_titles(tmdb_seasons: SeasonMap) -> dict[int, str]:
+    all_titles = (
+        title for data in tmdb_seasons.values() for title in data.get("titles", {}).values()
+    )
+    return dict(enumerate(all_titles))
+
+
+def _episode_title_evidence(
+    tmdb_seasons: SeasonMap,
+    evidence: list[DirectEpisodeEvidence],
+) -> tuple[int, list[float]]:
+    merged_titles: dict[int, str] | None = None
+    exact_episode_hits = 0
+    title_scores: list[float] = []
+    for item in evidence:
+        season_data = tmdb_seasons.get(item.season_num)
+        if season_data:
+            season_titles = season_data.get("titles", {})
+        else:
+            if merged_titles is None:
+                merged_titles = _merged_episode_titles(tmdb_seasons)
+            season_titles = merged_titles
+        exact_episode_hits += int(bool(season_data) and item.episode_num in season_titles)
+        title_scores.append(best_episode_title_similarity(item.raw_title, season_titles))
+    return exact_episode_hits, title_scores
+
+
+def tv_episode_evidence_adjustment(
     tmdb: MetadataProvider,
     show_id: int,
     evidence: list[DirectEpisodeEvidence],
@@ -362,37 +376,17 @@ def _tv_episode_evidence_adjustment(
     if not tmdb_seasons:
         return 0.0
 
-    adjustment = 0.0
     explicit_seasons = {item.season_num for item in evidence}
+    adjustment = 0.0
     if explicit_seasons:
         tmdb_known_seasons = {int(sn) for sn in tmdb_seasons}
         coverage = len(explicit_seasons & tmdb_known_seasons) / len(explicit_seasons)
         adjustment += (coverage - 0.5) * 0.24
 
-    exact_episode_hits = 0
-    title_scores: list[float] = []
-    merged_titles: dict[int, str] | None = None
     limited_evidence = evidence[:8]
-    for item in limited_evidence:
-        season_data = tmdb_seasons.get(item.season_num)
-        if season_data:
-            season_titles = season_data.get("titles", {})
-            if item.episode_num in season_titles:
-                exact_episode_hits += 1
-            title_scores.append(_best_episode_title_similarity(item.raw_title, season_titles))
-            continue
-        # The hinted season is missing from TMDB (consolidated shows): match
-        # the title evidence against every season instead of skipping, so
-        # real episode titles still corroborate the show (RC16).
-        if merged_titles is None:
-            merged_titles = {}
-            for data in tmdb_seasons.values():
-                for title in data.get("titles", {}).values():
-                    merged_titles[len(merged_titles)] = title
-        title_scores.append(_best_episode_title_similarity(item.raw_title, merged_titles))
-
-    if limited_evidence:
-        adjustment += min(exact_episode_hits / len(limited_evidence), 1.0) * 0.10
+    exact_episode_hits, title_scores = _episode_title_evidence(tmdb_seasons, limited_evidence)
+    evidence_count = max(len(limited_evidence), 1)
+    adjustment += min(exact_episode_hits / evidence_count, 1.0) * 0.10
 
     title_scores = [score for score in title_scores if score > 0.0]
     if title_scores:
@@ -400,26 +394,25 @@ def _tv_episode_evidence_adjustment(
         adjustment += average_title_score * 0.24
         if len(title_scores) >= 2 and average_title_score < 0.35:
             adjustment -= 0.12
-
     return adjustment
 
 
 def boost_tv_scores_with_episode_evidence(
     tmdb: MetadataProvider,
-    scored: list[tuple[dict[str, Any], float]],
+    scored: ScoredMediaInfo,
     evidence: list[DirectEpisodeEvidence],
-) -> list[tuple[dict[str, Any], float]]:
+) -> ScoredMediaInfo:
     if not scored or not evidence:
         return scored
 
-    updated: list[tuple[dict[str, Any], float]] = []
+    updated: ScoredMediaInfo = []
     for index, (result, score) in enumerate(scored):
         show_id = result.get("id")
-        if index >= _ALT_TITLE_CANDIDATES or show_id is None:
+        if index >= _ALT_TITLE_CANDIDATES or type(show_id) is not int:
             updated.append((result, score))
             continue
 
-        adjustment = _tv_episode_evidence_adjustment(tmdb, show_id, evidence)
+        adjustment = tv_episode_evidence_adjustment(tmdb, show_id, evidence)
         updated.append((result, score + adjustment))
 
     updated.sort(key=lambda item: item[1], reverse=True)
@@ -604,7 +597,7 @@ def apply_movie_confidence_adjustments(
 
 
 def score_tv_results(
-    results: list[dict[str, Any]],
+    results: list[MediaInfo],
     raw_name: str,
     year_hint: str | None,
     tmdb: MetadataProvider,
@@ -612,7 +605,7 @@ def score_tv_results(
     folder: Path | None = None,
     folder_score_name: str | None = None,
     episode_evidence: list[DirectEpisodeEvidence] | None = None,
-) -> list[tuple[dict[str, Any], float]]:
+) -> ScoredMediaInfo:
     """Score TV search results using the same logic as batch discovery."""
     scored = score_results(results, raw_name, year_hint, title_key="name")
     if folder is not None and folder_score_name is None:
@@ -635,7 +628,12 @@ def score_tv_results(
         tmdb,
         title_key="name",
         media_type="tv",
-        preferred_country=_country_from_language(tmdb.language),
+        preferred_country=country_from_language(tmdb.language),
         force=bool(direct_evidence),
     )
     return _safe_boost(tmdb, scored, direct_evidence, boost_tv_scores_with_episode_evidence)
+
+
+_country_from_language = country_from_language
+_best_episode_title_similarity = best_episode_title_similarity
+_tv_episode_evidence_adjustment = tv_episode_evidence_adjustment

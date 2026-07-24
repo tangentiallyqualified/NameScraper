@@ -4,6 +4,25 @@ from pathlib import Path
 from typing import Any
 
 from plex_renamer.engine.models import ScanState
+from plex_renamer.metadata_types import MediaInfo
+
+
+def test_scan_state_accepts_scalar_media_records(tmp_path: Path) -> None:
+    record: MediaInfo = {
+        "id": 7,
+        "name": "Show",
+        "year": "2020",
+        "poster_path": None,
+        "overview": "",
+    }
+    state = ScanState(
+        folder=tmp_path,
+        media_info=record,
+        search_results=[record],
+        alternate_matches=[record],
+    )
+    assert state.show_id == 7
+    assert state.display_name == "Show (2020)"
 
 
 def _state(**kwargs: Any) -> ScanState:

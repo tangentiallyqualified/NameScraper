@@ -36,6 +36,9 @@ def fail_scan_state(state: ScanState, error: Exception) -> Exception:
     return error
 
 
-def _raise_if_cancelled(cancel_event: threading.Event | None) -> None:
+def raise_if_cancelled(cancel_event: threading.Event | None) -> None:
     if cancel_event is not None and cancel_event.is_set():
         raise ScanCancelledError("Scan cancelled")
+
+
+_raise_if_cancelled = raise_if_cancelled

@@ -345,33 +345,6 @@
             {
               "physicalLocation": {
                 "artifactLocation": {
-                  "uri": "plex_renamer/_tmdb_batch_search.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 49,
-                  "startLine": 61
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Expected 2 positional arguments"
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "plex_renamer._tmdb_batch_search.run_batch_search._search::reportCallIssue::Expected 2 positional arguments#1"
-          },
-          "ruleId": "pyright/reportCallIssue",
-          "ruleIndex": 3
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
                   "uri": "plex_renamer/_tmdb_metadata_cache.py",
                   "uriBaseId": "%SRCROOT%"
                 },
@@ -1653,439 +1626,7 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startColumn": 26,
-                  "startLine": 233
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Cannot access attribute \"parent_relative_folder\" for class \"object\" Attribute \"parent_relative_folder\" is unknown"
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "plex_renamer.engine._batch_orchestrators.BatchTVOrchestrator._build_show_candidates::reportAttributeAccessIssue::Cannot access attribute \"parent_relative_folder\" for class \"object\" Attribute \"parent_relative_folder\" is unknown#1"
-          },
-          "ruleId": "pyright/reportAttributeAccessIssue",
-          "ruleIndex": 2
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "plex_renamer/engine/_batch_orchestrators.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 27,
-                  "startLine": 234
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Cannot access attribute \"folder\" for class \"object\" Attribute \"folder\" is unknown"
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "plex_renamer.engine._batch_orchestrators.BatchTVOrchestrator._build_show_candidates::reportAttributeAccessIssue::Cannot access attribute \"folder\" for class \"object\" Attribute \"folder\" is unknown#1"
-          },
-          "ruleId": "pyright/reportAttributeAccessIssue",
-          "ruleIndex": 2
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "plex_renamer/engine/_batch_orchestrators.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 43,
-                  "startLine": 236
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Cannot access attribute \"folder\" for class \"object\" Attribute \"folder\" is unknown"
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "plex_renamer.engine._batch_orchestrators.BatchTVOrchestrator._build_show_candidates::reportAttributeAccessIssue::Cannot access attribute \"folder\" for class \"object\" Attribute \"folder\" is unknown#2"
-          },
-          "ruleId": "pyright/reportAttributeAccessIssue",
-          "ruleIndex": 2
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "plex_renamer/engine/_batch_orchestrators.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 27,
-                  "startLine": 238
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Cannot access attribute \"folder\" for class \"object\" Attribute \"folder\" is unknown"
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "plex_renamer.engine._batch_orchestrators.BatchTVOrchestrator._build_show_candidates::reportAttributeAccessIssue::Cannot access attribute \"folder\" for class \"object\" Attribute \"folder\" is unknown#3"
-          },
-          "ruleId": "pyright/reportAttributeAccessIssue",
-          "ruleIndex": 2
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "plex_renamer/engine/_batch_orchestrators.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 27,
-                  "startLine": 243
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Cannot access attribute \"folder\" for class \"object\" Attribute \"folder\" is unknown"
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "plex_renamer.engine._batch_orchestrators.BatchTVOrchestrator._build_show_candidates::reportAttributeAccessIssue::Cannot access attribute \"folder\" for class \"object\" Attribute \"folder\" is unknown#4"
-          },
-          "ruleId": "pyright/reportAttributeAccessIssue",
-          "ruleIndex": 2
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "plex_renamer/engine/_batch_orchestrators.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 45,
-                  "startLine": 247
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Cannot access attribute \"folder\" for class \"object\" Attribute \"folder\" is unknown"
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "plex_renamer.engine._batch_orchestrators.BatchTVOrchestrator._build_show_candidates::reportAttributeAccessIssue::Cannot access attribute \"folder\" for class \"object\" Attribute \"folder\" is unknown#5"
-          },
-          "ruleId": "pyright/reportAttributeAccessIssue",
-          "ruleIndex": 2
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "plex_renamer/engine/_batch_orchestrators.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 52,
-                  "startLine": 256
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Cannot access attribute \"folder\" for class \"object\" Attribute \"folder\" is unknown"
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "plex_renamer.engine._batch_orchestrators.BatchTVOrchestrator._build_show_candidates::reportAttributeAccessIssue::Cannot access attribute \"folder\" for class \"object\" Attribute \"folder\" is unknown#6"
-          },
-          "ruleId": "pyright/reportAttributeAccessIssue",
-          "ruleIndex": 2
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "plex_renamer/engine/_batch_orchestrators.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 80,
-                  "startLine": 257
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Cannot access attribute \"folder\" for class \"object\" Attribute \"folder\" is unknown"
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "plex_renamer.engine._batch_orchestrators.BatchTVOrchestrator._build_show_candidates::reportAttributeAccessIssue::Cannot access attribute \"folder\" for class \"object\" Attribute \"folder\" is unknown#7"
-          },
-          "ruleId": "pyright/reportAttributeAccessIssue",
-          "ruleIndex": 2
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "plex_renamer/engine/_batch_orchestrators.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 50,
-                  "startLine": 571
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Argument of type \"Sequence[TVDiscoveryCandidateLike]\" cannot be assigned to parameter \"discovered\" of type \"list[object]\" in function \"_build_show_candidates\" \"Sequence[TVDiscoveryCandidateLike]\" is not assignable to \"list[object]\""
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "plex_renamer.engine._batch_orchestrators.BatchTVOrchestrator.discover_shows::reportArgumentType::Argument of type \"Sequence[TVDiscoveryCandidateLike]\" cannot be assigned to parameter \"discovered\" of type \"list[object]\" in function \"_build_show_candidates\" \"Sequence[TVDiscoveryCandidateLike]\" is not assignable to \"list[object]\"#1"
-          },
-          "ruleId": "pyright/reportArgumentType",
-          "ruleIndex": 0
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "plex_renamer/engine/_batch_orchestrators.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 27,
-                  "startLine": 649
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Cannot access attribute \"folder\" for class \"object\" Attribute \"folder\" is unknown"
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "plex_renamer.engine._batch_orchestrators.BatchTVOrchestrator.discover_shows::reportAttributeAccessIssue::Cannot access attribute \"folder\" for class \"object\" Attribute \"folder\" is unknown#1"
-          },
-          "ruleId": "pyright/reportAttributeAccessIssue",
-          "ruleIndex": 2
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "plex_renamer/engine/_batch_orchestrators.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 35,
-                  "startLine": 735
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Cannot access attribute \"folder\" for class \"object\" Attribute \"folder\" is unknown"
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "plex_renamer.engine._batch_orchestrators.BatchTVOrchestrator._apply_fallback_matches::reportAttributeAccessIssue::Cannot access attribute \"folder\" for class \"object\" Attribute \"folder\" is unknown#1"
-          },
-          "ruleId": "pyright/reportAttributeAccessIssue",
-          "ruleIndex": 2
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "plex_renamer/engine/_batch_orchestrators.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 76,
-                  "startLine": 748
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Cannot access attribute \"folder\" for class \"object\" Attribute \"folder\" is unknown"
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "plex_renamer.engine._batch_orchestrators.BatchTVOrchestrator._apply_fallback_matches::reportAttributeAccessIssue::Cannot access attribute \"folder\" for class \"object\" Attribute \"folder\" is unknown#2"
-          },
-          "ruleId": "pyright/reportAttributeAccessIssue",
-          "ruleIndex": 2
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "plex_renamer/engine/_batch_orchestrators.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 27,
-                  "startLine": 767
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Cannot access attribute \"folder\" for class \"object\" Attribute \"folder\" is unknown"
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "plex_renamer.engine._batch_orchestrators.BatchTVOrchestrator._apply_fallback_matches::reportAttributeAccessIssue::Cannot access attribute \"folder\" for class \"object\" Attribute \"folder\" is unknown#3"
-          },
-          "ruleId": "pyright/reportAttributeAccessIssue",
-          "ruleIndex": 2
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "plex_renamer/engine/_batch_orchestrators.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 17,
-                  "startLine": 808
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Argument of type \"SeasonFolderEntry\" cannot be assigned to parameter \"value\" of type \"Path\" in function \"__setitem__\" Type \"SeasonFolderEntry\" is not assignable to type \"Path\" \"tuple[Path, ...]\" is not assignable to \"Path\""
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "plex_renamer.engine._batch_orchestrators.BatchTVOrchestrator.merge_rematched_state::reportArgumentType::Argument of type \"SeasonFolderEntry\" cannot be assigned to parameter \"value\" of type \"Path\" in function \"__setitem__\" Type \"SeasonFolderEntry\" is not assignable to type \"Path\" \"tuple[Path, ...]\" is not assignable to \"Path\"#1"
-          },
-          "ruleId": "pyright/reportArgumentType",
-          "ruleIndex": 0
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "plex_renamer/engine/_batch_orchestrators.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 33,
-                  "startLine": 824
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Cannot assign to attribute \"season_folders\" for class \"ScanState\" \"dict[int, Path]\" is not assignable to \"dict[int, SeasonFolderEntry]\" Type parameter \"_VT@dict\" is invariant, but \"Path\" is not the same as \"SeasonFolderEntry\" Consider switching from \"dict\" to \"Mapping\" which is covariant in the value type"
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "plex_renamer.engine._batch_orchestrators.BatchTVOrchestrator.merge_rematched_state::reportAttributeAccessIssue::Cannot assign to attribute \"season_folders\" for class \"ScanState\" \"dict[int, Path]\" is not assignable to \"dict[int, SeasonFolderEntry]\" Type parameter \"_VT@dict\" is invariant, but \"Path\" is not the same as \"SeasonFolderEntry\" Consider switching from \"dict\" to \"Mapping\" which is covariant in the value type#1"
-          },
-          "ruleId": "pyright/reportAttributeAccessIssue",
-          "ruleIndex": 2
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "plex_renamer/engine/_batch_orchestrators.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 16,
-                  "startLine": 1121
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Type \"tuple[Literal[0, 1], float, int, Literal[0, 1], str]\" is not assignable to return type \"tuple[float, int, int, str]\" \"float\" is not assignable to \"int\" Type \"Literal[0, 1]\" is not assignable to type \"str\" \"Literal[0]\" is not assignable to \"str\""
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "plex_renamer.engine._batch_orchestrators.BatchMovieOrchestrator._duplicate_priority::reportReturnType::Type \"tuple[Literal[0, 1], float, int, Literal[0, 1], str]\" is not assignable to return type \"tuple[float, int, int, str]\" \"float\" is not assignable to \"int\" Type \"Literal[0, 1]\" is not assignable to type \"str\" \"Literal[0]\" is not assignable to \"str\"#1"
-          },
-          "ruleId": "pyright/reportReturnType",
-          "ruleIndex": 12
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "plex_renamer/engine/_batch_orchestrators.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startLine": 1157
+                  "startLine": 1138
                 }
               }
             }
@@ -2100,330 +1641,6 @@
           },
           "ruleId": "vulture/unused-method",
           "ruleIndex": 23
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "plex_renamer/engine/_batch_orchestrators.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 32,
-                  "startLine": 1200
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Cannot access attribute \"folder\" for class \"object\" Attribute \"folder\" is unknown"
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "plex_renamer.engine._batch_orchestrators.BatchMovieOrchestrator.discover_movies::reportAttributeAccessIssue::Cannot access attribute \"folder\" for class \"object\" Attribute \"folder\" is unknown#1"
-          },
-          "ruleId": "pyright/reportAttributeAccessIssue",
-          "ruleIndex": 2
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "plex_renamer/engine/_batch_orchestrators.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 47,
-                  "startLine": 1218
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Cannot access attribute \"relative_folder\" for class \"object\" Attribute \"relative_folder\" is unknown"
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "plex_renamer.engine._batch_orchestrators.BatchMovieOrchestrator.discover_movies::reportAttributeAccessIssue::Cannot access attribute \"relative_folder\" for class \"object\" Attribute \"relative_folder\" is unknown#1"
-          },
-          "ruleId": "pyright/reportAttributeAccessIssue",
-          "ruleIndex": 2
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "plex_renamer/engine/_batch_orchestrators.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 54,
-                  "startLine": 1219
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Cannot access attribute \"parent_relative_folder\" for class \"object\" Attribute \"parent_relative_folder\" is unknown"
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "plex_renamer.engine._batch_orchestrators.BatchMovieOrchestrator.discover_movies::reportAttributeAccessIssue::Cannot access attribute \"parent_relative_folder\" for class \"object\" Attribute \"parent_relative_folder\" is unknown#1"
-          },
-          "ruleId": "pyright/reportAttributeAccessIssue",
-          "ruleIndex": 2
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "plex_renamer/engine/_batch_orchestrators.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 48,
-                  "startLine": 1220
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Cannot access attribute \"discovery_reason\" for class \"object\" Attribute \"discovery_reason\" is unknown"
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "plex_renamer.engine._batch_orchestrators.BatchMovieOrchestrator.discover_movies::reportAttributeAccessIssue::Cannot access attribute \"discovery_reason\" for class \"object\" Attribute \"discovery_reason\" is unknown#1"
-          },
-          "ruleId": "pyright/reportAttributeAccessIssue",
-          "ruleIndex": 2
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "plex_renamer/engine/_batch_orchestrators.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 55,
-                  "startLine": 1221
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Cannot access attribute \"direct_video_file_count\" for class \"object\" Attribute \"direct_video_file_count\" is unknown"
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "plex_renamer.engine._batch_orchestrators.BatchMovieOrchestrator.discover_movies::reportAttributeAccessIssue::Cannot access attribute \"direct_video_file_count\" for class \"object\" Attribute \"direct_video_file_count\" is unknown#1"
-          },
-          "ruleId": "pyright/reportAttributeAccessIssue",
-          "ruleIndex": 2
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "plex_renamer/engine/_batch_orchestrators.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 54,
-                  "startLine": 1222
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Cannot access attribute \"discovered_via_symlink\" for class \"object\" Attribute \"discovered_via_symlink\" is unknown"
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "plex_renamer.engine._batch_orchestrators.BatchMovieOrchestrator.discover_movies::reportAttributeAccessIssue::Cannot access attribute \"discovered_via_symlink\" for class \"object\" Attribute \"discovered_via_symlink\" is unknown#1"
-          },
-          "ruleId": "pyright/reportAttributeAccessIssue",
-          "ruleIndex": 2
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "plex_renamer/engine/_batch_orchestrators.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 43,
-                  "startLine": 1280
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Cannot access attribute \"relative_folder\" for class \"object\" Attribute \"relative_folder\" is unknown"
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "plex_renamer.engine._batch_orchestrators.BatchMovieOrchestrator.discover_movies::reportAttributeAccessIssue::Cannot access attribute \"relative_folder\" for class \"object\" Attribute \"relative_folder\" is unknown#2"
-          },
-          "ruleId": "pyright/reportAttributeAccessIssue",
-          "ruleIndex": 2
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "plex_renamer/engine/_batch_orchestrators.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 50,
-                  "startLine": 1281
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Cannot access attribute \"parent_relative_folder\" for class \"object\" Attribute \"parent_relative_folder\" is unknown"
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "plex_renamer.engine._batch_orchestrators.BatchMovieOrchestrator.discover_movies::reportAttributeAccessIssue::Cannot access attribute \"parent_relative_folder\" for class \"object\" Attribute \"parent_relative_folder\" is unknown#2"
-          },
-          "ruleId": "pyright/reportAttributeAccessIssue",
-          "ruleIndex": 2
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "plex_renamer/engine/_batch_orchestrators.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 44,
-                  "startLine": 1282
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Cannot access attribute \"discovery_reason\" for class \"object\" Attribute \"discovery_reason\" is unknown"
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "plex_renamer.engine._batch_orchestrators.BatchMovieOrchestrator.discover_movies::reportAttributeAccessIssue::Cannot access attribute \"discovery_reason\" for class \"object\" Attribute \"discovery_reason\" is unknown#2"
-          },
-          "ruleId": "pyright/reportAttributeAccessIssue",
-          "ruleIndex": 2
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "plex_renamer/engine/_batch_orchestrators.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 51,
-                  "startLine": 1283
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Cannot access attribute \"direct_video_file_count\" for class \"object\" Attribute \"direct_video_file_count\" is unknown"
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "plex_renamer.engine._batch_orchestrators.BatchMovieOrchestrator.discover_movies::reportAttributeAccessIssue::Cannot access attribute \"direct_video_file_count\" for class \"object\" Attribute \"direct_video_file_count\" is unknown#2"
-          },
-          "ruleId": "pyright/reportAttributeAccessIssue",
-          "ruleIndex": 2
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "plex_renamer/engine/_batch_orchestrators.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 50,
-                  "startLine": 1284
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Cannot access attribute \"discovered_via_symlink\" for class \"object\" Attribute \"discovered_via_symlink\" is unknown"
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "plex_renamer.engine._batch_orchestrators.BatchMovieOrchestrator.discover_movies::reportAttributeAccessIssue::Cannot access attribute \"discovered_via_symlink\" for class \"object\" Attribute \"discovered_via_symlink\" is unknown#2"
-          },
-          "ruleId": "pyright/reportAttributeAccessIssue",
-          "ruleIndex": 2
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "plex_renamer/engine/_batch_orchestrators.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 68,
-                  "startLine": 1349
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Argument of type \"str | None\" cannot be assigned to parameter \"video_new_name\" of type \"str\" in function \"_build_subtitle_companions\" Type \"str | None\" is not assignable to type \"str\" \"None\" is not assignable to \"str\""
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "plex_renamer.engine._batch_orchestrators.BatchMovieOrchestrator.scan_movie::reportArgumentType::Argument of type \"str | None\" cannot be assigned to parameter \"video_new_name\" of type \"str\" in function \"_build_subtitle_companions\" Type \"str | None\" is not assignable to type \"str\" \"None\" is not assignable to \"str\"#1"
-          },
-          "ruleId": "pyright/reportArgumentType",
-          "ruleIndex": 0
         },
         {
           "level": "warning",
@@ -2593,33 +1810,6 @@
             {
               "physicalLocation": {
                 "artifactLocation": {
-                  "uri": "plex_renamer/engine/_batch_tv_match_policy.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 59,
-                  "startLine": 79
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Argument of type \"set[int] | None\" cannot be assigned to parameter \"explicit_seasons\" of type \"set[int]\" in function \"_season_episode_count\" Type \"set[int] | None\" is not assignable to type \"set[int]\" \"None\" is not assignable to \"set[int]\""
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "plex_renamer.engine._batch_tv_match_policy.episode_count_tiebreak::reportArgumentType::Argument of type \"set[int] | None\" cannot be assigned to parameter \"explicit_seasons\" of type \"set[int]\" in function \"_season_episode_count\" Type \"set[int] | None\" is not assignable to type \"set[int]\" \"None\" is not assignable to \"set[int]\"#1"
-          },
-          "ruleId": "pyright/reportArgumentType",
-          "ruleIndex": 0
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
                   "uri": "plex_renamer/engine/_batch_tv_season_merge.py",
                   "uriBaseId": "%SRCROOT%"
                 },
@@ -2732,7 +1922,7 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startLine": 109
+                  "startLine": 127
                 }
               }
             }
@@ -2753,60 +1943,6 @@
               "kind": "external"
             }
           ]
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "plex_renamer/engine/_movie_scanner.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 69,
-                  "startLine": 335
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Argument of type \"str | None\" cannot be assigned to parameter \"video_new_name\" of type \"str\" in function \"_build_subtitle_companions\" Type \"str | None\" is not assignable to type \"str\" \"None\" is not assignable to \"str\""
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "plex_renamer.engine._movie_scanner.MovieScanner.scan::reportArgumentType::Argument of type \"str | None\" cannot be assigned to parameter \"video_new_name\" of type \"str\" in function \"_build_subtitle_companions\" Type \"str | None\" is not assignable to type \"str\" \"None\" is not assignable to \"str\"#1"
-          },
-          "ruleId": "pyright/reportArgumentType",
-          "ruleIndex": 0
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "plex_renamer/engine/_movie_scanner.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 65,
-                  "startLine": 396
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Argument of type \"str | None\" cannot be assigned to parameter \"video_new_name\" of type \"str\" in function \"_build_subtitle_companions\" Type \"str | None\" is not assignable to type \"str\" \"None\" is not assignable to \"str\""
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "plex_renamer.engine._movie_scanner.MovieScanner._scan_single::reportArgumentType::Argument of type \"str | None\" cannot be assigned to parameter \"video_new_name\" of type \"str\" in function \"_build_subtitle_companions\" Type \"str | None\" is not assignable to type \"str\" \"None\" is not assignable to \"str\"#1"
-          },
-          "ruleId": "pyright/reportArgumentType",
-          "ruleIndex": 0
         },
         {
           "level": "warning",
@@ -3106,32 +2242,6 @@
           },
           "ruleId": "vulture/unused-method",
           "ruleIndex": 23
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "plex_renamer/engine/show_details.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startLine": 26
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "unused variable 'first_air_date'"
-          },
-          "properties": {
-            "analyzer": "vulture",
-            "category": "dead-code",
-            "qualifiedSymbol": "plex_renamer.engine.show_details.ShowDetails.first_air_date#1"
-          },
-          "ruleId": "vulture/unused-variable",
-          "ruleIndex": 25
         },
         {
           "level": "warning",
@@ -6644,33 +5754,6 @@
           },
           "ruleId": "pyright/reportAssignmentType",
           "ruleIndex": 1
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "plex_renamer/tmdb.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 62,
-                  "startLine": 425
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "\"LANCZOS\" is not a known attribute of module \"PIL.Image\""
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "plex_renamer.tmdb.TMDBClient.fetch_image::reportAttributeAccessIssue::\"LANCZOS\" is not a known attribute of module \"PIL.Image\"#1"
-          },
-          "ruleId": "pyright/reportAttributeAccessIssue",
-          "ruleIndex": 2
         },
         {
           "level": "warning",
@@ -25751,7 +24834,7 @@
                 },
                 "region": {
                   "startColumn": 9,
-                  "startLine": 47
+                  "startLine": 48
                 }
               }
             }
@@ -25778,7 +24861,7 @@
                 },
                 "region": {
                   "startColumn": 70,
-                  "startLine": 47
+                  "startLine": 48
                 }
               }
             }
@@ -25805,7 +24888,7 @@
                 },
                 "region": {
                   "startColumn": 16,
-                  "startLine": 48
+                  "startLine": 49
                 }
               }
             }
@@ -25832,7 +24915,7 @@
                 },
                 "region": {
                   "startColumn": 51,
-                  "startLine": 78
+                  "startLine": 79
                 }
               }
             }
@@ -25859,7 +24942,7 @@
                 },
                 "region": {
                   "startColumn": 43,
-                  "startLine": 80
+                  "startLine": 81
                 }
               }
             }
@@ -25886,7 +24969,7 @@
                 },
                 "region": {
                   "startColumn": 43,
-                  "startLine": 80
+                  "startLine": 81
                 }
               }
             }
@@ -25913,7 +24996,7 @@
                 },
                 "region": {
                   "startColumn": 37,
-                  "startLine": 81
+                  "startLine": 82
                 }
               }
             }
@@ -25940,7 +25023,7 @@
                 },
                 "region": {
                   "startColumn": 50,
-                  "startLine": 90
+                  "startLine": 91
                 }
               }
             }
@@ -25967,7 +25050,7 @@
                 },
                 "region": {
                   "startColumn": 58,
-                  "startLine": 90
+                  "startLine": 91
                 }
               }
             }
@@ -25994,7 +25077,7 @@
                 },
                 "region": {
                   "startColumn": 64,
-                  "startLine": 90
+                  "startLine": 91
                 }
               }
             }
@@ -26021,7 +25104,7 @@
                 },
                 "region": {
                   "startColumn": 64,
-                  "startLine": 90
+                  "startLine": 91
                 }
               }
             }
@@ -26048,7 +25131,7 @@
                 },
                 "region": {
                   "startColumn": 9,
-                  "startLine": 91
+                  "startLine": 92
                 }
               }
             }
@@ -26075,7 +25158,7 @@
                 },
                 "region": {
                   "startColumn": 9,
-                  "startLine": 91
+                  "startLine": 92
                 }
               }
             }
@@ -26102,7 +25185,7 @@
                 },
                 "region": {
                   "startColumn": 23,
-                  "startLine": 339
+                  "startLine": 340
                 }
               }
             }
@@ -26129,7 +25212,7 @@
                 },
                 "region": {
                   "startColumn": 17,
-                  "startLine": 348
+                  "startLine": 349
                 }
               }
             }
@@ -26156,7 +25239,7 @@
                 },
                 "region": {
                   "startColumn": 23,
-                  "startLine": 382
+                  "startLine": 383
                 }
               }
             }
@@ -26183,7 +25266,7 @@
                 },
                 "region": {
                   "startColumn": 30,
-                  "startLine": 384
+                  "startLine": 385
                 }
               }
             }
@@ -26210,7 +25293,7 @@
                 },
                 "region": {
                   "startColumn": 23,
-                  "startLine": 414
+                  "startLine": 415
                 }
               }
             }
@@ -26237,7 +25320,7 @@
                 },
                 "region": {
                   "startColumn": 17,
-                  "startLine": 420
+                  "startLine": 421
                 }
               }
             }
@@ -26264,7 +25347,7 @@
                 },
                 "region": {
                   "startColumn": 23,
-                  "startLine": 458
+                  "startLine": 459
                 }
               }
             }
@@ -26519,33 +25602,6 @@
             "analyzer": "pyright",
             "category": "typing",
             "qualifiedSymbol": "tests.test_qt_media_workspace_review_actions.QtMediaWorkspaceReroutedProviderTests.test_fix_match_search_and_adopt_routes_through_states_provider::reportUnknownMemberType::Type of \"search_tv\" is partially unknown Type of \"search_tv\" is \"(query: str, year: str | None = None) -> list[dict[Unknown, Unknown]]\"#1"
-          },
-          "ruleId": "pyright/reportUnknownMemberType",
-          "ruleIndex": 15
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_qt_media_workspace_review_actions.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 73,
-                  "startLine": 536
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Type of \"search_results\" is partially unknown Type of \"search_results\" is \"list[dict[Unknown, Unknown]]\""
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "tests.test_qt_media_workspace_review_actions.QtMediaWorkspaceReroutedProviderTests.test_fix_match_search_and_adopt_routes_through_states_provider::reportUnknownMemberType::Type of \"search_results\" is partially unknown Type of \"search_results\" is \"list[dict[Unknown, Unknown]]\"#1"
           },
           "ruleId": "pyright/reportUnknownMemberType",
           "ruleIndex": 15
@@ -34012,278 +33068,8 @@
                   "uriBaseId": "%SRCROOT%"
                 },
                 "region": {
-                  "startColumn": 34,
-                  "startLine": 40
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "\"id\" is not a known attribute of \"None\""
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "tests.test_show_details.ShowDetailsNormalizationTests.test_full_payload_normalizes::reportOptionalMemberAccess::\"id\" is not a known attribute of \"None\"#1"
-          },
-          "ruleId": "pyright/reportOptionalMemberAccess",
-          "ruleIndex": 9
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_show_details.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 34,
-                  "startLine": 41
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "\"number_of_episodes\" is not a known attribute of \"None\""
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "tests.test_show_details.ShowDetailsNormalizationTests.test_full_payload_normalizes::reportOptionalMemberAccess::\"number_of_episodes\" is not a known attribute of \"None\"#1"
-          },
-          "ruleId": "pyright/reportOptionalMemberAccess",
-          "ruleIndex": 9
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_show_details.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 34,
-                  "startLine": 42
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "\"number_of_seasons\" is not a known attribute of \"None\""
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "tests.test_show_details.ShowDetailsNormalizationTests.test_full_payload_normalizes::reportOptionalMemberAccess::\"number_of_seasons\" is not a known attribute of \"None\"#1"
-          },
-          "ruleId": "pyright/reportOptionalMemberAccess",
-          "ruleIndex": 9
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_show_details.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 34,
-                  "startLine": 43
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "\"first_air_date\" is not a known attribute of \"None\""
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "tests.test_show_details.ShowDetailsNormalizationTests.test_full_payload_normalizes::reportOptionalMemberAccess::\"first_air_date\" is not a known attribute of \"None\"#1"
-          },
-          "ruleId": "pyright/reportOptionalMemberAccess",
-          "ruleIndex": 9
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_show_details.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 34,
-                  "startLine": 44
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "\"unaired\" is not a known attribute of \"None\""
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "tests.test_show_details.ShowDetailsNormalizationTests.test_full_payload_normalizes::reportOptionalMemberAccess::\"unaired\" is not a known attribute of \"None\"#1"
-          },
-          "ruleId": "pyright/reportOptionalMemberAccess",
-          "ruleIndex": 9
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_show_details.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 21,
-                  "startLine": 46
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "\"seasons\" is not a known attribute of \"None\""
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "tests.test_show_details.ShowDetailsNormalizationTests.test_full_payload_normalizes::reportOptionalMemberAccess::\"seasons\" is not a known attribute of \"None\"#1"
-          },
-          "ruleId": "pyright/reportOptionalMemberAccess",
-          "ruleIndex": 9
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_show_details.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 33,
-                  "startLine": 58
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "\"unaired\" is not a known attribute of \"None\""
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "tests.test_show_details.ShowDetailsNormalizationTests.test_unaired_mapping::reportOptionalMemberAccess::\"unaired\" is not a known attribute of \"None\"#1"
-          },
-          "ruleId": "pyright/reportOptionalMemberAccess",
-          "ruleIndex": 9
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_show_details.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 33,
-                  "startLine": 60
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "\"unaired\" is not a known attribute of \"None\""
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "tests.test_show_details.ShowDetailsNormalizationTests.test_unaired_mapping::reportOptionalMemberAccess::\"unaired\" is not a known attribute of \"None\"#2"
-          },
-          "ruleId": "pyright/reportOptionalMemberAccess",
-          "ruleIndex": 9
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_show_details.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 34,
-                  "startLine": 65
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "\"number_of_episodes\" is not a known attribute of \"None\""
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "tests.test_show_details.ShowDetailsNormalizationTests.test_empty_payload_is_zeroes_not_none::reportOptionalMemberAccess::\"number_of_episodes\" is not a known attribute of \"None\"#1"
-          },
-          "ruleId": "pyright/reportOptionalMemberAccess",
-          "ruleIndex": 9
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_show_details.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 33,
-                  "startLine": 66
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "\"unaired\" is not a known attribute of \"None\""
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "tests.test_show_details.ShowDetailsNormalizationTests.test_empty_payload_is_zeroes_not_none::reportOptionalMemberAccess::\"unaired\" is not a known attribute of \"None\"#1"
-          },
-          "ruleId": "pyright/reportOptionalMemberAccess",
-          "ruleIndex": 9
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_show_details.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
                   "startColumn": 13,
-                  "startLine": 93
+                  "startLine": 149
                 }
               }
             }
@@ -34310,7 +33096,7 @@
                 },
                 "region": {
                   "startColumn": 13,
-                  "startLine": 114
+                  "startLine": 170
                 }
               }
             }
@@ -34322,60 +33108,6 @@
             "analyzer": "pyright",
             "category": "typing",
             "qualifiedSymbol": "tests.test_show_details.TiebreakAbstainsOnFetchFailureTests.test_tiebreak_still_ranks_when_all_fetches_succeed::reportArgumentType::Argument of type \"_StubTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"episode_count_tiebreak\" \"_StubTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"language\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_season\" is not present \"get_season_map\" is not present ...#1"
-          },
-          "ruleId": "pyright/reportArgumentType",
-          "ruleIndex": 0
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_show_scoring_no_year.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 50,
-                  "startLine": 39
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"_tv_episode_evidence_adjustment\" \"_FakeTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"language\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_tv_details\" is not present \"get_season\" is not present ..."
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "tests.test_show_scoring_no_year.test_missing_season_titles_match_across_all_seasons::reportArgumentType::Argument of type \"_FakeTMDB\" cannot be assigned to parameter \"tmdb\" of type \"MetadataProvider\" in function \"_tv_episode_evidence_adjustment\" \"_FakeTMDB\" is incompatible with protocol \"MetadataProvider\" \"provider_name\" is not present \"language\" is not present \"search_tv\" is not present \"search_tv_batch\" is not present \"search_with_fallback\" is not present \"get_tv_details\" is not present \"get_season\" is not present ...#1"
-          },
-          "ruleId": "pyright/reportArgumentType",
-          "ruleIndex": 0
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_show_scoring_no_year.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 59,
-                  "startLine": 39
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Argument of type \"list[_Evidence]\" cannot be assigned to parameter \"evidence\" of type \"list[DirectEpisodeEvidence]\" in function \"_tv_episode_evidence_adjustment\" \"list[_Evidence]\" is not assignable to \"list[DirectEpisodeEvidence]\" Type parameter \"_T@list\" is invariant, but \"_Evidence\" is not the same as \"DirectEpisodeEvidence\" Consider switching from \"list\" to \"Sequence\" which is covariant"
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "tests.test_show_scoring_no_year.test_missing_season_titles_match_across_all_seasons::reportArgumentType::Argument of type \"list[_Evidence]\" cannot be assigned to parameter \"evidence\" of type \"list[DirectEpisodeEvidence]\" in function \"_tv_episode_evidence_adjustment\" \"list[_Evidence]\" is not assignable to \"list[DirectEpisodeEvidence]\" Type parameter \"_T@list\" is invariant, but \"_Evidence\" is not the same as \"DirectEpisodeEvidence\" Consider switching from \"list\" to \"Sequence\" which is covariant#1"
           },
           "ruleId": "pyright/reportArgumentType",
           "ruleIndex": 0
@@ -34547,249 +33279,6 @@
           },
           "ruleId": "pyright/reportArgumentType",
           "ruleIndex": 0
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_tmdb.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 42,
-                  "startLine": 24
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Cannot access attribute \"_pool_connections\" for class \"BaseAdapter\" Attribute \"_pool_connections\" is unknown"
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "tests.test_tmdb.TMDBClientTests.test_tmdb_client_uses_expanded_connection_pool_without_changing_rate_limit::reportAttributeAccessIssue::Cannot access attribute \"_pool_connections\" for class \"BaseAdapter\" Attribute \"_pool_connections\" is unknown#1"
-          },
-          "ruleId": "pyright/reportAttributeAccessIssue",
-          "ruleIndex": 2
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_tmdb.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 42,
-                  "startLine": 25
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Cannot access attribute \"_pool_maxsize\" for class \"BaseAdapter\" Attribute \"_pool_maxsize\" is unknown"
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "tests.test_tmdb.TMDBClientTests.test_tmdb_client_uses_expanded_connection_pool_without_changing_rate_limit::reportAttributeAccessIssue::Cannot access attribute \"_pool_maxsize\" for class \"BaseAdapter\" Attribute \"_pool_maxsize\" is unknown#1"
-          },
-          "ruleId": "pyright/reportAttributeAccessIssue",
-          "ruleIndex": 2
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_tmdb.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 44,
-                  "startLine": 26
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Cannot access attribute \"_pool_connections\" for class \"BaseAdapter\" Attribute \"_pool_connections\" is unknown"
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "tests.test_tmdb.TMDBClientTests.test_tmdb_client_uses_expanded_connection_pool_without_changing_rate_limit::reportAttributeAccessIssue::Cannot access attribute \"_pool_connections\" for class \"BaseAdapter\" Attribute \"_pool_connections\" is unknown#2"
-          },
-          "ruleId": "pyright/reportAttributeAccessIssue",
-          "ruleIndex": 2
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_tmdb.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 44,
-                  "startLine": 27
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Cannot access attribute \"_pool_maxsize\" for class \"BaseAdapter\" Attribute \"_pool_maxsize\" is unknown"
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "tests.test_tmdb.TMDBClientTests.test_tmdb_client_uses_expanded_connection_pool_without_changing_rate_limit::reportAttributeAccessIssue::Cannot access attribute \"_pool_maxsize\" for class \"BaseAdapter\" Attribute \"_pool_maxsize\" is unknown#2"
-          },
-          "ruleId": "pyright/reportAttributeAccessIssue",
-          "ruleIndex": 2
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_tmdb.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 44,
-                  "startLine": 60
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "\"size\" is not a known attribute of \"None\""
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "tests.test_tmdb.TMDBClientTests.test_fetch_poster_reuses_persisted_poster_across_client_instances::reportOptionalMemberAccess::\"size\" is not a known attribute of \"None\"#1"
-          },
-          "ruleId": "pyright/reportOptionalMemberAccess",
-          "ruleIndex": 9
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_tmdb.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 43,
-                  "startLine": 79
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "\"size\" is not a known attribute of \"None\""
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "tests.test_tmdb.TMDBClientTests.test_fetch_image_reuses_persisted_source_across_widths::reportOptionalMemberAccess::\"size\" is not a known attribute of \"None\"#1"
-          },
-          "ruleId": "pyright/reportOptionalMemberAccess",
-          "ruleIndex": 9
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_tmdb.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 44,
-                  "startLine": 91
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "\"size\" is not a known attribute of \"None\""
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "tests.test_tmdb.TMDBClientTests.test_fetch_image_reuses_persisted_source_across_widths::reportOptionalMemberAccess::\"size\" is not a known attribute of \"None\"#2"
-          },
-          "ruleId": "pyright/reportOptionalMemberAccess",
-          "ruleIndex": 9
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_tmdb.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 30,
-                  "startLine": 110
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Object of type \"None\" is not subscriptable"
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "tests.test_tmdb.TMDBClientTests.test_get_tv_details_reuses_persisted_details_across_client_instances::reportOptionalSubscript::Object of type \"None\" is not subscriptable#1"
-          },
-          "ruleId": "pyright/reportOptionalSubscript",
-          "ruleIndex": 10
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_tmdb.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 30,
-                  "startLine": 128
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Object of type \"None\" is not subscriptable"
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "tests.test_tmdb.TMDBClientTests.test_get_tv_details_reuses_persisted_details_across_client_instances::reportOptionalSubscript::Object of type \"None\" is not subscriptable#2"
-          },
-          "ruleId": "pyright/reportOptionalSubscript",
-          "ruleIndex": 10
         },
         {
           "level": "warning",
@@ -34973,60 +33462,6 @@
             "analyzer": "pyright",
             "category": "typing",
             "qualifiedSymbol": "tests.test_tv_provider_selection.test_provider_override_round_trip::reportUnknownMemberType::Type of \"tv_provider_overrides\" is partially unknown Type of \"tv_provider_overrides\" is \"dict[Unknown, Unknown]\"#1"
-          },
-          "ruleId": "pyright/reportUnknownMemberType",
-          "ruleIndex": 15
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_tv_provider_selection.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 12,
-                  "startLine": 235
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Type of \"provider_overrides\" is partially unknown Type of \"provider_overrides\" is \"dict[Unknown, Unknown]\""
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "tests.test_tv_provider_selection.test_orchestrator_receives_fallback_and_pins::reportUnknownMemberType::Type of \"provider_overrides\" is partially unknown Type of \"provider_overrides\" is \"dict[Unknown, Unknown]\"#1"
-          },
-          "ruleId": "pyright/reportUnknownMemberType",
-          "ruleIndex": 15
-        },
-        {
-          "level": "warning",
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": {
-                  "uri": "tests/test_tv_provider_selection.py",
-                  "uriBaseId": "%SRCROOT%"
-                },
-                "region": {
-                  "startColumn": 12,
-                  "startLine": 292
-                }
-              }
-            }
-          ],
-          "message": {
-            "text": "Type of \"provider_overrides\" is partially unknown Type of \"provider_overrides\" is \"dict[Unknown, Unknown]\""
-          },
-          "properties": {
-            "analyzer": "pyright",
-            "category": "typing",
-            "qualifiedSymbol": "tests.test_tv_provider_selection.test_orchestrator_without_fallback_provider::reportUnknownMemberType::Type of \"provider_overrides\" is partially unknown Type of \"provider_overrides\" is \"dict[Unknown, Unknown]\"#1"
           },
           "ruleId": "pyright/reportUnknownMemberType",
           "ruleIndex": 15

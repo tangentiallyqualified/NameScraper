@@ -11,18 +11,15 @@ from __future__ import annotations
 import base64
 import io
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import Any, cast
 
 from PIL import Image
 
 from ._provider_errors import SeasonMapUnavailableError
-from ._tmdb_batch_search import (
-    resolve_tv_batch_query as _resolve_tv_batch_query,  # type: ignore
-    run_batch_search as _run_batch_search,  # type: ignore
-)
+from ._tmdb_batch_search import resolve_tv_batch_query, run_batch_search
 from ._tmdb_image_cache import _TMDBImageCacheStore  # pyright: ignore[reportPrivateUsage]
-from ._tmdb_search_helpers import search_with_fallback as _run_search_with_fallback  # type: ignore
+from ._tmdb_search_helpers import search_with_fallback as run_search_with_fallback
 from ._tmdb_transport import TMDBError
 from ._tvdb_payloads import (
     fetch_all_episodes_strict,
@@ -31,12 +28,9 @@ from ._tvdb_payloads import (
     validated_record_list,
 )
 from ._tvdb_transport import TVDBTransport
+from .metadata_types import MediaInfo
 
 log = logging.getLogger(__name__)
-
-resolve_tv_batch_query: Callable[..., list[dict[str, Any]]] = _resolve_tv_batch_query  # type: ignore
-run_batch_search: Callable[..., list[list[dict[str, Any]]]] = _run_batch_search  # type: ignore
-run_search_with_fallback: Callable[..., list[dict[str, Any]]] = _run_search_with_fallback  # type: ignore
 
 # Artwork type ids per TVDB /artwork/types.
 _SERIES_BACKDROP_TYPE = 3
@@ -69,6 +63,28 @@ _EXPORT_IMAGE_NAMESPACE = "tvdb.export_image"
 
 def _iso639_1(lang3: str | None) -> str | None:
     return _LANG3_TO_ISO639_1.get(lang3 or "")
+
+
+def _search_result_id(entry: Mapping[str, object]) -> int | None:
+    value = entry.get("tvdb_id")
+    if type(value) is int:
+        return value
+    if not isinstance(value, str):
+        return None
+    try:
+        return int(value)
+    except ValueError:
+        return None
+
+
+def _search_result_text(entry: Mapping[str, object], key: str) -> str:
+    value = entry.get(key)
+    return value if isinstance(value, str) else ""
+
+
+def _search_result_image(entry: Mapping[str, object]) -> str | None:
+    value = entry.get("image_url")
+    return value if isinstance(value, str) else None
 
 
 def normalize_episode_meta(ep: dict[str, Any]) -> dict[str, Any]:
@@ -200,7 +216,7 @@ class TVDBClient:
 
     # ─── Search ───────────────────────────────────────────────────────
 
-    def search_tv(self, query: str, year: str | None = None) -> list[dict[str, Any]]:
+    def search_tv(self, query: str, year: str | None = None) -> list[MediaInfo]:
         params: dict[str, Any] = {"query": query, "type": "series"}
         if year:
             params["year"] = year
@@ -209,20 +225,19 @@ class TVDBClient:
         # `_fetch_all_episodes` below, which must walk every page to build
         # a complete season map.
         data = self._transport.get_json_safe("/search", params) or {}
-        results: list[dict[str, Any]] = []
+        results: list[MediaInfo] = []
         entries: list[dict[str, Any]] = data.get("data") or []
         for entry in entries:
-            try:
-                show_id = int(entry.get("tvdb_id"))  # type: ignore[arg-type]
-            except (TypeError, ValueError):
+            show_id = _search_result_id(entry)
+            if show_id is None:
                 continue
             results.append(
                 {
                     "id": show_id,
-                    "name": entry.get("name") or "",
-                    "year": str(entry.get("year") or ""),
-                    "poster_path": entry.get("image_url") or None,
-                    "overview": entry.get("overview") or "",
+                    "name": _search_result_text(entry, "name"),
+                    "year": _search_result_text(entry, "year"),
+                    "poster_path": _search_result_image(entry),
+                    "overview": _search_result_text(entry, "overview"),
                 }
             )
         return results
@@ -231,9 +246,9 @@ class TVDBClient:
         self,
         queries: list[tuple[str, str | None]],
         max_workers: int = 8,
-        progress_callback: Callable[..., Any] | None = None,
-    ) -> list[list[dict[str, Any]]]:
-        def _search_query(query: str, year: str | None) -> list[dict[str, Any]]:
+        progress_callback: Callable[..., object] | None = None,
+    ) -> list[list[MediaInfo]]:
+        def _search_query(query: str, year: str | None) -> list[MediaInfo]:
             return resolve_tv_batch_query(
                 query,
                 year,
@@ -251,10 +266,10 @@ class TVDBClient:
     def search_with_fallback(
         self,
         query: str,
-        search_fn: Callable[..., Any],
+        search_fn: Callable[..., list[MediaInfo]],
         min_words: int = 1,
-        **kwargs: Any,
-    ) -> list[dict[str, Any]]:
+        **kwargs: object,
+    ) -> list[MediaInfo]:
         return run_search_with_fallback(query, search_fn, min_words=min_words, **kwargs)
 
     # ─── Details and seasons ──────────────────────────────────────────

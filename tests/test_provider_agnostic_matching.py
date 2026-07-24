@@ -8,9 +8,16 @@ from typing import Any
 
 from PIL import Image
 
-from plex_renamer.engine.matching import (
-    score_tv_results,  # pyright: ignore[reportUnknownVariableType]
+from plex_renamer.engine._batch_tv_match_policy import (
+    episode_count_tiebreak,
+    primary_name_breaks_tie,
 )
+from plex_renamer.engine.matching import (
+    boost_tv_scores_with_episode_evidence,
+    score_tv_results,
+)
+from plex_renamer.engine.models import DirectEpisodeEvidence
+from plex_renamer.metadata_types import MediaInfo, ScoredMediaInfo
 from plex_renamer.providers import MetadataProvider
 
 
@@ -18,7 +25,7 @@ class FakeProvider:
     provider_name = "fake"
     language = "en-US"
 
-    def search_tv(self, query: str, year: str | None = None) -> list[dict[str, Any]]:
+    def search_tv(self, query: str, year: str | None = None) -> list[MediaInfo]:
         return []
 
     def search_tv_batch(
@@ -26,18 +33,17 @@ class FakeProvider:
         queries: list[tuple[str, str | None]],
         max_workers: int = 8,
         progress_callback: Callable[..., Any] | None = None,
-    ) -> list[list[dict[str, Any]]]:
+    ) -> list[list[MediaInfo]]:
         return [[] for _ in queries]
 
     def search_with_fallback(
         self,
         query: str,
-        search_fn: Callable[..., Any],
+        search_fn: Callable[..., list[MediaInfo]],
         min_words: int = 1,
         **kwargs: Any,
-    ) -> list[dict[str, Any]]:
-        result: list[dict[str, Any]] = search_fn(query, **kwargs)
-        return result
+    ) -> list[MediaInfo]:
+        return search_fn(query, **kwargs)
 
     def get_tv_details(self, show_id: int) -> dict[str, Any] | None:
         return {
@@ -89,7 +95,7 @@ def test_fake_provider_satisfies_protocol() -> None:
 
 
 def test_score_tv_results_accepts_any_provider(tmp_path: Path) -> None:
-    results: list[dict[str, Any]] = [
+    results: list[MediaInfo] = [
         {
             "id": 1,
             "name": "Frieren: Beyond Journey's End",
@@ -105,10 +111,88 @@ def test_score_tv_results_accepts_any_provider(tmp_path: Path) -> None:
             "overview": "",
         },
     ]
-    scored: list[tuple[dict[str, Any], float]] = score_tv_results(  # pyright: ignore[reportUnknownVariableType]
+    scored: ScoredMediaInfo = score_tv_results(
         results, "Frieren", "2023", FakeProvider(), folder=tmp_path
     )
     assert len(scored) == 2
     scored_ids = {result["id"] for result, _score in scored}
     assert scored_ids == {1, 2}
     assert scored[0][0]["id"] == 1
+
+
+class _RejectsNonIntegerAltTitleIds(FakeProvider):
+    def get_alternative_titles(
+        self, media_id: int, media_type: str = "movie"
+    ) -> list[tuple[str, str]]:
+        assert isinstance(media_id, int)
+        return []
+
+
+def test_score_tv_results_skips_non_integer_media_id(tmp_path: Path) -> None:
+    result: MediaInfo = {
+        "id": "invalid",
+        "name": "Unrelated Show",
+        "year": "1999",
+        "poster_path": None,
+        "overview": "",
+    }
+
+    scored = score_tv_results(
+        [result],
+        "Expected Show",
+        "2024",
+        _RejectsNonIntegerAltTitleIds(),
+        folder=tmp_path,
+    )
+
+    assert scored[0][0] is result
+
+
+class _RejectsInvalidEpisodeEvidenceIds(FakeProvider):
+    def get_season_map(self, show_id: int) -> tuple[dict[int, dict[str, Any]], int]:
+        assert type(show_id) is int
+        return {}, 0
+
+
+def test_episode_evidence_skips_invalid_boolean_media_id() -> None:
+    result: MediaInfo = {"id": True, "name": "Show", "year": "2024"}
+    scored: ScoredMediaInfo = [(result, 0.5)]
+
+    updated = boost_tv_scores_with_episode_evidence(
+        _RejectsInvalidEpisodeEvidenceIds(),
+        scored,
+        [DirectEpisodeEvidence(1, 1, "Pilot")],
+    )
+
+    assert updated == scored
+    assert updated[0][0] is result
+
+
+class _RejectsInvalidDetailIds(FakeProvider):
+    def get_tv_details(self, show_id: int) -> dict[str, Any] | None:
+        assert type(show_id) is int
+        return super().get_tv_details(show_id)
+
+
+def test_episode_count_tiebreak_skips_invalid_boolean_media_id() -> None:
+    result: MediaInfo = {"id": False, "name": "Show", "year": "2024"}
+
+    best, score, discriminated = episode_count_tiebreak(
+        _RejectsInvalidDetailIds(),
+        [(result, 0.9)],
+        file_count=28,
+    )
+
+    assert best is result
+    assert score == 0.9
+    assert discriminated is False
+
+
+def test_primary_name_tie_policy_treats_malformed_names_as_empty() -> None:
+    malformed_best: MediaInfo = {"id": 1, "name": 42, "year": "2024"}
+    matching_runner: MediaInfo = {"id": 2, "name": "Expected Show", "year": "2024"}
+    matching_best: MediaInfo = {"id": 1, "name": "Expected Show", "year": "2024"}
+    malformed_runner: MediaInfo = {"id": 2, "name": 84, "year": "2024"}
+
+    assert primary_name_breaks_tie(malformed_best, matching_runner, "Expected Show", None) is False
+    assert primary_name_breaks_tie(matching_best, malformed_runner, "Expected Show", None) is True

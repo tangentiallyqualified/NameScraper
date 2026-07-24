@@ -6,14 +6,16 @@ import threading
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+from .metadata_types import MediaInfo
+
 
 def resolve_movie_batch_query(
     query: str,
     year: str | None,
     *,
-    search_with_fallback: Callable[..., list[dict]],
-    search_fn: Callable[..., list[dict]],
-) -> list[dict]:
+    search_with_fallback: Callable[..., list[MediaInfo]],
+    search_fn: Callable[..., list[MediaInfo]],
+) -> list[MediaInfo]:
     results = search_with_fallback(query, search_fn, year=year)
     if not results and year:
         return search_with_fallback(query, search_fn)
@@ -24,9 +26,9 @@ def resolve_tv_batch_query(
     query: str,
     year: str | None,
     *,
-    search_with_fallback: Callable[..., list[dict]],
-    search_fn: Callable[..., list[dict]],
-) -> list[dict]:
+    search_with_fallback: Callable[..., list[MediaInfo]],
+    search_fn: Callable[..., list[MediaInfo]],
+) -> list[MediaInfo]:
     results = search_with_fallback(query, search_fn, year=year)
     if not results and year:
         return search_with_fallback(query, search_fn)
@@ -42,12 +44,12 @@ def resolve_tv_batch_query(
 def run_batch_search(
     queries: list[tuple[str, str | None]],
     *,
-    search_query: Callable[[str, str | None], list[dict]],
+    search_query: Callable[[str, str | None], list[MediaInfo]],
     max_workers: int = 8,
-    progress_callback: Callable[[int, int], None] | None = None,
-) -> list[list[dict]]:
+    progress_callback: Callable[..., object] | None = None,
+) -> list[list[MediaInfo]]:
     total = len(queries)
-    results: list[list[dict] | None] = [None] * total
+    results: list[list[MediaInfo] | None] = [None] * total
     completed = [0]
     lock = threading.Lock()
 

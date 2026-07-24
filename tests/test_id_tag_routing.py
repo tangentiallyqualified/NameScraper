@@ -8,6 +8,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+import pytest
 from _provider_fakes import RecordingProvider
 
 from plex_renamer.app.services import TVLibraryDiscoveryService
@@ -108,6 +109,38 @@ def test_failed_id_lookup_falls_through(tmp_path: Path) -> None:
     assert states[0].provider_name == "tmdb"
     assert "get_tv_details:81189" in fallback.calls
     # Lookup failed -> falls through to the normal search path, no crash.
+    assert "search_tv_batch" in primary.calls
+
+
+@pytest.mark.parametrize("details_payload", [{}, {"name": "Show"}])
+def test_id_lookup_without_normalized_id_falls_through(
+    tmp_path: Path,
+    details_payload: dict[str, object],
+) -> None:
+    show = tmp_path / "Breaking Bad (2008) {tvdb-81189}"
+    show.mkdir()
+    (show / "Breaking.Bad.S01E01.mkv").touch()
+
+    class _MissingIdProvider(RecordingProvider):
+        def get_tv_details(self, show_id: int) -> dict[str, object] | None:
+            self.calls.append(f"get_tv_details:{show_id}")
+            return details_payload
+
+    primary = RecordingProvider("tmdb")
+    fallback = _MissingIdProvider("tvdb")
+    orch = BatchTVOrchestrator(
+        primary,
+        tmp_path,
+        TVLibraryDiscoveryService(),
+        fallback_provider=fallback,
+    )
+
+    states = orch.discover_shows()
+
+    assert len(states) == 1
+    assert states[0].match_origin == "auto"
+    assert states[0].provider_name == "tmdb"
+    assert "get_tv_details:81189" in fallback.calls
     assert "search_tv_batch" in primary.calls
 
 

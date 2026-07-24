@@ -5,11 +5,13 @@ from __future__ import annotations
 import logging
 import threading
 from collections import defaultdict
-from collections.abc import Callable
+from collections.abc import Mapping, Sequence
 from pathlib import Path, PurePosixPath
 from typing import cast
 
+from .. import metadata_types as _metadata
 from ..constants import SCORE_TIE_MARGIN, VIDEO_EXTENSIONS
+from ..metadata_types import MediaInfo, ScoredMediaInfo
 from ..parsing import (
     best_tv_match_title,
     clean_folder_name,
@@ -21,6 +23,7 @@ from ..parsing import (
 )
 from ..providers import MetadataProvider
 from ..tmdb import TMDBClient
+from . import _batch_types as _types, _discovery_ports as _ports
 from ._batch_tv_duplicates import (
     apply_duplicate_labels as _apply_tv_duplicate_labels,
     normalized_relative_folder as _normalized_tv_relative_folder,
@@ -43,17 +46,14 @@ from ._batch_tv_season_merge import (
     resolve_season_folder as _resolve_tv_season_folder,
     season_merge_priority as _season_merge_priority,
 )
-from ._discovery_ports import MovieLibraryDiscoverer, TVDiscoveryCandidateLike, TVLibraryDiscoverer
 from ._provider_scan_guard import guard_season_map_scan
 from ._rename_execution import check_duplicates
-from ._scan_runtime import ScanCancelledError, _raise_if_cancelled, fail_scan_state
+from ._scan_runtime import ScanCancelledError, fail_scan_state, raise_if_cancelled
 from ._state import get_auto_accept_threshold
 from .matching import (
-    _best_episode_title_similarity,
-    _country_from_language,
-    _tv_episode_evidence_adjustment,
     apply_movie_confidence_adjustments,
     boost_scores_with_alt_titles,
+    country_from_language,
     pick_alternate_matches,
     score_results,
     score_tv_results,
@@ -62,17 +62,18 @@ from .models import (
     DirectEpisodeEvidence,
     PreviewItem,
     ScanState,
+    SeasonFolderEntry,
     collect_direct_episode_evidence,
     infer_explicit_season_assignment,
     show_pin_key,
 )
-from .show_details import show_details_from_tmdb
+from .show_details import ShowDetails, show_details_from_tmdb
 
 _log = logging.getLogger(__name__)
 
 
 def _emit_scan_progress(
-    progress_callback: Callable | None,
+    progress_callback: _types.ProgressCallback | None,
     done: int,
     total: int,
     current_item: str,
@@ -120,16 +121,16 @@ class BatchTVOrchestrator:
         self,
         tmdb: MetadataProvider,
         library_root: Path,
-        discovery_service: TVLibraryDiscoverer,
+        discovery_service: _ports.TVLibraryDiscoverer,
         *,
         fallback_provider: MetadataProvider | None = None,
-        provider_overrides: dict | None = None,
+        provider_overrides: _types.ProviderOverrides | None = None,
         id_tag_routing: bool = True,
         fallback_matching: bool = True,
     ):
         self.tmdb = tmdb
         self.fallback_provider = fallback_provider
-        self.provider_overrides = dict(provider_overrides or {})
+        self.provider_overrides: dict[str, _types.ProviderOverride] = dict(provider_overrides or {})
         self.id_tag_routing = id_tag_routing
         # Gates ONLY the second-opinion PASS in _apply_fallback_matches —
         # independent of whether fallback_provider is pooled at all. Pin
@@ -168,7 +169,7 @@ class BatchTVOrchestrator:
         ``provider_overrides`` (Task 9's pin-write helper), not here.
         """
         pin = self.provider_overrides.get(show_pin_key(folder))
-        if not isinstance(pin, dict):
+        if not isinstance(pin, Mapping):
             return None
         provider_name = pin.get("provider")
         if not isinstance(provider_name, str):
@@ -180,13 +181,13 @@ class BatchTVOrchestrator:
 
     def _episode_count_tiebreak(
         self,
-        scored: list[tuple[dict, float]],
+        scored: ScoredMediaInfo,
         file_count: int,
         threshold: float = 0.10,
         compare_seasons: bool = False,
         explicit_seasons: set[int] | None = None,
         provider: MetadataProvider | None = None,
-    ) -> tuple[dict, float, bool]:
+    ) -> tuple[MediaInfo, float, bool]:
         return _episode_count_tiebreak(
             provider or self.tmdb,
             scored,
@@ -201,29 +202,14 @@ class BatchTVOrchestrator:
         """Collect explicit ``S##E##`` evidence from direct child video files."""
         return collect_direct_episode_evidence(folder)
 
-    @staticmethod
-    def _best_episode_title_similarity(
-        raw_title: str | None,
-        season_titles: dict[int, str],
-    ) -> float:
-        return _best_episode_title_similarity(raw_title, season_titles)
-
-    def _tv_episode_evidence_adjustment(
-        self,
-        show_id: int,
-        evidence: list[DirectEpisodeEvidence],
-        provider: MetadataProvider | None = None,
-    ) -> float:
-        return _tv_episode_evidence_adjustment(provider or self.tmdb, show_id, evidence)
-
     def _build_show_candidates(
         self,
-        discovered: list[object],
+        discovered: Sequence[_ports.TVDiscoveryCandidateLike],
         cancel_event: threading.Event | None = None,
-    ) -> list[tuple[object, str, str, str, str | None, list[DirectEpisodeEvidence]]]:
-        candidates: list[tuple[object, str, str, str, str | None, list[DirectEpisodeEvidence]]] = []
+    ) -> list[_types.ShowCandidate]:
+        candidates: list[_types.ShowCandidate] = []
         for candidate in discovered:
-            _raise_if_cancelled(cancel_event)
+            raise_if_cancelled(cancel_event)
             # A candidate named only with a season/collection label
             # ("Specials (1998-2003)", "Series") — typical when an umbrella's
             # season folders are empty on disk — would search TMDB for a show
@@ -268,13 +254,10 @@ class BatchTVOrchestrator:
         return candidates
 
     @staticmethod
-    def _candidate_state_kwargs(candidate) -> dict:
-        """ScanState fields copied verbatim from a discovery candidate.
-
-        Shared by every path that builds a ``ScanState`` from a
-        ``TVDiscoveryCandidateLike`` (unmatched, TMDB-matched, id-tag
-        routed) so the field list lives in exactly one place.
-        """
+    def _candidate_state_kwargs(
+        candidate: _ports.TVDiscoveryCandidateLike,
+    ) -> _types.TVCandidateStateKwargs:
+        """Return the ``ScanState`` fields copied from a discovery candidate."""
         return {
             "relative_folder": candidate.relative_folder,
             "parent_relative_folder": candidate.parent_relative_folder,
@@ -288,10 +271,10 @@ class BatchTVOrchestrator:
     @classmethod
     def _build_unmatched_show_state(
         cls,
-        candidate,
+        candidate: _ports.TVDiscoveryCandidateLike,
         folder: Path,
         year_hint: str | None,
-        results: list[dict],
+        results: list[MediaInfo],
         episode_evidence: list[DirectEpisodeEvidence],
         provider_name: str = "tmdb",
     ) -> ScanState:
@@ -313,38 +296,38 @@ class BatchTVOrchestrator:
             **cls._candidate_state_kwargs(candidate),
         )
 
-    def _season_names_for_match(
-        self, best: dict, provider: MetadataProvider | None = None
-    ) -> dict[int, str]:
-        season_names: dict[int, str] = {}
+    def _show_details_for_match(
+        self, best: MediaInfo, provider: MetadataProvider | None = None
+    ) -> ShowDetails | None:
         show_id = best.get("id")
-        if show_id is None:
+        if type(show_id) is not int:
+            return None
+        return show_details_from_tmdb((provider or self.tmdb).get_tv_details(show_id))
+
+    @staticmethod
+    def _season_names_for_match(details: ShowDetails | None) -> dict[int, str]:
+        season_names: dict[int, str] = {}
+        if details is None:
             return season_names
-        details = (provider or self.tmdb).get_tv_details(show_id)
-        if not details:
-            return season_names
-        for season_info in details.get("seasons", []):
-            season_number = season_info.get("season_number")
-            name = season_info.get("name", "")
-            if season_number is None or season_number <= 0 or not name:
+        for season in details.seasons:
+            if season.season_number <= 0 or not season.name:
                 continue
-            generic = f"Season {season_number}"
-            if name != generic:
-                season_names[season_number] = name
+            if season.name != f"Season {season.season_number}":
+                season_names[season.season_number] = season.name
         return season_names
 
     def _select_best_show_match(
         self,
-        candidate,
+        candidate: _ports.TVDiscoveryCandidateLike,
         folder: Path,
         score_name: str,
         folder_score_name: str,
         year_hint: str | None,
         episode_evidence: list[DirectEpisodeEvidence],
-        results: list[dict],
+        results: list[MediaInfo],
         cancel_event: threading.Event | None = None,
         provider: MetadataProvider | None = None,
-    ) -> tuple[dict, float, list[dict], bool, dict[int, str]]:
+    ) -> tuple[MediaInfo, float, list[MediaInfo], bool, dict[int, str]]:
         provider = provider or self.tmdb
         scored = score_tv_results(
             results,
@@ -361,7 +344,7 @@ class BatchTVOrchestrator:
         file_count = candidate.direct_video_file_count
         use_seasons = False
         if file_count == 0 and candidate.has_direct_season_subdirs:
-            _raise_if_cancelled(cancel_event)
+            raise_if_cancelled(cancel_event)
             file_count = _count_tv_season_subdirs(candidate.folder)
             use_seasons = True
         # When direct files carry explicit S##E## evidence, the file count is
@@ -382,9 +365,9 @@ class BatchTVOrchestrator:
                 )
 
         ep_file_count = file_count if not use_seasons else candidate.direct_episode_file_count
-        if ep_file_count > 0 and best.get("id") is not None:
-            details = show_details_from_tmdb(provider.get_tv_details(best["id"]))
-            tmdb_ep_count = details.number_of_episodes if details is not None else 0
+        details = self._show_details_for_match(best, provider)
+        if ep_file_count > 0 and details is not None:
+            tmdb_ep_count = details.number_of_episodes
             if tmdb_ep_count > 0:
                 if ep_file_count == tmdb_ep_count:
                     best_score = min(best_score + 0.10, 1.0)
@@ -399,7 +382,7 @@ class BatchTVOrchestrator:
 
         alternates = pick_alternate_matches(
             scored,
-            selected_id=best.get("id"),
+            selected_id=_metadata.media_info_int(best, "id"),
             limit=3,
         )
 
@@ -428,17 +411,17 @@ class BatchTVOrchestrator:
                         tie_detected = True
                     break
 
-        season_names = self._season_names_for_match(best, provider=provider)
+        season_names = self._season_names_for_match(details)
         return best, best_score, alternates, tie_detected, season_names
 
     def _build_discovered_show_state(
         self,
-        candidate,
+        candidate: _ports.TVDiscoveryCandidateLike,
         score_name: str,
         folder_score_name: str,
         year_hint: str | None,
         episode_evidence: list[DirectEpisodeEvidence],
-        results: list[dict],
+        results: list[MediaInfo],
         cancel_event: threading.Event | None = None,
         provider: MetadataProvider | None = None,
     ) -> ScanState:
@@ -478,25 +461,23 @@ class BatchTVOrchestrator:
             season_assignment=infer_explicit_season_assignment(
                 folder,
                 episode_evidence,
-                show_name=best.get("name"),
+                show_name=_metadata.media_info_optional_str(best, "name"),
             ),
             **self._candidate_state_kwargs(candidate),
         )
 
     def _try_id_tag_state(
         self,
-        candidate,
-        entry: tuple[object, str, str, str, str | None, list[DirectEpisodeEvidence]],
+        candidate: _ports.TVDiscoveryCandidateLike,
+        entry: _types.ShowCandidate,
     ) -> ScanState | None:
         """Resolve a bracketed provider-ID tag on *candidate* to a state.
 
-        Recognized tags (``{tvdb-81189}``, ``[tmdb-1396]``, ...) on the
-        candidate's own folder name, or on its umbrella parent when the
-        generic-name fallback is active, skip the search/scoring path
-        entirely: the show is resolved by a direct ``get_tv_details`` call
-        on the tag's provider. Returns ``None`` (normal search path applies)
-        when routing is disabled, no tag is present, the tag's provider
-        isn't in the pool, or the direct lookup fails.
+        Recognized tags (``{tvdb-81189}``, ``[tmdb-1396]``, ...) on the candidate's
+        own folder name, or on its umbrella parent when the generic-name fallback
+        is active, skip search/scoring and resolve by direct ``get_tv_details``.
+        Returns ``None`` when routing is disabled, no tag is present, the tag's
+        provider isn't in the pool, or the direct lookup fails.
         """
         if not self.id_tag_routing:
             return None
@@ -514,19 +495,19 @@ class BatchTVOrchestrator:
         if provider is None:
             _log.info("ID tag %s on %s: provider unavailable", tag, source_name)
             return None
-        details = provider.get_tv_details(tag[1])
-        if not details:
+        details = show_details_from_tmdb(provider.get_tv_details(tag[1]))
+        if details is None or details.id is None:
             _log.warning("ID tag %s on %s: lookup failed", tag, source_name)
             return None
         (_candidate, _cleaned, _score_name, _folder_score_name, _year_hint, episode_evidence) = (
             entry
         )
-        media_info = {
-            "id": details["id"],
-            "name": details.get("name", ""),
-            "year": (details.get("first_air_date") or "")[:4],
-            "poster_path": details.get("poster_path"),
-            "overview": details.get("overview", ""),
+        media_info: MediaInfo = {
+            "id": details.id,
+            "name": details.name,
+            "year": (details.first_air_date or "")[:4],
+            "poster_path": details.poster_path,
+            "overview": details.overview,
         }
         state = ScanState(
             folder=candidate.folder,
@@ -538,11 +519,11 @@ class BatchTVOrchestrator:
             alternate_matches=[],
             checked=False,
             season_assignment=infer_explicit_season_assignment(
-                candidate.folder, episode_evidence, show_name=media_info["name"]
+                candidate.folder, episode_evidence, show_name=details.name
             ),
             **self._candidate_state_kwargs(candidate),
         )
-        state.season_names = self._season_names_for_match(media_info, provider=provider)
+        state.season_names = self._season_names_for_match(details)
         return state
 
     @staticmethod
@@ -563,7 +544,7 @@ class BatchTVOrchestrator:
 
     def discover_shows(
         self,
-        progress_callback: Callable[..., object] | None = None,
+        progress_callback: _types.ProgressCallback | None = None,
         cancel_event: threading.Event | None = None,
     ) -> list[ScanState]:
         """Phase 1: Find show folders and match to TMDB."""
@@ -587,7 +568,7 @@ class BatchTVOrchestrator:
         pinned_indices: set[int] = set()
         search_groups: dict[str, list[int]] = defaultdict(list)
         for candidate_index, entry in enumerate(candidates):
-            candidate = cast(TVDiscoveryCandidateLike, entry[0])
+            candidate = entry[0]
             pinned_provider = self._pinned_provider(candidate.folder)
             if pinned_provider is not None:
                 provider_by_index[candidate_index] = pinned_provider
@@ -601,7 +582,7 @@ class BatchTVOrchestrator:
                 provider_by_index[candidate_index] = self.tmdb
                 search_groups[self.tmdb.provider_name].append(candidate_index)
 
-        results_by_index: dict[int, list[dict]] = {}
+        results_by_index: dict[int, list[MediaInfo]] = {}
         for indices in search_groups.values():
             provider = provider_by_index[indices[0]]
             queries = [(candidates[i][1], candidates[i][4]) for i in indices]
@@ -626,7 +607,7 @@ class BatchTVOrchestrator:
             year_hint,
             episode_evidence,
         ) in enumerate(candidates):
-            _raise_if_cancelled(cancel_event)
+            raise_if_cancelled(cancel_event)
             if candidate_index in id_routed:
                 states.append(id_routed[candidate_index])
             else:
@@ -673,10 +654,10 @@ class BatchTVOrchestrator:
 
     def _apply_fallback_matches(
         self,
-        candidates: list[tuple[object, str, str, str, str | None, list[DirectEpisodeEvidence]]],
+        candidates: list[_types.ShowCandidate],
         states: list[ScanState],
         pinned_indices: set[int] | None = None,
-        progress_callback: Callable[..., object] | None = None,
+        progress_callback: _types.ProgressCallback | None = None,
         cancel_event: threading.Event | None = None,
     ) -> None:
         """Second-opinion pass: weak primary matches retry on the fallback
@@ -696,7 +677,7 @@ class BatchTVOrchestrator:
         on the pinned provider rather than being second-guessed away from it.
         """
         assert self.fallback_provider is not None
-        _raise_if_cancelled(cancel_event)
+        raise_if_cancelled(cancel_event)
         threshold = get_auto_accept_threshold()
         pinned = pinned_indices or set()
         weak = [
@@ -722,7 +703,7 @@ class BatchTVOrchestrator:
             _log.exception("Fallback provider search failed; keeping primary matches")
             return
         for index, results in zip(weak, all_results, strict=False):
-            _raise_if_cancelled(cancel_event)
+            raise_if_cancelled(cancel_event)
             if not results:
                 continue
             (candidate, _cleaned, score_name, folder_score_name, year_hint, evidence) = candidates[
@@ -766,7 +747,7 @@ class BatchTVOrchestrator:
             state.season_assignment = infer_explicit_season_assignment(
                 candidate.folder,
                 evidence,
-                show_name=best.get("name"),
+                show_name=_metadata.media_info_optional_str(best, "name"),
             )
 
     def merge_rematched_state(self, state: ScanState) -> ScanState:
@@ -793,7 +774,7 @@ class BatchTVOrchestrator:
             return state
 
         target = max(merge_group, key=_season_merge_priority)
-        season_map: dict[int, Path] = {}
+        season_map: dict[int, SeasonFolderEntry] = {}
         total_files = 0
         total_episode_files = 0
         merged_search_results = target.search_results
@@ -839,7 +820,7 @@ class BatchTVOrchestrator:
     def scan_show(
         self,
         state: ScanState,
-        progress_callback: Callable[..., object] | None = None,
+        progress_callback: _types.ProgressCallback | None = None,
         cancel_event: threading.Event | None = None,
     ) -> None:
         """Phase 2: Run TVScanner for a single show and populate its ScanState."""
@@ -851,7 +832,7 @@ class BatchTVOrchestrator:
 
         from ._tv_scanner import TVScanner
 
-        _raise_if_cancelled(cancel_event)
+        raise_if_cancelled(cancel_event)
         state.scanning = True
         state.scan_error = None
         _log.info("Scanning episodes for: %s", state.display_name)
@@ -866,7 +847,7 @@ class BatchTVOrchestrator:
                 show_match_confidence=state.confidence,
             )
             items, has_mismatch = scanner.scan()
-            _raise_if_cancelled(cancel_event)
+            raise_if_cancelled(cancel_event)
 
             _log.info(
                 "Folder '%s' produced %d items (mismatch=%s), seasons: %s",
@@ -882,7 +863,7 @@ class BatchTVOrchestrator:
                     state.display_name,
                 )
                 items = scanner.scan_consolidated()
-                _raise_if_cancelled(cancel_event)
+                raise_if_cancelled(cancel_event)
 
             check_duplicates(items)
             state.preview_items = items
@@ -914,7 +895,7 @@ class BatchTVOrchestrator:
 
     def scan_all(
         self,
-        progress_callback: Callable | None = None,
+        progress_callback: _types.ProgressCallback | None = None,
         cancel_event: threading.Event | None = None,
     ) -> None:
         """Phase 2 bulk: Scan all shows that have a TMDB match."""
@@ -924,7 +905,7 @@ class BatchTVOrchestrator:
         total = len(to_scan)
 
         for index, state in enumerate(to_scan):
-            _raise_if_cancelled(cancel_event)
+            raise_if_cancelled(cancel_event)
             _emit_scan_progress(progress_callback, index, total, state.display_name)
             try:
                 self.scan_show(state, cancel_event=cancel_event)
@@ -1000,7 +981,7 @@ class BatchTVOrchestrator:
             if len(group) < 2:
                 continue
             for state in list(group):
-                _raise_if_cancelled(cancel_event)
+                raise_if_cancelled(cancel_event)
                 if state not in self.states:
                     continue
                 reconciled = self.reconcile_scanned_state(state)
@@ -1017,7 +998,7 @@ class BatchTVOrchestrator:
                         fail_scan_state(reconciled, error),
                     )
 
-    def rematch_show(self, state: ScanState, new_match: dict) -> ScanState:
+    def rematch_show(self, state: ScanState, new_match: MediaInfo) -> ScanState:
         """Swap a show's TMDB match and invalidate its scan data."""
         state.media_info = new_match
         raw_name = best_tv_match_title(state.folder)
@@ -1052,11 +1033,10 @@ class BatchTVOrchestrator:
         state.match_origin = "manual"
         state.provider_name = provider_name
         state.search_results = results
-        state.alternate_matches = pick_alternate_matches(
-            scored, selected_id=best.get("id"), limit=3
-        )
+        state.alternate_matches = pick_alternate_matches(scored, selected_id=state.show_id, limit=3)
         state.tie_detected = False
-        state.season_names = self._season_names_for_match(best, provider=provider)
+        details = self._show_details_for_match(best, provider)
+        state.season_names = self._season_names_for_match(details)
         # Mirrors the fallback-adoption recompute (8e9f763): the
         # show-name-suffix branch of infer_explicit_season_assignment
         # depends on the MATCHED show's name, which just changed. No
@@ -1064,7 +1044,8 @@ class BatchTVOrchestrator:
         # discover_shows/_apply_fallback_matches) — passing evidence=None
         # lets the helper collect direct S##E## evidence from disk itself.
         state.season_assignment = infer_explicit_season_assignment(
-            state.folder, show_name=best.get("name")
+            state.folder,
+            show_name=_metadata.media_info_optional_str(best, "name"),
         )
         state.reset_scan()
         merged = self.merge_rematched_state(state)
@@ -1089,7 +1070,7 @@ class BatchMovieOrchestrator:
         self,
         tmdb: TMDBClient,
         library_root: Path,
-        discovery_service: MovieLibraryDiscoverer,
+        discovery_service: _ports.MovieLibraryDiscoverer,
     ):
         self.tmdb = tmdb
         self.root = library_root
@@ -1110,7 +1091,7 @@ class BatchMovieOrchestrator:
         )
 
     @classmethod
-    def _duplicate_priority(cls, state: ScanState) -> tuple[float, int, int, str]:
+    def _duplicate_priority(cls, state: ScanState) -> tuple[int, float, int, int, str]:
         normalized_relative = cls._normalized_relative_folder(
             state.relative_folder,
             state.folder,
@@ -1156,14 +1137,14 @@ class BatchMovieOrchestrator:
 
     def discover_movies(
         self,
-        progress_callback: Callable | None = None,
+        progress_callback: _types.ProgressCallback | None = None,
     ) -> list[ScanState]:
         """Phase 1: Find movie folders and match to TMDB."""
-        from ._movie_scanner import _prepare_movie_query
+        from ._movie_scanner import prepare_movie_query
 
         discovered = self.discovery_service.discover_movie_roots(self.root)
 
-        entries: list[tuple[object, str, str | None, Path | None]] = []
+        entries: list[_types.MovieCandidate] = []
         for candidate in discovered:
             if candidate.discovery_reason == "multiple_direct_video_files":
                 video_files = sorted(
@@ -1175,7 +1156,7 @@ class BatchMovieOrchestrator:
                     and not is_sample_file(file)
                 )
                 for video_file in video_files:
-                    query, year, _raw = _prepare_movie_query(video_file.stem)
+                    query, year, _raw = prepare_movie_query(video_file.stem)
                     entries.append((candidate, query, year, video_file))
             else:
                 cleaned = clean_folder_name(candidate.folder.name, include_year=False)
@@ -1237,7 +1218,7 @@ class BatchMovieOrchestrator:
                 self.tmdb,
                 title_key="title",
                 media_type="movie",
-                preferred_country=_country_from_language(self.tmdb.language),
+                preferred_country=country_from_language(self.tmdb.language),
             )
 
             best, best_score = scored[0]
@@ -1265,8 +1246,8 @@ class BatchMovieOrchestrator:
             best_score = apply_movie_confidence_adjustments(
                 raw_confidence=pre_adjust_best,
                 file_path=evidence_path,
-                tmdb_title=best.get("title", ""),
-                tmdb_year=best.get("year"),
+                tmdb_title=_metadata.media_info_str(best, "title"),
+                tmdb_year=_metadata.media_info_optional_str(best, "year"),
             )
 
             state = ScanState(
@@ -1286,7 +1267,7 @@ class BatchMovieOrchestrator:
             )
             states.append(state)
 
-        def _sort_key(state: ScanState) -> tuple:
+        def _sort_key(state: ScanState) -> tuple[int, str, str]:
             if state.duplicate_of is not None:
                 group = 3
             elif state.show_id is None:
@@ -1311,7 +1292,7 @@ class BatchMovieOrchestrator:
     def scan_movie(
         self,
         state: ScanState,
-        progress_callback: Callable | None = None,
+        progress_callback: _types.ProgressCallback | None = None,
     ) -> None:
         """Phase 2: Build preview items for a single movie ScanState."""
         if state.scanned or state.scanning:
@@ -1322,8 +1303,8 @@ class BatchMovieOrchestrator:
 
         from ._movie_scanner import (
             MovieScanner,
-            _build_movie_preview_item,
-            _build_subtitle_companions,
+            build_movie_preview_item,
+            build_subtitle_companions,
         )
 
         state.scanning = True
@@ -1345,8 +1326,9 @@ class BatchMovieOrchestrator:
 
             items: list[PreviewItem] = []
             for file in video_files:
-                item = _build_movie_preview_item(file, chosen, self.root)
-                item.companions = _build_subtitle_companions(file, item.new_name)
+                item = build_movie_preview_item(file, chosen, self.root)
+                new_name = cast(str, item.new_name)
+                item.companions = build_subtitle_companions(file, new_name)
                 if state.confidence < get_auto_accept_threshold():
                     item.status = (
                         f'REVIEW: best match "{chosen.get("title", "")}" '
@@ -1375,7 +1357,7 @@ class BatchMovieOrchestrator:
 
     def scan_all(
         self,
-        progress_callback: Callable | None = None,
+        progress_callback: _types.ProgressCallback | None = None,
     ) -> None:
         """Phase 2 bulk: Scan all movies that have a TMDB match."""
         to_scan = [

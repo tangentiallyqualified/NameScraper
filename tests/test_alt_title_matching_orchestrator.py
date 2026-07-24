@@ -24,22 +24,13 @@ from test_alt_title_matching import _FakeTMDB
 from plex_renamer import engine
 from plex_renamer.engine import AUTO_ACCEPT_THRESHOLD, BatchMovieOrchestrator, ScanState
 from plex_renamer.engine._movie_scanner import MovieScanner
+from plex_renamer.metadata_types import MediaInfo
 from plex_renamer.tmdb import TMDBClient
 
-SearchResult = dict[str, object]
-Scored = list[tuple[SearchResult, float]]
+SearchResult = MediaInfo
 
-# The engine's scoring signatures use bare generics (legacy typing), so their
-# symbols are partially unknown under strict checking; cast them to precise
-# callables once here, mirroring tests/audit/test_coverage_scope.py.
-_score_results = cast(
-    Callable[..., Scored],
-    engine.score_results,  # pyright: ignore[reportUnknownMemberType]
-)
-_boost_scores = cast(
-    Callable[..., Scored],
-    engine.boost_scores_with_alt_titles,  # pyright: ignore[reportUnknownMemberType]
-)
+_score_results = engine.score_results
+_boost_scores = engine.boost_scores_with_alt_titles
 
 
 def _discover_movies(orchestrator: BatchMovieOrchestrator) -> list[ScanState]:

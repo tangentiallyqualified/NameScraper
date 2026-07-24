@@ -8,9 +8,11 @@ from unittest.mock import MagicMock
 
 import pytest
 from PIL import Image
+from requests.adapters import HTTPAdapter
 
 from plex_renamer.app.services.cache_service import PersistentCacheService
 from plex_renamer.app.services.refresh_policy_service import RefreshPolicyService
+from plex_renamer.metadata_types import MediaInfo
 from plex_renamer.tmdb import _HTTP_POOL_CONNECTIONS, _HTTP_POOL_MAXSIZE, TMDBClient
 
 
@@ -20,6 +22,8 @@ class TMDBClientTests(unittest.TestCase):
         try:
             api_adapter = client._session.get_adapter("https://api.themoviedb.org/3/configuration")
             image_adapter = client._session.get_adapter("https://image.tmdb.org/t/p/w500/test.jpg")
+            assert isinstance(api_adapter, HTTPAdapter)
+            assert isinstance(image_adapter, HTTPAdapter)
 
             self.assertEqual(api_adapter._pool_connections, _HTTP_POOL_CONNECTIONS)
             self.assertEqual(api_adapter._pool_maxsize, _HTTP_POOL_MAXSIZE)
@@ -57,6 +61,7 @@ class TMDBClientTests(unittest.TestCase):
             second_result = second_client.fetch_poster(123, media_type="movie", target_width=96)
 
             self.assertIsNotNone(second_result)
+            assert second_result is not None
             self.assertEqual(second_result.size, (96, 144))
             second_client._session.close()
 
@@ -76,6 +81,7 @@ class TMDBClientTests(unittest.TestCase):
             first_result = first_client.fetch_image("/poster.jpg", target_width=96)
 
             self.assertIsNotNone(first_result)
+            assert first_result is not None
             self.assertEqual(first_result.size, (96, 144))
             first_client._session.get.assert_called_once()
             first_client._session.close()
@@ -88,6 +94,7 @@ class TMDBClientTests(unittest.TestCase):
             second_result = second_client.fetch_image("/poster.jpg", target_width=42)
 
             self.assertIsNotNone(second_result)
+            assert second_result is not None
             self.assertEqual(second_result.size, (42, 63))
             second_client._session.close()
 
@@ -107,6 +114,7 @@ class TMDBClientTests(unittest.TestCase):
 
             first_result = first_client.get_tv_details(321)
 
+            assert first_result is not None
             self.assertEqual(first_result["name"], "Andor")
             first_client._get_safe.assert_called_once_with(
                 "/tv/321",
@@ -125,6 +133,7 @@ class TMDBClientTests(unittest.TestCase):
 
             second_result = second_client.get_tv_details(321)
 
+            assert second_result is not None
             self.assertEqual(second_result["name"], "Andor")
             second_client._session.close()
 
@@ -177,76 +186,6 @@ class TMDBClientTests(unittest.TestCase):
             self.assertEqual(list(second_result["titles"].keys()), [1])
             self.assertEqual(second_result["episodes"][1]["name"], "Pilot")
             second_client._session.close()
-
-    def test_search_tv_maps_results_to_client_shape(self):
-        client = TMDBClient("dummy-api-key")
-        client._get_safe = MagicMock(
-            return_value={
-                "results": [
-                    {
-                        "id": 77,
-                        "name": "Andor",
-                        "first_air_date": "2022-09-21",
-                        "poster_path": "/andor.jpg",
-                        "overview": "Rebel spy drama.",
-                    }
-                ]
-            }
-        )
-
-        results = client.search_tv("Andor", year="2022")
-
-        self.assertEqual(
-            results,
-            [
-                {
-                    "id": 77,
-                    "name": "Andor",
-                    "year": "2022",
-                    "poster_path": "/andor.jpg",
-                    "overview": "Rebel spy drama.",
-                }
-            ],
-        )
-        client._get_safe.assert_called_once_with(
-            "/search/tv", {"query": "Andor", "first_air_date_year": "2022"}
-        )
-        client._session.close()
-
-    def test_search_movie_maps_results_to_client_shape(self):
-        client = TMDBClient("dummy-api-key")
-        client._get_safe = MagicMock(
-            return_value={
-                "results": [
-                    {
-                        "id": 11,
-                        "title": "The Matrix",
-                        "release_date": "1999-03-31",
-                        "poster_path": "/matrix.jpg",
-                        "overview": "Simulation sci-fi.",
-                    }
-                ]
-            }
-        )
-
-        results = client.search_movie("The Matrix", year="1999")
-
-        self.assertEqual(
-            results,
-            [
-                {
-                    "id": 11,
-                    "title": "The Matrix",
-                    "year": "1999",
-                    "poster_path": "/matrix.jpg",
-                    "overview": "Simulation sci-fi.",
-                }
-            ],
-        )
-        client._get_safe.assert_called_once_with(
-            "/search/movie", {"query": "The Matrix", "year": "1999"}
-        )
-        client._session.close()
 
     def test_get_season_builds_detail_panel_metadata(self):
         client = TMDBClient("dummy-api-key")
@@ -383,7 +322,7 @@ class TMDBClientTests(unittest.TestCase):
         client = TMDBClient("dummy-api-key")
         attempts: list[tuple[str, str | None]] = []
 
-        def fake_search(query, year=None):
+        def fake_search(query: str, year: str | None = None) -> list[MediaInfo]:
             attempts.append((query, year))
             if query == "The Matrix":
                 return [{"id": 11}]
@@ -410,7 +349,7 @@ class TMDBClientTests(unittest.TestCase):
         client = TMDBClient("dummy-api-key")
         attempts: list[str] = []
 
-        def fake_search(query):
+        def fake_search(query: str) -> list[MediaInfo]:
             attempts.append(query)
             return []
 

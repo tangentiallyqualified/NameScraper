@@ -13,6 +13,7 @@ from plex_renamer.engine import CompletenessReport, PreviewItem, ScanState, Seas
 from plex_renamer.gui_qt.widgets._episode_expansion import EpisodeExpansionCard
 from plex_renamer.gui_qt.widgets._work_panel import MediaWorkPanel
 from plex_renamer.gui_qt.widgets.media_workspace import MediaWorkspace
+from plex_renamer.metadata_types import MediaInfo
 
 
 def _make_settings(tmp_dir: str, *, metadata_source: str = "tmdb") -> SettingsService:
@@ -466,7 +467,7 @@ class QtMediaWorkspaceReroutedProviderTests(QtSmokeBase):
         workspace.close()
 
     def test_apply_alternate_match_default_routes_through_states_provider(self):
-        alternate = {"id": 202, "name": "Example Show Alt", "year": "2024"}
+        alternate: MediaInfo = {"id": 202, "name": "Example Show Alt", "year": "2024"}
         state = ScanState(
             folder=Path("C:/library/tv/Example"),
             media_info={"id": 101, "name": "Example Show", "year": "2024"},
@@ -482,7 +483,6 @@ class QtMediaWorkspaceReroutedProviderTests(QtSmokeBase):
         workspace.show()
         workspace.show_ready()
         self._app.processEvents()
-
         workspace._apply_alternate_match(state, alternate)
 
         self.assertEqual(len(controller.rematch_calls), 1)

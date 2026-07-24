@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+from .metadata_types import MediaInfo
+
 
 def extract_alternative_titles(data: dict | None) -> list[tuple[str, str]]:
     if not data:
@@ -23,10 +25,10 @@ def extract_alternative_titles(data: dict | None) -> list[tuple[str, str]]:
 
 def search_with_fallback(
     query: str,
-    search_fn: Callable[..., list[dict]],
+    search_fn: Callable[..., list[MediaInfo]],
     min_words: int = 1,
-    **kwargs,
-) -> list[dict]:
+    **kwargs: object,
+) -> list[MediaInfo]:
     words = query.split()
     for word_count in range(len(words), min_words - 1, -1):
         attempt = " ".join(words[:word_count])

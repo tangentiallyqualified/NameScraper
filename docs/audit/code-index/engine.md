@@ -1,11 +1,11 @@
-<!-- Generated from audit input dae3d14c745f; do not edit. regenerate: scripts\audit.cmd --fast -->
+<!-- Generated from audit input 1a344040e69b; do not edit. regenerate: scripts\audit.cmd --fast -->
 
 
 # Package detail: engine
 
 
 ### `plex_renamer/engine/__init__.py` — Rename engine package — re-exports the public API of the old ``engine`` module.
-- Tests: tests/test_alt_title_matching.py, tests/test_alt_title_matching_orchestrator.py, tests/test_automux_service.py, tests/test_bulk_assign_panel.py, tests/test_command_gating_service.py, tests/test_conflict_queue_protection.py, tests/test_episode_expansion.py, tests/test_episode_expansion_confidence.py, tests/test_episode_mapping_projection.py, tests/test_episode_metadata_ownership.py, tests/test_episode_projection_cache.py, tests/test_extras_and_prefix_fixes.py, tests/test_haikyuu_matching.py, tests/test_jojo_matching.py, tests/test_manual_assign_queueable.py, tests/test_media_controller.py, tests/test_media_controller_scan_show.py, tests/test_movie_confidence_adjustments.py, tests/test_qt_async_guide.py, tests/test_qt_main_window.py, tests/test_qt_media_workspace.py, tests/test_qt_media_workspace_reassign_contract.py, tests/test_qt_media_workspace_review_actions.py, tests/test_qt_perf_guards.py, tests/test_qt_queue_history.py, tests/test_qt_queue_submission_async.py, tests/test_qt_scan_failure_completion.py, tests/test_qt_workspace_widgets.py, tests/test_queue_bridge_mux.py, tests/test_queue_controller.py, tests/test_rename_execution.py, tests/test_roster_classification.py, tests/test_scan_improvements.py, tests/test_scan_state_scanner.py, tests/test_workspace_expansion.py
+- Tests: tests/test_alt_title_matching.py, tests/test_alt_title_matching_orchestrator.py, tests/test_automux_service.py, tests/test_bulk_assign_panel.py, tests/test_command_gating_service.py, tests/test_conflict_queue_protection.py, tests/test_episode_expansion.py, tests/test_episode_expansion_confidence.py, tests/test_episode_mapping_projection.py, tests/test_episode_metadata_ownership.py, tests/test_episode_projection_cache.py, tests/test_extras_and_prefix_fixes.py, tests/test_haikyuu_matching.py, tests/test_jojo_matching.py, tests/test_manual_assign_queueable.py, tests/test_media_controller.py, tests/test_media_controller_scan_show.py, tests/test_movie_confidence_adjustments.py, tests/test_movie_discovery.py, tests/test_qt_async_guide.py, tests/test_qt_main_window.py, tests/test_qt_media_workspace.py, tests/test_qt_media_workspace_reassign_contract.py, tests/test_qt_media_workspace_review_actions.py, tests/test_qt_perf_guards.py, tests/test_qt_queue_history.py, tests/test_qt_queue_submission_async.py, tests/test_qt_scan_failure_completion.py, tests/test_qt_workspace_widgets.py, tests/test_queue_bridge_mux.py, tests/test_queue_controller.py, tests/test_rename_execution.py, tests/test_roster_classification.py, tests/test_scan_improvements.py, tests/test_scan_state_scanner.py, tests/test_workspace_expansion.py
 
 ### `plex_renamer/engine/_audio_codecs.py` — Audio codec canonicalization + efficiency weights (AC3 = 1.0).
 - `canonical_codec(codec) -> str` — (no docstring) (used by: plex_renamer.engine._mux_audio_dedup)
@@ -30,10 +30,10 @@
 
 ### `plex_renamer/engine/_batch_tv_match_policy.py` — Match-selection helpers for batch TV discovery.
 - `count_season_subdirs(folder) -> int` — Count Season NN subdirectories to estimate episode volume. (used by: plex_renamer.engine._batch_orchestrators)
-- `episode_count_tiebreak(tmdb, scored, file_count, threshold, compare_seasons, explicit_seasons) -> tuple[dict, float, bool]` — Re-rank near-tied TMDB candidates by episode/season count proximity. (used by: plex_renamer.engine._batch_orchestrators)
+- `episode_count_tiebreak(tmdb, scored, file_count, threshold, compare_seasons, explicit_seasons) -> tuple[MediaInfo, float, bool]` — Re-rank near-tied TMDB candidates by episode/season count proximity. (used by: plex_renamer.engine._batch_orchestrators)
 - `primary_name_breaks_tie(best, runner_up, query_name, year_hint) -> bool` — True when the winner's identity evidence clearly beats the runner-up's. (used by: plex_renamer.engine._batch_orchestrators)
 - `year_hint_breaks_tie(best, runner_up, year_hint) -> bool` — True when the folder's year hint matches exactly one candidate. (used by: plex_renamer.engine._batch_orchestrators)
-- Tests: tests/test_show_details.py, tests/test_tiebreak_discrimination.py
+- Tests: tests/test_provider_agnostic_matching.py, tests/test_show_details.py, tests/test_tiebreak_discrimination.py
 
 ### `plex_renamer/engine/_batch_tv_season_merge.py` — Season-merge helpers for batch TV orchestration.
 - `preview_single_season(state) -> int | None` — Return the one season covered by ``preview_items``, or ``None``.
@@ -45,13 +45,17 @@
 - `merge_umbrella_siblings(states) -> list[ScanState]` — Absorb explicit-season sibling folders into a same-show multi-season state. (used by: plex_renamer.engine._batch_orchestrators)
 - Tests: tests/test_umbrella_season_merge.py
 
+### `plex_renamer/engine/_batch_types.py` — Shared type contracts for batch orchestration.
+- `TVCandidateStateKwargs` — (no docstring)
+- Tests: tests/test_switch_provider.py
+
 ### `plex_renamer/engine/_core.py` — Compatibility re-export layer for the old engine monolith.
 
 ### `plex_renamer/engine/_discovery_ports.py` — Structural ports for application-owned library discovery.
-- `TVDiscoveryCandidateLike` — (no docstring) (used by: plex_renamer.engine._batch_orchestrators)
-- `MovieDiscoveryCandidateLike` — (no docstring)
-- `TVLibraryDiscoverer` — (no docstring) (used by: plex_renamer.engine._batch_orchestrators, plex_renamer.engine._movie_scanner)
-- `MovieLibraryDiscoverer` — (no docstring) (used by: plex_renamer.engine._batch_orchestrators)
+- `TVDiscoveryCandidateLike` — (no docstring) (used by: plex_renamer.engine._batch_types)
+- `MovieDiscoveryCandidateLike` — (no docstring) (used by: plex_renamer.engine._batch_types)
+- `TVLibraryDiscoverer` — (no docstring) (used by: plex_renamer.engine._movie_scanner)
+- `MovieLibraryDiscoverer` — (no docstring)
 - Tests: tests/test_provider_pool_routing.py
 
 ### `plex_renamer/engine/_episode_projection.py` — Project an EpisodeAssignmentTable into PreviewItem rows.
@@ -80,8 +84,11 @@
 - Tests: tests/test_merge_gate.py
 
 ### `plex_renamer/engine/_movie_scanner.py` — Movie scanning helpers and scanner implementation.
+- `build_subtitle_companions(video_path, video_new_name) -> list[CompanionFile]` — Discover subtitle files paired with *video_path* and return fully-computed (used by: plex_renamer.engine._batch_orchestrators)
+- `prepare_movie_query(stem) -> tuple[str, str | None, str]` — Clean a filename stem into a TMDB search query and year hint. (used by: plex_renamer.engine._batch_orchestrators)
+- `build_movie_preview_item(file_path, chosen, root_folder) -> PreviewItem` — Build a PreviewItem from a chosen TMDB movie match. (used by: plex_renamer.engine._batch_orchestrators)
 - `MovieScanner` — Scan movie files and build PreviewItems using TMDB data. (used by: plex_renamer.app.controllers._controller_movie_workflows, plex_renamer.app.controllers._controller_session_models, plex_renamer.app.controllers._movie_state_helpers, plex_renamer.app.controllers._tab_session_helpers, plex_renamer.app.controllers.media_controller, plex_renamer.engine, plex_renamer.engine._batch_orchestrators, plex_renamer.engine._core)
-- Tests: tests/test_alt_title_matching_orchestrator.py, tests/test_companion_subtitles.py, tests/test_scanner_protocol_conformance.py
+- Tests: tests/test_alt_title_matching_orchestrator.py, tests/test_companion_subtitles.py, tests/test_movie_discovery.py, tests/test_scanner_protocol_conformance.py
 
 ### `plex_renamer/engine/_mux_audio_dedup.py` — Same-language audio dedup by effective quality (spec 2026-07-20).
 - `dedupe_audio_decisions(decisions, tracks_by_id, settings) -> list[str]` — (no docstring) (used by: plex_renamer.engine._mux_planner)
@@ -115,9 +122,11 @@
 - `ScanCancelledError` — Raised when a long-running scan is cancelled by the user. (used by: plex_renamer.app.controllers._movie_batch_helpers, plex_renamer.app.controllers._tv_batch_helpers, plex_renamer.engine, plex_renamer.engine._batch_orchestrators, plex_renamer.engine._core)
 - `scan_failure_message(error) -> str` — Return the stable user-facing message for a failed TV scan.
 - `fail_scan_state(state, error) -> Exception` — Clear stale scan output and leave the state visibly failed closed. (used by: plex_renamer.app.controllers._single_show_scan_helpers, plex_renamer.engine._batch_orchestrators, plex_renamer.engine._provider_scan_guard)
+- `raise_if_cancelled(cancel_event) -> None` — (no docstring) (used by: plex_renamer.engine._batch_orchestrators, plex_renamer.engine._movie_scanner)
 
 ### `plex_renamer/engine/_season_map_validation.py` — Provider season-map validation at the TV scanner boundary.
 - `normalize_season_map(value) -> SeasonMap` — Validate provider output without rewriting its already-normalized payloads. (used by: plex_renamer.engine._tv_scanner)
+- Tests: tests/test_show_scoring_no_year.py
 
 ### `plex_renamer/engine/_state.py` — Mutable engine state shared across submodules.
 - `get_auto_accept_threshold() -> float` — (no docstring) (used by: plex_renamer.engine, plex_renamer.engine._batch_orchestrators, plex_renamer.engine._movie_scanner, plex_renamer.engine.matching, plex_renamer.engine.models)
@@ -154,7 +163,7 @@
 - Tests: tests/test_extras_and_prefix_fixes.py
 
 ### `plex_renamer/engine/_tv_score_fallback.py` — Fallback policy for optional TV episode-evidence scoring.
-- `boost_tv_scores_or_keep(provider, scored, evidence, boost) -> ScoredResults` — Keep title-only scores when optional episode metadata is unavailable. (used by: plex_renamer.engine.matching)
+- `boost_tv_scores_or_keep(provider, scored, evidence, boost) -> ScoredMediaInfo` — Keep title-only scores when optional episode metadata is unavailable. (used by: plex_renamer.engine.matching)
 
 ### `plex_renamer/engine/episode_assignments.py` — First-class file<->episode assignment table for TV scans.
 - `lost_conflict_reason(season, episode) -> str` — Lost-conflict reason naming the slot the file lost the match for.
@@ -167,14 +176,17 @@
 - `carry_over_manual_assignments(old, new) -> None` — Re-apply manual assignments from a previous scan of the SAME show. (used by: plex_renamer.app.controllers._tv_state_helpers)
 - Tests: tests/test_air_date_clusters.py, tests/test_bulk_assign_panel.py, tests/test_confidence_adjustment_guards.py, tests/test_conflict_queue_protection.py, tests/test_conflict_resolution.py, tests/test_conflict_snapshot_staleness.py, tests/test_cross_season_number_claims.py, tests/test_duplicate_copies.py, tests/test_episode_assignments.py, tests/test_episode_expansion.py, tests/test_episode_mapping_projection.py, tests/test_episode_projection.py, tests/test_episode_resolution.py, tests/test_explicit_special_numbers.py, tests/test_extras_and_prefix_fixes.py, tests/test_lost_conflict_rescue.py, tests/test_manual_assign_queueable.py, tests/test_media_controller.py, tests/test_merge_service_actions.py, tests/test_multisegment_zero_match.py, tests/test_offset_inference.py, tests/test_parsing_edgecases.py, tests/test_part_group_detection.py, tests/test_part_group_projection.py, tests/test_part_group_table.py, tests/test_qt_async_guide.py, tests/test_qt_media_workspace.py, tests/test_qt_media_workspace_reassign_contract.py, tests/test_qt_perf_guards.py, tests/test_roster_classification.py, tests/test_same_season_rescue.py, tests/test_same_season_scattered.py, tests/test_scan_state_scanner.py, tests/test_show_name_title_and_hint_rescue.py, tests/test_specials_guards.py, tests/test_squatter_chain_rescue.py, tests/test_tv_scanner_normal.py, tests/test_workspace_expansion.py
 
-### `plex_renamer/engine/matching.py` — Title scoring and TMDB match ranking.
+### `plex_renamer/engine/matching.py` — Pure title scoring and TMDB match ranking functions.
 - `title_similarity(a, b) -> float` — Compute a simple title similarity score between 0.0 and 1.0. (used by: plex_renamer.engine, plex_renamer.engine._core)
-- `score_results(results, raw_name, year_hint, title_key) -> list[tuple[dict[str, Any], float]]` — Score a list of TMDB search results against a cleaned name. (used by: plex_renamer.app.controllers.media_controller, plex_renamer.engine, plex_renamer.engine._batch_orchestrators, plex_renamer.engine._core, plex_renamer.engine._movie_scanner, plex_renamer.gui_qt.widgets._match_picker_results)
-- `pick_alternate_matches(scored, *, selected_id, limit) -> list[dict[str, Any]]` — Return the highest-ranked alternate matches excluding the selected id. (used by: plex_renamer.app.controllers.media_controller, plex_renamer.engine, plex_renamer.engine._batch_orchestrators, plex_renamer.engine._core)
-- `boost_scores_with_alt_titles(scored, raw_name, year_hint, tmdb, title_key, media_type, preferred_country, force) -> list[tuple[dict[str, Any], float]]` — Re-score top candidates using TMDB alternative titles. (used by: plex_renamer.engine, plex_renamer.engine._batch_orchestrators, plex_renamer.engine._core, plex_renamer.engine._movie_scanner)
-- `boost_tv_scores_with_episode_evidence(tmdb, scored, evidence) -> list[tuple[dict[str, Any], float]]` — (no docstring) (used by: plex_renamer.engine, plex_renamer.engine._core)
+- `score_results(results, raw_name, year_hint, title_key) -> ScoredMediaInfo` — Score a list of TMDB search results against a cleaned name. (used by: plex_renamer.app.controllers.media_controller, plex_renamer.engine, plex_renamer.engine._batch_orchestrators, plex_renamer.engine._core, plex_renamer.engine._movie_scanner, plex_renamer.gui_qt.widgets._match_picker_results)
+- `pick_alternate_matches(scored, *, selected_id, limit) -> list[MediaInfo]` — Return the highest-ranked alternate matches excluding the selected id. (used by: plex_renamer.app.controllers.media_controller, plex_renamer.engine, plex_renamer.engine._batch_orchestrators, plex_renamer.engine._core)
+- `country_from_language(language_tag) -> str | None` — Extract the ISO 3166-1 country code from a TMDB language tag. (used by: plex_renamer.engine._batch_orchestrators, plex_renamer.engine._movie_scanner)
+- `boost_scores_with_alt_titles(scored, raw_name, year_hint, tmdb, title_key, media_type, preferred_country, force) -> ScoredMediaInfo` — Re-score top candidates using preferred, English, then other alternative titles. (used by: plex_renamer.engine, plex_renamer.engine._batch_orchestrators, plex_renamer.engine._core, plex_renamer.engine._movie_scanner)
+- `best_episode_title_similarity(raw_title, season_titles) -> float` — (no docstring)
+- `tv_episode_evidence_adjustment(tmdb, show_id, evidence) -> float` — (no docstring)
+- `boost_tv_scores_with_episode_evidence(tmdb, scored, evidence) -> ScoredMediaInfo` — (no docstring) (used by: plex_renamer.engine, plex_renamer.engine._core)
 - `apply_movie_confidence_adjustments(*, raw_confidence, file_path, tmdb_title, tmdb_year) -> float` — Return *raw_confidence* adjusted by evidence floors and caps. (used by: plex_renamer.engine, plex_renamer.engine._batch_orchestrators, plex_renamer.engine._movie_scanner)
-- `score_tv_results(results, raw_name, year_hint, tmdb, *, folder, folder_score_name, episode_evidence) -> list[tuple[dict[str, Any], float]]` — Score TV search results using the same logic as batch discovery. (used by: plex_renamer.app.controllers.media_controller, plex_renamer.engine, plex_renamer.engine._batch_orchestrators, plex_renamer.engine._core, plex_renamer.gui_qt.widgets._media_workspace_match_actions)
+- `score_tv_results(results, raw_name, year_hint, tmdb, *, folder, folder_score_name, episode_evidence) -> ScoredMediaInfo` — Score TV search results using the same logic as batch discovery. (used by: plex_renamer.app.controllers.media_controller, plex_renamer.engine, plex_renamer.engine._batch_orchestrators, plex_renamer.engine._core, plex_renamer.gui_qt.widgets._media_workspace_match_actions)
 - Tests: tests/test_batch_autoaccept_guards.py, tests/test_matching_helpers.py, tests/test_movie_confidence_adjustments.py, tests/test_provider_agnostic_matching.py, tests/test_show_scoring_no_year.py, tests/test_show_scoring_token_subset.py
 
 ### `plex_renamer/engine/models.py` — Engine data structures — pure data classes with no scanning logic.
@@ -192,13 +204,13 @@
 - `plan_has_actions(plan) -> bool` — Mirror of MuxPlan.has_actions for serialized plans (user edits can (used by: plex_renamer.app.services.automux_service)
 - `is_merge_row(item) -> bool` — True when this preview item is a multi-part merge row -- one or (used by: plex_renamer.app.controllers._queue_submission_helpers, plex_renamer.app.services.automux_service, plex_renamer.engine._queue_bridge, plex_renamer.gui_qt.widgets._media_workspace_automux)
 - `file_mux_active(state, index) -> bool` — True when this preview item will actually be muxed: cached plan (used by: plex_renamer.app.services.automux_service, plex_renamer.app.services.command_gating_service, plex_renamer.engine._queue_bridge)
-- `DirectEpisodeEvidence` — Direct child file evidence for TMDB TV disambiguation. (used by: plex_renamer.engine, plex_renamer.engine._batch_orchestrators, plex_renamer.engine._tv_score_fallback, plex_renamer.engine.matching)
+- `DirectEpisodeEvidence` — Direct child file evidence for TMDB TV disambiguation. (used by: plex_renamer.engine, plex_renamer.engine._batch_orchestrators, plex_renamer.engine._batch_types, plex_renamer.engine._tv_score_fallback, plex_renamer.engine.matching)
 - `collect_direct_episode_evidence(folder) -> list[DirectEpisodeEvidence]` — Collect explicit ``S##E##`` evidence for a show folder. (used by: plex_renamer.engine, plex_renamer.engine._batch_orchestrators, plex_renamer.engine.matching)
 - `infer_explicit_season_assignment(folder, evidence, show_name) -> int | None` — Infer a season assignment from folder name or consistent S##E## files. (used by: plex_renamer.engine, plex_renamer.engine._batch_orchestrators)
-- Tests: tests/test_automux_merge_planning.py, tests/test_automux_service.py, tests/test_batch_provider_failures.py, tests/test_completeness_review_counts.py, tests/test_duplicate_copies.py, tests/test_episode_metadata_ownership.py, tests/test_episode_projection.py, tests/test_episode_table_delegate.py, tests/test_episode_table_model.py, tests/test_job_execution_metadata.py, tests/test_merge_service_actions.py, tests/test_merged_show_checked_gating.py, tests/test_mkvmerge_integration.py, tests/test_mux_planner.py, tests/test_part_group_projection.py, tests/test_provider_pool_routing.py, tests/test_qt_media_workspace.py, tests/test_qt_media_workspace_reassign_contract.py, tests/test_qt_media_workspace_review_actions.py, tests/test_queue_bridge_merge.py, tests/test_queue_bridge_mux.py, tests/test_queue_metadata_wiring.py, tests/test_queue_output_targets.py, tests/test_queue_submission_automux.py, tests/test_remux_append_execution.py, tests/test_remux_embed_extras.py, tests/test_remux_execution.py, tests/test_roster_autoselect.py, tests/test_roster_delegate.py, tests/test_roster_model.py, tests/test_scan_improvements.py, tests/test_scan_state_provider.py, tests/test_scanner_protocol_conformance.py, tests/test_status_chip.py, tests/test_switch_provider.py, tests/test_umbrella_season_merge.py, tests/test_work_panel.py, tests/test_workspace_automux.py, tests/test_workspace_poster_warmup.py
+- Tests: tests/test_automux_merge_planning.py, tests/test_automux_service.py, tests/test_batch_provider_failures.py, tests/test_completeness_review_counts.py, tests/test_duplicate_copies.py, tests/test_episode_metadata_ownership.py, tests/test_episode_projection.py, tests/test_episode_table_delegate.py, tests/test_episode_table_model.py, tests/test_job_execution_metadata.py, tests/test_merge_service_actions.py, tests/test_merged_show_checked_gating.py, tests/test_mkvmerge_integration.py, tests/test_mux_planner.py, tests/test_part_group_projection.py, tests/test_provider_agnostic_matching.py, tests/test_provider_pool_routing.py, tests/test_qt_media_workspace.py, tests/test_qt_media_workspace_reassign_contract.py, tests/test_qt_media_workspace_review_actions.py, tests/test_queue_bridge_merge.py, tests/test_queue_bridge_mux.py, tests/test_queue_metadata_wiring.py, tests/test_queue_output_targets.py, tests/test_queue_submission_automux.py, tests/test_remux_append_execution.py, tests/test_remux_embed_extras.py, tests/test_remux_execution.py, tests/test_roster_autoselect.py, tests/test_roster_delegate.py, tests/test_roster_model.py, tests/test_scan_improvements.py, tests/test_scan_state_provider.py, tests/test_scanner_protocol_conformance.py, tests/test_show_scoring_no_year.py, tests/test_status_chip.py, tests/test_switch_provider.py, tests/test_umbrella_season_merge.py, tests/test_work_panel.py, tests/test_workspace_automux.py, tests/test_workspace_poster_warmup.py
 
 ### `plex_renamer/engine/show_details.py` — Provider-neutral show detail payload.
 - `SeasonSummary` — (no docstring)
-- `ShowDetails` — (no docstring) (used by: plex_renamer.engine._batch_tv_match_policy)
+- `ShowDetails` — (no docstring) (used by: plex_renamer.engine._batch_orchestrators, plex_renamer.engine._batch_tv_match_policy)
 - `show_details_from_tmdb(raw) -> ShowDetails | None` — Normalize a raw TMDB TV-details payload. (used by: plex_renamer.engine._batch_orchestrators, plex_renamer.engine._batch_tv_match_policy)
 - Tests: tests/test_show_details.py, tests/test_tvdb.py
