@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Protocol, cast, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 from PIL import Image
 
@@ -41,7 +41,7 @@ class MetadataProvider(Protocol):
         self,
         queries: list[tuple[str, str | None]],
         max_workers: int = 8,
-        progress_callback: Callable[..., Any] | None = None,
+        progress_callback: Callable[..., object] | None = None,
     ) -> list[list[MediaInfo]]:
         """One search_tv result list per (query, year_hint) input, same order."""
         ...
@@ -49,10 +49,10 @@ class MetadataProvider(Protocol):
     def search_with_fallback(
         self,
         query: str,
-        search_fn: Callable[..., Any],
+        search_fn: Callable[..., list[MediaInfo]],
         min_words: int = 1,
-        **kwargs: Any,
-    ) -> list[dict[str, Any]]:
+        **kwargs: object,
+    ) -> list[MediaInfo]:
         """Progressive word-trimming retry around *search_fn*."""
         ...
 
@@ -134,7 +134,7 @@ def _make_tmdb(api_key: str, **kwargs: Any) -> MetadataProvider:
 def _make_tvdb(api_key: str, **kwargs: Any) -> MetadataProvider:
     from .tvdb import TVDBClient
 
-    return cast(MetadataProvider, TVDBClient(api_key, **kwargs))
+    return TVDBClient(api_key, **kwargs)
 
 
 TV_PROVIDERS: dict[str, ProviderSpec] = {
