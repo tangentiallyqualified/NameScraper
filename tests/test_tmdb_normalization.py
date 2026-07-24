@@ -3,16 +3,32 @@ from __future__ import annotations
 import tomllib
 import unittest
 from pathlib import Path
-from unittest.mock import MagicMock
 
 from plex_renamer.tmdb import TMDBClient
 
 
+class _StubTMDBClient(TMDBClient):
+    def __init__(self, payload: dict[str, object]) -> None:
+        super().__init__("dummy-api-key")
+        self._payload = payload
+        self.fetch_calls: list[tuple[str, dict[str, object] | None]] = []
+
+    def _get_safe(
+        self,
+        path: str,
+        params: dict[str, object] | None = None,
+    ) -> dict[str, object] | None:
+        self.fetch_calls.append((path, params))
+        return self._payload
+
+    def close(self) -> None:
+        self._session.close()
+
+
 class TMDBNormalizationTests(unittest.TestCase):
     def test_search_tv_maps_results_to_client_shape(self):
-        client = TMDBClient("dummy-api-key")
-        client._get_safe = MagicMock(
-            return_value={
+        client = _StubTMDBClient(
+            {
                 "results": [
                     {
                         "id": 77,
@@ -39,15 +55,15 @@ class TMDBNormalizationTests(unittest.TestCase):
                 }
             ],
         )
-        client._get_safe.assert_called_once_with(
-            "/search/tv", {"query": "Andor", "first_air_date_year": "2022"}
+        self.assertEqual(
+            client.fetch_calls,
+            [("/search/tv", {"query": "Andor", "first_air_date_year": "2022"})],
         )
-        client._session.close()
+        client.close()
 
     def test_search_tv_normalizes_malformed_scalar_fields(self):
-        client = TMDBClient("dummy-api-key")
-        client._get_safe = MagicMock(
-            return_value={
+        client = _StubTMDBClient(
+            {
                 "results": [
                     {
                         "id": True,
@@ -75,12 +91,11 @@ class TMDBNormalizationTests(unittest.TestCase):
                 }
             ],
         )
-        client._session.close()
+        client.close()
 
     def test_search_movie_maps_results_to_client_shape(self):
-        client = TMDBClient("dummy-api-key")
-        client._get_safe = MagicMock(
-            return_value={
+        client = _StubTMDBClient(
+            {
                 "results": [
                     {
                         "id": 11,
@@ -107,15 +122,15 @@ class TMDBNormalizationTests(unittest.TestCase):
                 }
             ],
         )
-        client._get_safe.assert_called_once_with(
-            "/search/movie", {"query": "The Matrix", "year": "1999"}
+        self.assertEqual(
+            client.fetch_calls,
+            [("/search/movie", {"query": "The Matrix", "year": "1999"})],
         )
-        client._session.close()
+        client.close()
 
     def test_search_movie_normalizes_malformed_scalar_fields(self):
-        client = TMDBClient("dummy-api-key")
-        client._get_safe = MagicMock(
-            return_value={
+        client = _StubTMDBClient(
+            {
                 "results": [
                     {
                         "id": False,
@@ -143,7 +158,7 @@ class TMDBNormalizationTests(unittest.TestCase):
                 }
             ],
         )
-        client._session.close()
+        client.close()
 
     def test_pillow_floor_supports_resampling_enum_used_by_image_resize(self):
         project = tomllib.loads(
