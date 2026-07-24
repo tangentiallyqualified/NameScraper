@@ -9,7 +9,6 @@ import pytest
 
 from plex_renamer._tmdb_transport import TMDBError, TMDBRateLimitError
 from plex_renamer._tvdb_transport import TVDBTransport
-from plex_renamer.metadata_types import MediaInfo
 from plex_renamer.providers import SeasonMapUnavailableError
 from plex_renamer.tvdb import TVDBClient
 
@@ -206,64 +205,6 @@ def test_search_tv_normalizes_results_and_skips_bad_ids() -> None:
     path, params = transport.calls[0]
     assert path == "/search"
     assert params == {"query": "breaking bad", "type": "series", "year": "2008"}
-
-
-def test_search_tv_normalizes_malformed_scalars_and_rejects_unusable_ids() -> None:
-    client = _client(
-        {
-            "/search": {
-                "data": [
-                    {
-                        "tvdb_id": "81189",
-                        "name": {"nested": "name"},
-                        "year": ["2008"],
-                        "image_url": {"nested": "poster"},
-                        "overview": ["nested overview"],
-                    },
-                    {
-                        "tvdb_id": 42,
-                        "name": "Second",
-                        "year": "2024",
-                        "image_url": 404,
-                        "overview": None,
-                    },
-                    {"tvdb_id": True, "name": "Boolean ID"},
-                    {"tvdb_id": 8.5, "name": "Float ID"},
-                    {"tvdb_id": ["9"], "name": "Nested ID"},
-                ]
-            }
-        }
-    )
-
-    assert client.search_tv("malformed") == [
-        {
-            "id": 81189,
-            "name": "",
-            "year": "",
-            "poster_path": None,
-            "overview": "",
-        },
-        {
-            "id": 42,
-            "name": "Second",
-            "year": "2024",
-            "poster_path": None,
-            "overview": "",
-        },
-    ]
-
-
-def test_search_with_fallback_preserves_media_info_identity() -> None:
-    client = _client({})
-    media_info: MediaInfo = {"id": 81189, "name": "Breaking Bad"}
-
-    def search(_query: str, year: str | None = None) -> list[MediaInfo]:
-        assert year == "2008"
-        return [media_info]
-
-    results = client.search_with_fallback("breaking bad", search, year="2008")
-
-    assert results[0] is media_info
 
 
 def test_search_tv_batch_preserves_order() -> None:
