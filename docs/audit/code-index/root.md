@@ -1,4 +1,4 @@
-<!-- Generated from audit input dae3d14c745f; do not edit. regenerate: scripts\audit.cmd --fast -->
+<!-- Generated from audit input 4a7796affcc8; do not edit. regenerate: scripts\audit.cmd --fast -->
 
 
 # Package detail: root
@@ -160,15 +160,15 @@
 - `SeasonMapUnavailableError` — Provider could not return a trustworthy season map for a known show. (used by: plex_renamer._tmdb_season_map, plex_renamer._tvdb_payloads, plex_renamer.providers, plex_renamer.tvdb)
 
 ### `plex_renamer/_tmdb_batch_search.py` — Batch search orchestration helpers for the TMDB client.
-- `resolve_movie_batch_query(query, year, *, search_with_fallback, search_fn) -> list[dict]` — (no docstring) (used by: plex_renamer.tmdb)
-- `resolve_tv_batch_query(query, year, *, search_with_fallback, search_fn) -> list[dict]` — (no docstring) (used by: plex_renamer.tmdb, plex_renamer.tvdb)
-- `run_batch_search(queries, *, search_query, max_workers, progress_callback) -> list[list[dict]]` — (no docstring) (used by: plex_renamer.tmdb, plex_renamer.tvdb)
+- `resolve_movie_batch_query(query, year, *, search_with_fallback, search_fn) -> list[MediaInfo]` — (no docstring) (used by: plex_renamer.tmdb)
+- `resolve_tv_batch_query(query, year, *, search_with_fallback, search_fn) -> list[MediaInfo]` — (no docstring) (used by: plex_renamer.tmdb, plex_renamer.tvdb)
+- `run_batch_search(queries, *, search_query, max_workers, progress_callback) -> list[list[MediaInfo]]` — (no docstring) (used by: plex_renamer.tmdb, plex_renamer.tvdb)
 
 ### `plex_renamer/_tmdb_image_cache.py` — Image and poster cache helpers for the TMDB client.
 
 ### `plex_renamer/_tmdb_metadata_builder.py` — Pure metadata shaping helpers for TMDB client responses.
-- `build_tv_search_results(data) -> list[dict]` — (no docstring) (used by: plex_renamer.tmdb)
-- `build_movie_search_results(data) -> list[dict]` — (no docstring) (used by: plex_renamer.tmdb)
+- `build_tv_search_results(data) -> list[MediaInfo]` — (no docstring) (used by: plex_renamer.tmdb)
+- `build_movie_search_results(data) -> list[MediaInfo]` — (no docstring) (used by: plex_renamer.tmdb)
 - `build_empty_season_payload() -> dict[str, Any]` — (no docstring) (used by: plex_renamer.tmdb)
 - `build_season_payload(data) -> dict[str, Any]` — (no docstring) (used by: plex_renamer.tmdb)
 - `select_logo_path(details, language) -> str | None` — Best clearlogo path from a widened details payload. (used by: plex_renamer.app.services.metadata_service)
@@ -178,7 +178,7 @@
 
 ### `plex_renamer/_tmdb_search_helpers.py` — Search and alternate-title helpers for the TMDB client.
 - `extract_alternative_titles(data) -> list[tuple[str, str]]` — (no docstring) (used by: plex_renamer.tmdb)
-- `search_with_fallback(query, search_fn, min_words, **kwargs) -> list[dict]` — (no docstring) (used by: plex_renamer.tmdb, plex_renamer.tvdb)
+- `search_with_fallback(query, search_fn, min_words, **kwargs) -> list[MediaInfo]` — (no docstring) (used by: plex_renamer.tmdb, plex_renamer.tvdb)
 
 ### `plex_renamer/_tmdb_season_map.py` — Strict TMDB season-map loading and payload validation.
 - `fetch_tmdb_season_map(transport, show_id, details_params) -> tuple[SeasonMap, int]` — Fetch and validate a complete map without exposing partial results. (used by: plex_renamer.tmdb)
@@ -228,6 +228,13 @@
 - `save_api_key(service, key) -> None` — Persist an API key using keyring when available, else local fallback. (used by: plex_renamer.gui_qt.widgets._settings_tab_actions)
 - `get_api_key(service) -> str | None` — Retrieve a stored API key from keyring or the local fallback file. (used by: plex_renamer.gui_qt._main_window_bootstrap, plex_renamer.gui_qt.main_window, plex_renamer.gui_qt.widgets._settings_tab_actions, plex_renamer.gui_qt.widgets._settings_tab_sections, plex_renamer.gui_qt.widgets._work_panel)
 
+### `plex_renamer/metadata_types.py` — Provider-normalized scalar metadata records.
+- `media_info_str(info, key, default) -> str` — Return a string metadata field or its exact fallback. (used by: plex_renamer.engine._movie_scanner)
+- `media_info_optional_str(info, key) -> str | None` — Return a string metadata field, excluding wrong scalar kinds. (used by: plex_renamer.engine._movie_scanner)
+- `media_info_int(info, key) -> int | None` — Return a true integer metadata field, excluding bool and other scalars. (used by: plex_renamer.engine._movie_scanner)
+- `is_media_info(value) -> TypeGuard[MediaInfo]` — Return whether *value* is a mutable scalar metadata record. (used by: plex_renamer.engine._movie_scanner)
+- Tests: tests/_provider_fakes.py, tests/test_alt_title_matching_orchestrator.py, tests/test_matching_helpers.py, tests/test_metadata_types.py, tests/test_movie_discovery.py, tests/test_provider_agnostic_matching.py, tests/test_qt_media_workspace_review_actions.py, tests/test_scan_state_provider.py, tests/test_tmdb.py
+
 ### `plex_renamer/parsing.py` — Filename parsing and name-building utilities.
 - Tests: tests/test_bare_episode_prefix_titles.py, tests/test_companion_subtitles.py, tests/test_episode_resolution.py, tests/test_extras_and_prefix_fixes.py, tests/test_filename_formatting.py, tests/test_haikyuu_matching.py, tests/test_id_tag_parsing.py, tests/test_jojo_matching.py, tests/test_parsing_corpus.py, tests/test_parsing_edgecases.py, tests/test_release_junk_titles.py, tests/test_run_extension_guards.py, tests/test_scan_improvements.py, tests/test_symbol_folding.py, tests/test_tv_scanner_normal.py, tests/test_umbrella_season_merge.py, tests/test_underscore_segments.py
 
@@ -245,7 +252,7 @@
 
 ### `plex_renamer/tmdb.py` — TMDB (The Movie Database) API client.
 - `TMDBClient` — TMDB client with connection pooling, response caching, rate limiting, (used by: plex_renamer.app.services.metadata_service, plex_renamer.engine._batch_orchestrators, plex_renamer.engine._movie_scanner, plex_renamer.gui_qt._main_window_tmdb, plex_renamer.gui_qt.main_window, plex_renamer.providers)
-- Tests: tests/test_alt_title_matching.py, tests/test_alt_title_matching_orchestrator.py, tests/test_provider_season_map_cache_retry.py, tests/test_provider_season_map_failures.py, tests/test_providers.py, tests/test_scan_state_scanner.py, tests/test_tmdb.py, tests/test_tmdb_export_assets.py, tests/test_tmdb_snapshot_migration.py
+- Tests: tests/test_alt_title_matching.py, tests/test_alt_title_matching_orchestrator.py, tests/test_movie_discovery.py, tests/test_provider_season_map_cache_retry.py, tests/test_provider_season_map_failures.py, tests/test_providers.py, tests/test_scan_state_scanner.py, tests/test_tmdb.py, tests/test_tmdb_export_assets.py, tests/test_tmdb_normalization.py, tests/test_tmdb_snapshot_migration.py
 
 ### `plex_renamer/tvdb.py` — TheTVDB v4 API client implementing the MetadataProvider protocol.
 - `normalize_episode_meta(ep) -> dict[str, Any]` — TVDB episode record -> TMDB-shaped episode meta (protocol contract).

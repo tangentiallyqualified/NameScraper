@@ -14,10 +14,11 @@
 - `plex_renamer/constants.py` — fan-in 49, fan-out 0, LOC 117
 - `plex_renamer/job_store.py` — fan-in 18, fan-out 5, LOC 652
 - `plex_renamer/keys.py` — fan-in 5, fan-out 1, LOC 78
+- `plex_renamer/metadata_types.py` — fan-in 11, fan-out 0, LOC 43
 - `plex_renamer/parsing.py` — fan-in 23, fan-out 7, LOC 63
-- `plex_renamer/providers.py` — fan-in 13, fan-out 3, LOC 160
+- `plex_renamer/providers.py` — fan-in 13, fan-out 4, LOC 161
 - `plex_renamer/thread_pool.py` — fan-in 13, fan-out 0, LOC 66
-- `plex_renamer/tmdb.py` — fan-in 6, fan-out 7, LOC 585
+- `plex_renamer/tmdb.py` — fan-in 6, fan-out 8, LOC 585
 
 ### Support
 - `plex_renamer/_ffprobe.py` — fan-in 2, fan-out 0, LOC 83
@@ -38,11 +39,11 @@
 - `plex_renamer/_parsing_seasons.py` — fan-in 2, fan-out 1, LOC 153
 - `plex_renamer/_parsing_subtitles.py` — fan-in 1, fan-out 1, LOC 88
 - `plex_renamer/_parsing_tv.py` — fan-in 1, fan-out 3, LOC 294
-- `plex_renamer/_tmdb_batch_search.py` — fan-in 2, fan-out 0, LOC 72
+- `plex_renamer/_tmdb_batch_search.py` — fan-in 2, fan-out 1, LOC 74
 - `plex_renamer/_tmdb_image_cache.py` — fan-in 2, fan-out 0, LOC 237
-- `plex_renamer/_tmdb_metadata_builder.py` — fan-in 2, fan-out 0, LOC 135
+- `plex_renamer/_tmdb_metadata_builder.py` — fan-in 2, fan-out 1, LOC 161
 - `plex_renamer/_tmdb_metadata_cache.py` — fan-in 1, fan-out 1, LOC 202
-- `plex_renamer/_tmdb_search_helpers.py` — fan-in 2, fan-out 0, LOC 36
+- `plex_renamer/_tmdb_search_helpers.py` — fan-in 2, fan-out 1, LOC 38
 - `plex_renamer/_tmdb_season_map.py` — fan-in 1, fan-out 2, LOC 203
 - `plex_renamer/_tmdb_snapshot_validation.py` — fan-in 1, fan-out 0, LOC 122
 - `plex_renamer/_tvdb_payloads.py` — fan-in 1, fan-out 3, LOC 230
@@ -50,5 +51,5 @@
 - `plex_renamer/job_executor.py` — fan-in 2, fan-out 7, LOC 665
 - `plex_renamer/tvdb.py` — fan-in 1, fan-out 7, LOC 479
 
-_Generated from audit input dae3d14c745f by scripts\audit.cmd._
+_Generated from audit input 4a7796affcc8 by scripts\audit.cmd._
 <!-- audit:generated:end map-root -->
