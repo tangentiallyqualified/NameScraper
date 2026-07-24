@@ -1,4 +1,4 @@
-<!-- Generated from audit input 4a7796affcc8; do not edit. regenerate: scripts\audit.cmd --fast -->
+<!-- Generated from audit input 1a344040e69b; do not edit. regenerate: scripts\audit.cmd --fast -->
 
 
 # Package detail: root
@@ -233,7 +233,7 @@
 - `media_info_optional_str(info, key) -> str | None` — Return a string metadata field, excluding wrong scalar kinds. (used by: plex_renamer.engine._movie_scanner)
 - `media_info_int(info, key) -> int | None` — Return a true integer metadata field, excluding bool and other scalars. (used by: plex_renamer.engine._movie_scanner)
 - `is_media_info(value) -> TypeGuard[MediaInfo]` — Return whether *value* is a mutable scalar metadata record. (used by: plex_renamer.engine._movie_scanner)
-- Tests: tests/_provider_fakes.py, tests/test_alt_title_matching_orchestrator.py, tests/test_matching_helpers.py, tests/test_metadata_types.py, tests/test_movie_discovery.py, tests/test_provider_agnostic_matching.py, tests/test_qt_media_workspace_review_actions.py, tests/test_scan_state_provider.py, tests/test_tmdb.py
+- Tests: tests/_provider_fakes.py, tests/test_alt_title_matching_orchestrator.py, tests/test_matching_helpers.py, tests/test_metadata_types.py, tests/test_movie_discovery.py, tests/test_provider_agnostic_matching.py, tests/test_qt_media_workspace_review_actions.py, tests/test_scan_state_provider.py, tests/test_tmdb.py, tests/test_tvdb_media_contract.py
 
 ### `plex_renamer/parsing.py` — Filename parsing and name-building utilities.
 - Tests: tests/test_bare_episode_prefix_titles.py, tests/test_companion_subtitles.py, tests/test_episode_resolution.py, tests/test_extras_and_prefix_fixes.py, tests/test_filename_formatting.py, tests/test_haikyuu_matching.py, tests/test_id_tag_parsing.py, tests/test_jojo_matching.py, tests/test_parsing_corpus.py, tests/test_parsing_edgecases.py, tests/test_release_junk_titles.py, tests/test_run_extension_guards.py, tests/test_scan_improvements.py, tests/test_symbol_folding.py, tests/test_tv_scanner_normal.py, tests/test_umbrella_season_merge.py, tests/test_underscore_segments.py
@@ -243,7 +243,7 @@
 - `ProviderSpec` — Registry entry: settings value, UI label, keys.py service, factory.
 - `get_tv_provider_spec(name) -> ProviderSpec` — Spec for *name*, falling back to TMDB for unknown values. (used by: plex_renamer.gui_qt._main_window_tmdb)
 - `other_tv_provider_spec(active_name) -> ProviderSpec | None` — The non-active TV provider spec, or ``None`` when there isn't one. (used by: plex_renamer.gui_qt._main_window_tmdb, plex_renamer.gui_qt.widgets._settings_tab_actions)
-- Tests: tests/test_batch_provider_failures.py, tests/test_media_controller_scan_show.py, tests/test_merged_show_checked_gating.py, tests/test_provider_agnostic_matching.py, tests/test_provider_season_map_cache_retry.py, tests/test_provider_season_map_failures.py, tests/test_providers.py, tests/test_tvdb.py
+- Tests: tests/test_batch_provider_failures.py, tests/test_media_controller_scan_show.py, tests/test_merged_show_checked_gating.py, tests/test_provider_agnostic_matching.py, tests/test_provider_season_map_cache_retry.py, tests/test_provider_season_map_failures.py, tests/test_providers.py, tests/test_tvdb.py, tests/test_tvdb_media_contract.py
 
 ### `plex_renamer/thread_pool.py` — Shared thread pool for background work.
 - `submit(fn, *args, **kwargs) -> Future` — Submit *fn* to the shared pool.  Returns a :class:`~concurrent.futures.Future`. (used by: plex_renamer.app.controllers._movie_batch_helpers, plex_renamer.app.controllers._single_show_scan_helpers, plex_renamer.app.controllers._tv_batch_helpers, plex_renamer.gui_qt.main_window, plex_renamer.gui_qt.widgets._episode_table_model, plex_renamer.gui_qt.widgets._job_detail_poster, plex_renamer.gui_qt.widgets._match_picker_search, plex_renamer.gui_qt.widgets._media_workspace_automux, plex_renamer.gui_qt.widgets._media_workspace_queue_actions, plex_renamer.gui_qt.widgets._roster_model, plex_renamer.gui_qt.widgets._work_panel, plex_renamer.gui_qt.widgets.settings_tab)
@@ -258,4 +258,4 @@
 - `normalize_episode_meta(ep) -> dict[str, Any]` — TVDB episode record -> TMDB-shaped episode meta (protocol contract).
 - `normalize_series_details(payload, episodes) -> dict[str, Any]` — TVDB /series/{id}/extended + full episode list -> TMDB-shaped details.
 - `TVDBClient` — (no docstring) (used by: plex_renamer.providers)
-- Tests: tests/test_provider_season_map_cache_retry.py, tests/test_provider_season_map_failures.py, tests/test_providers.py, tests/test_tvdb.py
+- Tests: tests/test_provider_season_map_cache_retry.py, tests/test_provider_season_map_failures.py, tests/test_providers.py, tests/test_tvdb.py, tests/test_tvdb_media_contract.py

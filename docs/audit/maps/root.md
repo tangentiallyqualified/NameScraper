@@ -14,7 +14,7 @@
 - `plex_renamer/constants.py` — fan-in 49, fan-out 0, LOC 117
 - `plex_renamer/job_store.py` — fan-in 18, fan-out 5, LOC 652
 - `plex_renamer/keys.py` — fan-in 5, fan-out 1, LOC 78
-- `plex_renamer/metadata_types.py` — fan-in 11, fan-out 0, LOC 43
+- `plex_renamer/metadata_types.py` — fan-in 12, fan-out 0, LOC 43
 - `plex_renamer/parsing.py` — fan-in 23, fan-out 7, LOC 63
 - `plex_renamer/providers.py` — fan-in 13, fan-out 4, LOC 161
 - `plex_renamer/thread_pool.py` — fan-in 13, fan-out 0, LOC 66
@@ -49,7 +49,7 @@
 - `plex_renamer/_tvdb_payloads.py` — fan-in 1, fan-out 3, LOC 230
 - `plex_renamer/_tvdb_transport.py` — fan-in 2, fan-out 1, LOC 131
 - `plex_renamer/job_executor.py` — fan-in 2, fan-out 7, LOC 665
-- `plex_renamer/tvdb.py` — fan-in 1, fan-out 7, LOC 479
+- `plex_renamer/tvdb.py` — fan-in 1, fan-out 8, LOC 494
 
-_Generated from audit input 4a7796affcc8 by scripts\audit.cmd._
+_Generated from audit input 1a344040e69b by scripts\audit.cmd._
 <!-- audit:generated:end map-root -->

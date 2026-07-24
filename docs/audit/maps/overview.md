@@ -36,7 +36,7 @@ graph LR
 | Metric | Value |
 |---|---|
 | Modules | 197 |
-| Total LOC | 43763 |
+| Total LOC | 43778 |
 | Statement coverage | 89.7% |
 | Module-average coverage | 90.4% |
 | Import cycles | 0 |
@@ -47,7 +47,7 @@ graph LR
 
 | Status | Source | Input digest | Detail |
 |---|---|---|---|
-| matched | coverage.py | 4a7796affcc8 | - |
+| matched | coverage.py | 1a344040e69b | - |
 
 ## Least-covered modules
 
@@ -258,5 +258,5 @@ _None._
 - [x] `plex_renamer/gui_qt/widgets/busy_overlay.py:90` plex_renamer.gui_qt.widgets.busy_overlay.BusyOverlay.paintEvent#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved; allowlist: Qt invokes this QWidget paintEvent override to render the busy overlay.)
 - [x] `plex_renamer/gui_qt/widgets/scan_progress.py:164` plex_renamer.gui_qt.widgets.scan_progress._ConveyorAnimation.paintEvent#1 (Vulture 60%; production refs: none; test refs: none; assessment: dynamic-or-unresolved; allowlist: Qt invokes this QWidget paintEvent override to render the conveyor animation.)
 
-_Generated from audit input 4a7796affcc8 by scripts\audit.cmd._
+_Generated from audit input 1a344040e69b by scripts\audit.cmd._
 <!-- audit:generated:end overview -->

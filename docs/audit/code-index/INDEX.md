@@ -1,4 +1,4 @@
-<!-- Generated from audit input 4a7796affcc8; do not edit. regenerate: scripts\audit.cmd --fast -->
+<!-- Generated from audit input 1a344040e69b; do not edit. regenerate: scripts\audit.cmd --fast -->
 
 
 # Code Index
@@ -208,9 +208,9 @@ One line per module. Detail tiers: code-index/app.md, code-index/engine.md, code
 - `plex_renamer/job_executor.py` — Job queue executor — processes jobs from the queue. [pub 1 | in 2 | out 7] [⚠ complexity]
 - `plex_renamer/job_store.py` — Persistent job queue backed by SQLite. [pub 4 | in 18 | out 5] [† dead protected/ambiguous x1]
 - `plex_renamer/keys.py` — API key storage with OS keyring preference and local fallback. [pub 2 | in 5 | out 1]
-- `plex_renamer/metadata_types.py` — Provider-normalized scalar metadata records. [pub 4 | in 11 | out 0]
+- `plex_renamer/metadata_types.py` — Provider-normalized scalar metadata records. [pub 4 | in 12 | out 0]
 - `plex_renamer/parsing.py` — Filename parsing and name-building utilities. [pub 0 | in 23 | out 7]
 - `plex_renamer/providers.py` — Metadata-provider protocol and registry. [pub 4 | in 13 | out 4]
 - `plex_renamer/thread_pool.py` — Shared thread pool for background work. [pub 3 | in 13 | out 0]
 - `plex_renamer/tmdb.py` — TMDB (The Movie Database) API client. [pub 1 | in 6 | out 8] [⚠ complexity]
-- `plex_renamer/tvdb.py` — TheTVDB v4 API client implementing the MetadataProvider protocol. [pub 3 | in 1 | out 7] [⚠ complexity]
+- `plex_renamer/tvdb.py` — TheTVDB v4 API client implementing the MetadataProvider protocol. [pub 3 | in 1 | out 8] [⚠ complexity]

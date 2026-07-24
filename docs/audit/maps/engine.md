@@ -42,5 +42,5 @@ _No internal cycle edges._
 - `plex_renamer/engine/_tv_score_fallback.py` — fan-in 1, fan-out 3, LOC 37
 - `plex_renamer/engine/show_details.py` — fan-in 2, fan-out 0, LOC 110
 
-_Generated from audit input 4a7796affcc8 by scripts\audit.cmd._
+_Generated from audit input 1a344040e69b by scripts\audit.cmd._
 <!-- audit:generated:end map-engine -->
